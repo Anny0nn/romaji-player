@@ -1,6 +1,6 @@
 # Automatic sung readings and lyric repair
 
-Status: Draft
+Status: Approved (2026-10-12)
 
 ## Goal
 
