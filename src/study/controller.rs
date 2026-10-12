@@ -342,9 +342,37 @@ impl Study {
                     .map(|doc| result.apply(doc))
                     .transpose();
                 match applied {
-                    Ok(Some(true)) => { self.selected = None; self.converted.clear(); self.persist(); self.alignment_message = Some(if result.repaired_readings > 0 { format!("{} · {} sung corrections · {}/{} words timed", job.method.label(), result.repaired_readings, result.timed_words, result.total_words) } else { format!("{} · saved {}/{} words", job.method.label(), result.timed_words, result.total_words) }); }
-                    Ok(_) => self.alignment_message = Some("Automatic timing saved for the previous lyric version. Return to that version to use it.".into()),
-                    Err(_) => self.alignment_message = Some("Timing saved, but the current lyrics changed. Retry for this version.".into()),
+                    Ok(Some(true)) => {
+                        self.selected = None;
+                        self.converted.clear();
+                        self.persist();
+                        self.alignment_message = Some(if result.repaired_readings > 0 {
+                            format!(
+                                "{} · {} sung corrections · {}/{} words timed",
+                                job.method.label(),
+                                result.repaired_readings,
+                                result.timed_words,
+                                result.total_words
+                            )
+                        } else {
+                            format!(
+                                "{} · saved {}/{} words",
+                                job.method.label(),
+                                result.timed_words,
+                                result.total_words
+                            )
+                        });
+                    }
+                    Ok(_) => self.alignment_message = Some(
+                        "The lyrics or delay changed during timing. Retry for the current version."
+                            .into(),
+                    ),
+                    Err(_) => {
+                        self.alignment_message = Some(
+                            "Timing saved, but the current lyrics changed. Retry for this version."
+                                .into(),
+                        )
+                    }
                 }
             }
         }
@@ -845,6 +873,45 @@ mod tests {
         study.document = Some(Document::new(TRACK, source).unwrap());
         convert(&mut study);
         study
+    }
+    #[test]
+    fn completed_timing_after_an_edit_or_delay_change_preserves_current_state_and_requests_retry() {
+        use super::super::alignment::{Generated, Method, Status};
+        for change_delay in [false, true] {
+            let mut study = fixture();
+            study.pending = None;
+            study.busy = false;
+            let request = study.alignment_request(Method::Tifa).unwrap();
+            let result = Generated {
+                track: TRACK.into(),
+                base_snapshot: request.source.id.clone(),
+                base_revision: Some(request.job.revision),
+                model_sha256: super::super::alignment::MODEL_SHA.into(),
+                engine: "TIFA/test".into(),
+                audio_sha256: "a".repeat(64),
+                delay_ms: request.job.delay_ms,
+                repaired_readings: 0,
+                timed_words: 1,
+                total_words: 1,
+                snapshot: request.source.clone(),
+            };
+            if change_delay {
+                study.document.as_mut().unwrap().delay_ms = 250;
+            } else {
+                study.select(0, 0).unwrap();
+                study.editor.reading = "my saved reading".into();
+                study.save_reading().unwrap();
+            }
+            let unchanged = study.document.clone();
+            *request.job.status.lock().unwrap() = Status::Complete(Box::new(result));
+            study.poll_alignment(&egui::Context::default());
+            assert_eq!(study.document, unchanged);
+            assert!(study.alignment.is_none());
+            assert_eq!(
+                study.alignment_message.as_deref(),
+                Some("The lyrics or delay changed during timing. Retry for the current version.")
+            );
+        }
     }
     #[test]
     fn controller_taps_use_saved_delay_manual_wins_and_reset_restores_supplied() {

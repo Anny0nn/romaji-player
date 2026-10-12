@@ -45,49 +45,88 @@ fn the_command_reports_its_name_and_passes_the_update_version_check() {
 fn no_file_carries_the_old_name() {
     let old = ["fast", "potify"].concat();
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let found = files_carrying_name(root, &old);
+    assert!(found.is_empty(), "the old name is still in {found:?}");
+}
+
+/// Check publishable source, including new untracked files. Ignored build/model
+/// directories and local configuration are not part of the app's branding.
+fn files_carrying_name(root: &Path, old: &str) -> Vec<String> {
     let allowed = [
-        root.join("packaging/release-notes"),
+        Path::new("packaging/release-notes"),
         // Old guide URLs still redirect, so links from elsewhere keep working.
-        root.join("docs/_guide/using-spotifast.md"),
-        root.join("docs/_guide/what-is-spotifast.md"),
+        Path::new("docs/_guide/using-spotifast.md"),
+        Path::new("docs/_guide/what-is-spotifast.md"),
     ];
-    let skipped = [
-        "target",
-        "_site",
-        ".jekyll-cache",
-        "vendor",
-        ".bundle",
-        ".git",
-        ".claude",
-        ".cache",
-        "dist",
-    ];
+    let output = Command::new("git")
+        .current_dir(root)
+        .args([
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "-z",
+        ])
+        .output()
+        .expect("source branding check requires Git");
+    assert!(output.status.success(), "Git could not list source files");
     let mut found = Vec::new();
-    let mut pending = vec![root.to_path_buf()];
-    while let Some(dir) = pending.pop() {
-        for entry in std::fs::read_dir(&dir).unwrap() {
-            let path = entry.unwrap().path();
-            let name = path.file_name().unwrap().to_string_lossy().into_owned();
-            if allowed.contains(&path) || skipped.contains(&name.as_str()) {
-                continue;
-            }
-            if path.is_dir() {
-                pending.push(path);
-                continue;
-            }
-            let relative = path
-                .strip_prefix(root)
-                .unwrap()
-                .to_string_lossy()
-                .into_owned();
-            let text = String::from_utf8_lossy(&std::fs::read(&path).unwrap()).to_lowercase();
-            if relative.to_lowercase().contains(&old) || text.contains(&old) {
-                found.push(relative);
-            }
+    for name in output
+        .stdout
+        .split(|byte| *byte == 0)
+        .filter(|p| !p.is_empty())
+    {
+        let relative = String::from_utf8(name.to_vec()).unwrap();
+        let path = Path::new(&relative);
+        if allowed.iter().any(|allowed| path.starts_with(allowed)) {
+            continue;
+        }
+        let absolute = root.join(path);
+        // Never follow a link to content outside this source checkout.
+        let text = if absolute.is_file() && !absolute.is_symlink() {
+            String::from_utf8_lossy(&std::fs::read(&absolute).unwrap()).to_lowercase()
+        } else {
+            String::new()
+        };
+        if relative.to_lowercase().contains(old) || text.contains(old) {
+            found.push(relative);
         }
     }
     found.sort();
-    assert!(found.is_empty(), "the old name is still in {found:?}");
+    found
+}
+
+#[test]
+fn branding_checks_tracked_and_new_source_without_reading_ignored_local_files() {
+    let scratch = Scratch::new();
+    let root = &scratch.0;
+    assert!(
+        Command::new("git")
+            .current_dir(root)
+            .args(["init", "--quiet"])
+            .output()
+            .unwrap()
+            .status
+            .success()
+    );
+    let old = ["fast", "potify"].concat();
+    std::fs::write(root.join(".gitignore"), ".venv/\n.agents\n").unwrap();
+    std::fs::create_dir(root.join(".venv")).unwrap();
+    std::fs::write(root.join(".venv/third-party.txt"), &old).unwrap();
+    std::fs::write(root.join("tracked.txt"), &old).unwrap();
+    assert!(
+        Command::new("git")
+            .current_dir(root)
+            .args(["add", "tracked.txt"])
+            .output()
+            .unwrap()
+            .status
+            .success()
+    );
+    std::fs::write(root.join("new.txt"), &old).unwrap();
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(root.join(".venv"), root.join(".agents")).unwrap();
+    assert_eq!(files_carrying_name(root, &old), ["new.txt", "tracked.txt"]);
 }
 
 #[test]

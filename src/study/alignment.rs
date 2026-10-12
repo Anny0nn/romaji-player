@@ -907,7 +907,7 @@ mod tests {
             let result = Generated {
                 track: document.track_id.clone(),
                 base_snapshot: document.current().snapshot.id.clone(),
-                base_revision: None,
+                base_revision: Some(document.revision),
                 model_sha256: method.fingerprint(),
                 engine: method.engine().into(),
                 audio_sha256: "a".repeat(64),
@@ -1051,6 +1051,7 @@ mod tests {
             })
             .collect();
         let bytes = std::fs::read(std::env::var_os("ROMAJI_TEST_PCM").unwrap()).unwrap();
+        let input_pcm_sha256 = format!("{:x}", Sha256::digest(&bytes));
         let samples = bytes
             .as_chunks::<4>()
             .0
@@ -1064,7 +1065,21 @@ mod tests {
             Method::Tifa
         };
         let request = Request {
-            protected: Vec::new(),
+            protected: original
+                .occurrences
+                .iter()
+                .flat_map(|line| {
+                    document
+                        .current()
+                        .edits
+                        .iter()
+                        .filter(|edit| edit.applies(&document.track_id, &original, line.id))
+                        .map(|edit| super::super::reading::ProtectedSpan {
+                            occurrence_id: line.id,
+                            raw_span: edit.anchor().raw_span,
+                        })
+                })
+                .collect(),
             job: Job {
                 method,
                 track: document.track_id.clone(),
@@ -1086,6 +1101,7 @@ mod tests {
             model.is_file(),
             "Explicit acceptance model archive must exist."
         );
+        let started = Instant::now();
         let result = if method == Method::Experimental {
             let bytes = std::fs::read(std::env::var_os("ROMAJI_TEST_STEREO").unwrap()).unwrap();
             let stereo = bytes
@@ -1107,6 +1123,7 @@ mod tests {
         } else {
             infer(&request, audio, model).unwrap()
         };
+        let processing_seconds = started.elapsed().as_secs_f64();
         assert!(result.timed_words > 0);
         if method == Method::Tifa {
             assert_eq!(result.snapshot.text_fingerprint, original.text_fingerprint);
@@ -1148,6 +1165,24 @@ mod tests {
                 .unwrap()
                 .unwrap();
         assert_eq!(reopened, document);
+        println!(
+            "Acceptance metrics: {}",
+            serde_json::json!({
+                "track": result.track,
+                "method": method.label(),
+                "engine": result.engine,
+                "base_snapshot": result.base_snapshot,
+                "audio_sha256": result.audio_sha256,
+                "input_pcm_sha256": input_pcm_sha256,
+                "timed_words": result.timed_words,
+                "total_words": result.total_words,
+                "repaired_readings": result.repaired_readings,
+                "processing_seconds": processing_seconds,
+                "previous_versions": old_versions.len(),
+                "saved_versions": reopened.bundles.len(),
+                "reopened": true,
+            })
+        );
         println!(
             "Recorded-song word coverage: {}/{}; {} readings repaired; previous versions retained.",
             result.timed_words, result.total_words, result.repaired_readings
