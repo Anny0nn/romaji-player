@@ -1,0 +1,30 @@
+Experimental singing timing pipeline v1
+
+Inference weights download separately on first use. No song audio, lyric text or
+model weights are included in the distributed app.
+
+Demucs: Alexandre Defossez and collaborators. Demucs MLX conversion/runtime by
+ssmall256. https://huggingface.co/ssmall256/demucs-mlx
+Runtime and model card label: MIT. Original model-weight terms are disputed in
+https://github.com/facebookresearch/demucs/issues/327; retain that distinction.
+Review the original weight terms before using this optional experimental model.
+
+Kim Vocal 2: Mel-Band-RoFormer weights by Kim, MLX conversion by Prince Canuma
+and contributors. https://huggingface.co/mlx-community/mel-roformer-kim-vocal-2-mlx
+MIT, copyright (c) 2024 Kim and contributors; copyright (c) 2026 Prince Canuma.
+The full checkpoint LICENSE is downloaded and verified beside its weights.
+Inference module is from mlx-audio 0.4.3, MIT; wheel notices are bundled under
+ExperimentalPython. Only the MelRoFormer module is loaded, not its other models.
+
+MMS karaoke Japanese Latn: NextFire.
+https://huggingface.co/NextFire/mms-300m-ForcedAligner-karaoke-ja-Latn
+Model card: CC BY-NC-SA 4.0 https://creativecommons.org/licenses/by-nc-sa/4.0/
+Derived from facebook/mms-300m, Meta Platforms, Inc.:
+https://huggingface.co/facebook/mms-300m
+Base weights: CC BY-NC 4.0 https://creativecommons.org/licenses/by-nc/4.0/
+Transformers inference code: Apache 2.0, notices bundled under ExperimentalPython.
+
+TIFA and its constituent dictionaries/converters: see TIFA notices in this bundle.
+Exact downloaded bytes, hashes, revisions and sizes: refinement-model-files.json
+inside the experimental runtime. Tests measure retained coverage, not listening
+accuracy. Independent evidence gates repairs; prior results remain selectable.

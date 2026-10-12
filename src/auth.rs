@@ -30,9 +30,9 @@ use tokio::sync::watch;
 pub const PLAYBACK_CLIENT_ID: &str = "65b708073fc0480ea92a077233ca87bd";
 pub const PLAYBACK_REDIRECT_PORT: u16 = 8898;
 
-/// The public Web API application shared by spotify-player, ncspot, and
-/// Omarchy Spotify.
-pub const DEFAULT_WEB_CLIENT_ID: &str = "d420a117a32841c2b3474932e49fb54b";
+/// The shipping personal Web API registration. The upstream shared slot name is
+/// retained internally, but no upstream public registration is a fallback.
+pub const DEFAULT_WEB_CLIENT_ID: &str = crate::shipping::CLIENT_ID;
 pub const WEB_REDIRECT_PORT: u16 = 8989;
 
 pub const REDIRECT_PATH: &str = "/login";

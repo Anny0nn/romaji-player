@@ -21,6 +21,14 @@ struct Cli {
     #[arg(long)]
     device_name: Option<String>,
 
+    /// Print the embedded public Spotify configuration (packaging check).
+    #[arg(long, hide = true)]
+    public_config: bool,
+
+    /// Check the bundled romanizer using synthetic Japanese text.
+    #[arg(long, hide = true)]
+    check_romaji: bool,
+
     /// Log more from librespot and the Web API client.
     #[arg(short, long)]
     verbose: bool,
@@ -367,6 +375,20 @@ pub(crate) fn run() -> eframe::Result<()> {
     } else {
         cli
     };
+    if cli.public_config {
+        println!(
+            "{}",
+            serde_json::json!({"client_id":spotifast::shipping::CLIENT_ID,
+            "redirect_uri":spotifast::shipping::REDIRECT_URI,"bundle_id":spotifast::shipping::BUNDLE_ID})
+        );
+        return Ok(());
+    }
+    if cli.check_romaji {
+        let result = spotifast::shipping::check_romaji()
+            .map_err(|error| eframe::Error::AppCreation(error.into()))?;
+        println!("{result}");
+        return Ok(());
+    }
     // A control launch is a client, not a second app: talk to the running
     // instance and exit before touching the log file it is writing to.
     if let Some(control) = cli.control {
@@ -446,6 +468,14 @@ pub(crate) fn run() -> eframe::Result<()> {
         log::warn!("unable to create the application directories: {error}");
     }
     let mut settings = settings::Settings::load(&dirs.settings_file());
+    if settings.device_name == "Spotifast" {
+        settings.device_name = "RomajiPlayer".into();
+    }
+    // The shipping registration is already a personal app, so its users do not
+    // need upstream's invitation to register another developer application.
+    if !spotifast::shipping::CLIENT_ID.is_empty() {
+        settings.personal_app_intro_seen = true;
+    }
     if let Some(name) = cli.device_name {
         settings.device_name = name;
     }
@@ -582,7 +612,7 @@ pub(crate) fn run() -> eframe::Result<()> {
         #[cfg(target_os = "linux")]
         let hide_from_taskbar = options.viewport.taskbar == Some(false);
         eframe::run_native(
-            "Spotifast",
+            "RomajiPlayer",
             options,
             Box::new(move |cc| {
                 if let Some(gl) = &cc.gl {

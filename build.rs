@@ -43,6 +43,14 @@ fn glew_library(lib: &std::path::Path) -> Option<&'static str> {
 }
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=SPOTIFY_CLIENT_ID");
+    println!("cargo:rerun-if-env-changed=SPOTIFY_REDIRECT_URI");
+    if let Ok(callback) = std::env::var("SPOTIFY_REDIRECT_URI") {
+        assert_eq!(
+            callback, "http://127.0.0.1:8989/login",
+            "callback must match native listener"
+        );
+    }
     fastframe_i18n::build::compile_catalogs("assets/i18n");
     #[cfg(windows)]
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {

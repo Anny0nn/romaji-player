@@ -1,0 +1,14 @@
+TIFA-1.0-ST, release v1.0.0, by the openvpi/TIFA contributors.
+Source and model release: https://github.com/openvpi/TIFA/releases/tag/v1.0.0
+Model: CC BY-NC-SA 4.0. Model weights are used without modification.
+Model archive SHA-256: 6da6832cd2cb981aae1ccc2d9330f8f7c085ce7977d1eb13bff63531d038a88b
+The release states that the model license does not restrict output data.
+Code: MIT; pinned commit 32a0a13aebce580844ad1dc281ea11ef1be94f14.
+Local integration changes: runtime-only imports and returned token-probability metadata.
+No changes to the model network, weights, pronunciation rules or Viterbi decoder.
+
+English LstmG2p-Eng pronunciation model, by wolfgitpr, Apache-2.0:
+https://github.com/wolfgitpr/LstmG2p/releases/tag/v1.0.0
+CMUdict pronunciation data, Copyright Carnegie Mellon University:
+https://github.com/cmusphinx/cmudict/blob/master/LICENSE
+Full model and dictionary license texts accompany this notice.

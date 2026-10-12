@@ -9,7 +9,31 @@ docs/.jekyll-cache/
 docs/vendor/
 docs/.bundle/
 .claude/
+.claude
 
 /.cache/
 
 /dist/
+
+# Local credentials and personal development configuration
+.env
+.env.*
+!.env.example
+.agents/
+.agents
+.codex/
+.codex
+/CLAUDE.md
+/AGENTS.md
+
+# Python helpers and generated packages
+.venv/
+.venv-tifa/
+.venv-experimental/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+/build/
+/aligner/build/
+/data/
+.DS_Store

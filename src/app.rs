@@ -460,6 +460,7 @@ pub struct App {
     pub lyrics_uri: Option<String>,
     /// `Loaded(None)` when no lyrics are available.
     pub lyrics: Loadable<Option<crate::lyrics::Lyrics>>,
+    pub study: crate::study::controller::Study,
     /// Whether the panel follows the current line. Manual scrolling disables
     /// it until Follow is used or the track changes.
     pub lyrics_following: bool,
@@ -918,7 +919,7 @@ impl App {
             cover_uploads: HashMap::new(),
             uploaded_covers: Default::default(),
             show_queue_panel: session.queue_open.unwrap_or(false),
-            show_lyrics_panel: false,
+            show_lyrics_panel: true,
             lyrics_fullscreen: None,
             lyrics_fullscreen_seen: false,
             lyrics_fullscreen_restoring: None,
@@ -927,6 +928,7 @@ impl App {
             softened_covers: Default::default(),
             lyrics_uri: None,
             lyrics: Loadable::NotLoaded,
+            study: Default::default(),
             lyrics_following: true,
             lyrics_line_shown: None,
             show_devices: false,
@@ -1982,6 +1984,12 @@ impl App {
                 },
                 Event::Lyrics { uri, result } => {
                     if self.lyrics_uri.as_deref() == Some(uri.as_str()) {
+                        if let Ok(Some(lyrics)) = &result
+                            && let Some(snapshot) = &lyrics.source_snapshot
+                            && let Err(error) = self.study.offer(snapshot.clone())
+                        {
+                            self.study.error = Some(error.to_string());
+                        }
                         self.lyrics = match result {
                             Ok(found) => Loadable::Loaded(found),
                             Err(error) => Loadable::Failed(error),
@@ -2934,10 +2942,20 @@ impl App {
     /// Asks for the playing track's lyrics unless they are here or on the
     /// way. Podcasts have no lyrics to ask for.
     pub fn request_lyrics(&mut self) {
+        self.request_lyrics_with(false);
+    }
+
+    pub fn refresh_lyrics(&mut self) {
+        self.request_lyrics_with(true);
+    }
+
+    fn request_lyrics_with(&mut self, refresh: bool) {
         let Some(now) = self.now_playing() else {
             return;
         };
-        if self.lyrics_uri.as_deref() == Some(now.uri.as_str())
+        self.study.activate(now.uri.strip_prefix("spotify:track:"));
+        if !refresh
+            && self.lyrics_uri.as_deref() == Some(now.uri.as_str())
             && !matches!(self.lyrics, Loadable::NotLoaded | Loadable::Failed(_))
         {
             return;
@@ -2952,6 +2970,7 @@ impl App {
         self.lyrics = Loadable::Loading;
         self.backend.send(Command::Lyrics(Box::new(LyricsRequest {
             uri: now.uri,
+            refresh,
             query: crate::lyrics::Query {
                 artist: now
                     .artists
@@ -2976,6 +2995,12 @@ impl App {
     }
 
     fn tick(&mut self, ctx: &egui::Context) {
+        let study_track = self
+            .now_playing()
+            .and_then(|now| now.uri.strip_prefix("spotify:track:").map(str::to_owned));
+        self.study.activate(study_track.as_deref());
+        self.study
+            .poll(crate::study::snapshot::directory(&self.dirs), ctx);
         self.poll_custom_themes(ctx);
         let now = Instant::now();
         if self.winamp_level_reassert > 0 {
@@ -7431,6 +7456,10 @@ impl App {
     /// in one ordered exchange: two independent requests race, and shuffle
     /// sometimes lost.
     fn play_request(&mut self, request: PlayRequest, shuffle_first: bool) {
+        self.play_request_on(request, shuffle_first, self.target());
+    }
+
+    fn play_request_on(&mut self, request: PlayRequest, shuffle_first: bool, target: Target) {
         // Shuffle applies across contexts until disabled. A selected row still
         // starts first; otherwise choose a random starting track.
         let mut request = request;
@@ -7494,8 +7523,8 @@ impl App {
             shuffle: shuffle.then_some(true),
             at: Instant::now(),
         });
-        self.queue_start_pending = Some(self.target());
-        match self.target() {
+        self.queue_start_pending = Some(target.clone());
+        match target {
             Target::Local if !self.local.connected => {
                 // Hold the request while the local engine reconnects.
                 self.queued_play = Some(request);
@@ -8993,6 +9022,25 @@ impl App {
                 request.offset_uri = offset_uri;
                 request.offset_position = offset_index;
                 self.play_request(request, false);
+            }
+            Action::PlayStudyTrack(uri) => {
+                if !uri
+                    .strip_prefix("spotify:track:")
+                    .is_some_and(crate::study::snapshot::valid_track)
+                {
+                    self.study.error = Some("Paste a valid Spotify track link.".into());
+                } else if !self.local_ready {
+                    self.study.error = Some(
+                        "Complete the app’s playback sign-in before playing a song here.".into(),
+                    );
+                } else {
+                    self.selected_device = None;
+                    self.play_request_on(
+                        PlayRequest::tracks(vec![uri]).starting_at_index(0),
+                        false,
+                        Target::Local,
+                    );
+                }
             }
             Action::PlayUris { uris, index } => {
                 if uris.is_empty() {
@@ -10860,6 +10908,7 @@ impl App {
 
     /// Final teardown at real quit.
     pub fn shutdown(&mut self) {
+        self.study.shutdown();
         self.save_state();
         self.backend.shutdown();
     }
@@ -11606,6 +11655,8 @@ mod tests {
                     .collect(),
                 synced: true,
                 instrumental: false,
+                source_snapshot: None,
+                candidates: Vec::new(),
             }));
             if let Some(remote) = &mut app.remote {
                 remote.state.is_playing = false;
@@ -16941,6 +16992,171 @@ mod tests {
         app.set_user_name("nobody".into(), None);
         assert_eq!(app.user_names.get("nobody"), Some(&None));
         app.backend.shutdown();
+    }
+
+    #[test]
+    fn study_word_marker_changes_without_reflow_in_panel_and_fullscreen() {
+        use crate::study::{
+            conversion::{Request, Romanizer},
+            snapshot::Document,
+            source::import,
+        };
+        const TRACK: &str = "0000000000000000000000";
+        let mut app = test_app("study-marker-layout");
+        assert!(
+            app.show_lyrics_panel,
+            "the native app opens with its study panel visible"
+        );
+        crate::demo::populate(&mut app);
+        app.show_lyrics_panel = true;
+        let remote = app.remote.as_mut().unwrap();
+        remote.state.is_playing = false;
+        if let Some(PlayableItem::Track(track)) = &mut remote.state.item {
+            track.id = Some(TRACK.into());
+            track.uri = format!("spotify:track:{TRACK}");
+        }
+        app.lyrics_uri = Some(format!("spotify:track:{TRACK}"));
+        let source = import(
+            "[00:01]<00:01>桜<00:02> 食べた<00:03> を<00:04>\n[00:05]",
+            "layout.lrc",
+        )
+        .unwrap();
+        app.study.activate(Some(TRACK));
+        app.study.document = Some(Document::new(TRACK, source.clone()).unwrap());
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut command = std::process::Command::new(root.join(".venv/bin/python"));
+        command.arg(root.join("romanizer/romanizer.py"));
+        let mut helper = Romanizer::start(&mut command).unwrap();
+        for line in &source.occurrences {
+            let request = Request {
+                protocol_version: 1,
+                request_id: line.id as u64 + 1,
+                track_id: TRACK.into(),
+                snapshot_id: source.id.clone(),
+                occurrence_id: line.id,
+                override_revision: 0,
+                expected_conversion_signature: helper.signature.clone(),
+                raw_line: line.raw_line.clone(),
+                overrides: Vec::new(),
+            };
+            app.study
+                .converted
+                .insert(line.id, helper.convert(&request).unwrap());
+        }
+        let ctx = egui::Context::default();
+        app.attach(&ctx);
+        for mode in [
+            crate::study::LyricMode::Romaji,
+            crate::study::LyricMode::Both,
+            crate::study::LyricMode::Hiragana,
+        ] {
+            app.settings.lyric_mode = mode;
+            for fullscreen in [false, true] {
+                app.lyrics_fullscreen = fullscreen.then_some(false);
+                app.lyrics_following = false;
+                let mut metrics = std::collections::BTreeMap::<String, Vec<egui::Vec2>>::new();
+                for (position, romaji, hiragana) in [
+                    (1500, "sakura", "さくら"),
+                    (2500, "tabeta", "たべた"),
+                    (4500, "", ""),
+                ] {
+                    app.remote.as_mut().unwrap().state.progress_ms = Some(position);
+                    let mut painted = Vec::new();
+                    for _ in 0..2 {
+                        let mut output = ctx.run_ui(
+                            egui::RawInput {
+                                screen_rect: Some(egui::Rect::from_min_size(
+                                    egui::Pos2::ZERO,
+                                    egui::vec2(1200.0, 800.0),
+                                )),
+                                ..Default::default()
+                            },
+                            |ui| app.frame_ui(ui),
+                        );
+                        output.textures_delta.clear();
+                        painted = output
+                            .shapes
+                            .iter()
+                            .filter_map(|shape| match &shape.shape {
+                                egui::Shape::Text(text)
+                                    if matches!(
+                                        text.galley.job.text.as_str(),
+                                        "sakura tabeta o" | "さくら たべた を"
+                                    ) =>
+                                {
+                                    Some((text.pos.y, text.galley.clone()))
+                                }
+                                _ => None,
+                            })
+                            .collect();
+                    }
+                    let expected_rows = if mode == crate::study::LyricMode::Both {
+                        2
+                    } else {
+                        1
+                    };
+                    assert_eq!(
+                        painted.len(),
+                        expected_rows,
+                        "Mode {mode:?} must paint exactly its selected scripts"
+                    );
+                    if expected_rows == 2 {
+                        assert_eq!(painted[0].1.job.text, "さくら たべた を");
+                        assert!(painted[0].0 < painted[1].0, "hiragana must be above romaji");
+                    }
+                    for (_, galley) in painted {
+                        let highlighted: String = galley
+                            .job
+                            .sections
+                            .iter()
+                            .filter(|section| {
+                                section.format.background == Color32::from_rgb(250, 218, 90)
+                            })
+                            .map(|section| {
+                                &galley.job.text[usize::from(section.byte_range.start)
+                                    ..usize::from(section.byte_range.end)]
+                            })
+                            .collect();
+                        assert_eq!(
+                            highlighted,
+                            if galley.job.text == "sakura tabeta o" {
+                                romaji
+                            } else {
+                                hiragana
+                            }
+                        );
+                        metrics
+                            .entry(galley.job.text.clone())
+                            .or_default()
+                            .push(galley.size());
+                    }
+                }
+                assert!(
+                    metrics
+                        .values()
+                        .all(|sizes| sizes.windows(2).all(|pair| pair[0] == pair[1])),
+                    "Markers cannot change wrapping or font metrics in any script"
+                );
+            }
+        }
+        app.shutdown();
+    }
+
+    #[test]
+    fn study_play_uses_internal_player_when_another_spotify_device_is_selected() {
+        let mut app = test_app("study-internal-route");
+        crate::demo::populate(&mut app);
+        app.selected_device = Some("remote-device".into());
+        app.local.connected = false;
+        let uri = "spotify:track:0000000000000000000000";
+        app.apply(
+            Action::PlayStudyTrack(uri.into()),
+            &egui::Context::default(),
+        );
+        assert_eq!(app.queue_start_pending, Some(Target::Local));
+        assert_eq!(app.queued_play.as_ref().unwrap().uris, vec![uri]);
+        assert!(app.selected_device.is_none());
+        app.shutdown();
     }
 
     /// With Random on, each switch to the mini player shows a skin other

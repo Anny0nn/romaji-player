@@ -2,15 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key><string>Spotifast</string>
-    <key>CFBundleDisplayName</key><string>Spotifast</string>
+    <key>CFBundleName</key><string>RomajiPlayer</string>
+    <key>CFBundleDisplayName</key><string>RomajiPlayer</string>
     <key>CFBundleIdentifier</key><string>__IDENTIFIER__</string>
     <key>CFBundleExecutable</key><string>__EXECUTABLE__</string>
     <key>CFBundleIconFile</key><string>spotifast</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>__VERSION__</string>
     <key>CFBundleVersion</key><string>__BUILD__</string>
-    <key>LSMinimumSystemVersion</key><string>11.0</string>
+    <key>LSMinimumSystemVersion</key><string>15.0</string>
     <key>LSApplicationCategoryType</key><string>public.app-category.music</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSSupportsAutomaticGraphicsSwitching</key><true/>

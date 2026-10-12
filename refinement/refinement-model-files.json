@@ -1,0 +1,56 @@
+[
+  {
+    "path": "demucs/htdemucs.safetensors",
+    "url": "https://huggingface.co/ssmall256/demucs-mlx/resolve/main/htdemucs.safetensors",
+    "size": 168005865,
+    "sha256": "339d267a7a6983a11eedbdc00413c602a65e9b9103f695fb5c2b2a481cd9d297"
+  },
+  {
+    "path": "demucs/htdemucs_config.json",
+    "url": "https://huggingface.co/ssmall256/demucs-mlx/resolve/main/htdemucs_config.json",
+    "size": 4215,
+    "sha256": "23657b19db14771aecf366ceedbf846c1386836c10043c97f4569acf05526b78"
+  },
+  {
+    "path": "kim/model.safetensors",
+    "url": "https://huggingface.co/mlx-community/mel-roformer-kim-vocal-2-mlx/resolve/1ea11f1ee60365aa590a22d2a3f3b7b3cd409420/model.safetensors",
+    "size": 456483463,
+    "sha256": "312c38e5b698f8dfaa4d6064e8f79010744825828917871a9d22673a43eb7fe5"
+  },
+  {
+    "path": "kim/config.json",
+    "url": "https://huggingface.co/mlx-community/mel-roformer-kim-vocal-2-mlx/resolve/1ea11f1ee60365aa590a22d2a3f3b7b3cd409420/config.json",
+    "size": 833,
+    "sha256": "3300eacac960ab46933ef6df6b838eb35de1f0321db9242c1b06e6d2a6a62b58"
+  },
+  {
+    "path": "kim/LICENSE",
+    "url": "https://huggingface.co/mlx-community/mel-roformer-kim-vocal-2-mlx/resolve/1ea11f1ee60365aa590a22d2a3f3b7b3cd409420/LICENSE",
+    "size": 1500,
+    "sha256": "1aa245b55067df5c63c847894e7040f76fa79ddde83e9e5ed8a5c29ef1865c14"
+  },
+  {
+    "path": "mms/model.safetensors",
+    "url": "https://huggingface.co/NextFire/mms-300m-ForcedAligner-karaoke-ja-Latn/resolve/2ab2b5f46539ee284703c281f286b01d2410ee12/model.safetensors",
+    "size": 1261938632,
+    "sha256": "4d1d6fbb543534ab32bcceac5f5a42052c7fde3d16a83cbbce858473d5735042"
+  },
+  {
+    "path": "mms/config.json",
+    "url": "https://huggingface.co/NextFire/mms-300m-ForcedAligner-karaoke-ja-Latn/resolve/2ab2b5f46539ee284703c281f286b01d2410ee12/config.json",
+    "size": 2034,
+    "sha256": "665dbd5be3a170d0b53f86e702a4f65f755471a2d81c1e0cf35ba566a72bf382"
+  },
+  {
+    "path": "mms/processor_config.json",
+    "url": "https://huggingface.co/NextFire/mms-300m-ForcedAligner-karaoke-ja-Latn/resolve/2ab2b5f46539ee284703c281f286b01d2410ee12/processor_config.json",
+    "size": 299,
+    "sha256": "8bc3c8d6d97ea61524d5c15d8554b4baf072d2264c0bda1839bc7a822c200d66"
+  },
+  {
+    "path": "mms/vocab.json",
+    "url": "https://huggingface.co/NextFire/mms-300m-ForcedAligner-karaoke-ja-Latn/resolve/2ab2b5f46539ee284703c281f286b01d2410ee12/vocab.json",
+    "size": 331,
+    "sha256": "26dc928520b2bde28e1c9e7fd425aae6b4eb40cd992bcb0bcc16ca6fada46491"
+  }
+]

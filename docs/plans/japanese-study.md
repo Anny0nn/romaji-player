@@ -1,6 +1,6 @@
 # Japanese sing-along study player
 
-Status: Approved (2026-10-12)
+Status: Implemented (2026-10-12)
 
 ## Goal
 
@@ -49,6 +49,15 @@ Check a standalone Apple Silicon package with `scripts/check-app-package.py`. Re
 must retain lyric mode and saved timings. Preserve stable bundle/data identifiers.
 Live listening is needed to evaluate singing alignment; report it separately from
 retained timing coverage.
+
+## Validation
+
+The migrated source passes the full local gate, including the upstream Rust suite,
+study persistence and source-span tests, and helper protocol/evidence tests. The
+relocated standalone romanizer and existing app ZIP also pass their isolation checks.
+The existing app bundle is preserved locally; these checks do not claim that a new
+release binary was built from this port. Public binary release and live alignment
+acceptance remain separate work.
 
 ## Out of scope
 

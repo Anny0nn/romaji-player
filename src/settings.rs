@@ -278,6 +278,7 @@ pub struct Settings {
     pub sidebar_grid: bool,
     pub sidebar_width: f32,
     pub lyrics_width: f32,
+    pub lyric_mode: crate::study::LyricMode,
     pub queue_width: f32,
     /// Use compact single-line rows without cover art in track lists.
     pub tracklist_compact: bool,
@@ -442,6 +443,7 @@ impl Default for Settings {
             sidebar_grid: false,
             sidebar_width: 250.0,
             lyrics_width: 360.0,
+            lyric_mode: Default::default(),
             queue_width: 360.0,
             tracklist_compact: false,
             middle_click_autoscroll: false,
@@ -453,7 +455,7 @@ impl Default for Settings {
             playback_authorized: false,
             keep_playing_in_background: true,
             mac_notch_widget: false,
-            check_for_updates: true,
+            check_for_updates: false,
             download_updates_automatically: false,
             pinned_contexts: Vec::new(),
             liked_songs_pinned: true,
@@ -1483,6 +1485,22 @@ mod tests {
             settings.personal_app_nudge_at
         );
         assert!(restored.personal_app_intro_seen);
+    }
+
+    #[test]
+    fn lyric_modes_default_for_existing_settings_and_survive_restart() {
+        use crate::study::LyricMode;
+        let older: Settings = serde_json::from_str("{}").unwrap();
+        assert_eq!(older.lyric_mode, LyricMode::Romaji);
+        for mode in [LyricMode::Romaji, LyricMode::Both, LyricMode::Hiragana] {
+            let settings = Settings {
+                lyric_mode: mode,
+                ..Settings::default()
+            };
+            let restored: Settings =
+                serde_json::from_str(&serde_json::to_string(&settings).unwrap()).unwrap();
+            assert_eq!(restored.lyric_mode, mode);
+        }
     }
 }
 

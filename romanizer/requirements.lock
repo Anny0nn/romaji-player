@@ -1,0 +1,16 @@
+altgraph==0.17.5
+cutlet==0.5.2
+fugashi==1.5.2
+iniconfig==2.3.1
+jaconv==0.5.0
+macholib==1.16.4
+mojimoji==0.0.13
+packaging==26.3
+pluggy==1.6.0
+Pygments==2.21.0
+pyinstaller==6.22.3
+pyinstaller-hooks-contrib==2026.8
+pytest==9.1.1
+ruff==0.17.0
+setuptools==84.0.0
+unidic-lite==1.0.8
