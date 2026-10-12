@@ -19,6 +19,10 @@ SINGING_FILES = {
 LIMIT = 65536
 
 
+class ConversionRejected(ValueError):
+    """The helper rejected this input; optional ASR proposals may be withheld."""
+
+
 def source_text(text, span):
     a, b = span
     if type(a) is not int or type(b) is not int or not 0 <= a < b <= len(text.encode()):
@@ -64,6 +68,14 @@ class Converter:
         if not data.endswith(b"\n") or len(data) > LIMIT:
             raise ValueError("Reading converter exceeded reply limit.")
         response = json.loads(data)
+        # Rejections deliberately omit lyric text and most identity fields. Only
+        # a matching protocol/request ID can classify one as an input rejection.
+        if response.get("error") == "invalid_request":
+            if response.get("protocol_version") != 1 or response.get(
+                "request_id"
+            ) != request.get("request_id"):
+                raise ValueError("Unmatched reading conversion rejection.")
+            raise ConversionRejected("Reading converter rejected the input.")
         for key in (
             "request_id",
             "track_id",
@@ -346,6 +358,31 @@ def complete_envelope(original, converted, span):
     return True
 
 
+def transcript_matches(segments, first, last, targets, request, converter):
+    """Unconvertible ASR data cannot abort timing of the selected source lyrics."""
+    text = transcript_for_crop(segments, first, last)
+    if not text or len(text.encode()) > 8192:
+        return []
+    query = {
+        **request,
+        "track_id": "independent-transcript",
+        "raw_line": text,
+        "overrides": [],
+    }
+    try:
+        observed = output_words(converter.convert(query))
+    except ConversionRejected:
+        return []
+    matches = []
+    for match in mapped_candidates(targets, observed):
+        try:
+            match.update(converter.canonical(match["hiragana"], request))
+        except ConversionRejected:
+            continue
+        matches.append(match)
+    return matches
+
+
 def propose(
     inputs,
     crops,
@@ -371,20 +408,9 @@ def propose(
         }
         observations = []
         for segments in transcripts:
-            text = transcript_for_crop(segments, first, last)
-            if not text or len(text.encode()) > 8192:
-                observations.append([])
-                continue
-            query = {
-                **request,
-                "track_id": "independent-transcript",
-                "raw_line": text,
-                "overrides": [],
-            }
-            matches = mapped_candidates(targets, output_words(converter.convert(query)))
-            for match in matches:
-                match.update(converter.canonical(match["hiragana"], request))
-            observations.append(matches)
+            observations.append(
+                transcript_matches(segments, first, last, targets, request, converter)
+            )
         observed = observations[0] if observations else []
         units = []
         for i, target in enumerate(targets):
@@ -543,23 +569,11 @@ def propose(
             first, last = crops[line_index][1:3]
             supported = True
             for segments in transcripts:
-                text = transcript_for_crop(segments, first, last)
-                query = {
-                    **request,
-                    "track_id": "independent-transcript",
-                    "raw_line": text,
-                    "overrides": [],
-                }
-                choices = (
-                    mapped_candidates(
-                        crops[line_index][3], output_words(converter.convert(query))
-                    )
-                    if text
-                    else []
+                choices = transcript_matches(
+                    segments, first, last, crops[line_index][3], request, converter
                 )
                 supported &= any(
-                    converter.canonical(p["hiragana"], request)["hiragana"]
-                    == row["hiragana"]
+                    p["hiragana"] == row["hiragana"]
                     and crops[line_index][3][p["first"]]["raw_span"][0]
                     == row["raw_span"][0]
                     and crops[line_index][3][p["last"] - 1]["raw_span"][1]

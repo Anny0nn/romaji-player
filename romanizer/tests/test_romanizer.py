@@ -294,6 +294,20 @@ def test_unknown_characters_remain_available_for_correction(converter):
     assert "?" not in result["romaji"]
 
 
+@pytest.mark.parametrize("raw,romaji,kana", [("〜〜る", "ru", "る"), ("〜〜空", "sora", "そら")])
+def test_unpronounced_leading_tokens_keep_exact_source_and_display_spans(
+    converter, raw, romaji, kana
+):
+    result = converter.convert(request(converter, raw))
+    assert result["romaji"].strip() == romaji
+    assert len(result["words"]) == 1
+    word = result["words"][0]
+    assert word["raw_span"] == [6, 9]
+    assert slice_bytes(raw, word["raw_span"]) == raw[-1]
+    assert slice_bytes(result["romaji"], word["output_span"]) == romaji
+    assert slice_bytes(result["hiragana"], word["hiragana_span"]) == kana
+
+
 def test_protocol_rejects_wrong_signature(converter):
     fixture = request(converter, "桜")
     fixture["expected_conversion_signature"] = "old"

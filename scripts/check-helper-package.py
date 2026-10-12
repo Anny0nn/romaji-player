@@ -67,9 +67,12 @@ def main():
             "raw_line": "ハッカ色の月",
         }
         geminated = {**request, "request_id": 5, "raw_line": "桜ぱっと飛ぶ"}
-        process = run([hello, request, sung_reading, departure, tabi, geminated])
+        leading_empty = {**request, "request_id": 6, "raw_line": "〜〜空"}
+        process = run(
+            [hello, request, sung_reading, departure, tabi, geminated, leading_empty]
+        )
         responses = [json.loads(line) for line in process.stdout.splitlines()]
-        assert not process.stderr and len(responses) == 6
+        assert not process.stderr and len(responses) == 7
         assert responses[1]["romaji"] == "ga tabeta o"
         assert responses[1]["hiragana"] == "が たべた を"
         assert [word["raw_span"] for word in responses[1]["words"]] == [
@@ -106,6 +109,13 @@ def main():
         assert song["romaji"].encode()[start:end].decode() == "patto"
         start, end = word["hiragana_span"]
         assert song["hiragana"].encode()[start:end].decode() == "ぱっと"
+        song = responses[6]
+        word = song["words"][0]
+        assert len(song["words"]) == 1 and word["raw_span"] == [6, 9]
+        start, end = word["output_span"]
+        assert song["romaji"].encode()[start:end].decode() == "sora"
+        start, end = word["hiragana_span"]
+        assert song["hiragana"].encode()[start:end].decode() == "そら"
     print(
         "Standalone helper passed: relocated path with spaces, clean environment, dictionary and original-byte mapping."
     )

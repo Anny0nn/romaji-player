@@ -124,7 +124,9 @@ class Converter:
         else:
             nodes = self.cut.tagger(normalized)
             tokens = self.cut.romaji_tokens(nodes, capitalize=False)
-            if "".join(map(str, tokens)).rstrip() != self.cut.romaji(raw, capitalize=False):
+            # Empty pronunciation tokens (for example leading wave dashes) can
+            # introduce whitespace that Cutlet's whole-string API strips.
+            if "".join(map(str, tokens)).strip() != self.cut.romaji(raw, capitalize=False):
                 raise ValueError("assembly_mismatch")
             crossing = set()
             for index in range(1, len(nodes)):

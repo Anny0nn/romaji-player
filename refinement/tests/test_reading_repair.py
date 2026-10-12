@@ -1,7 +1,10 @@
 """Bounded mapping and independent rejection, without real song inputs or models."""
 
+import io
+import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -10,6 +13,93 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / "refinement"), str(ROOT / "tifa"), str(ROOT / "tifa/vendor")]
 from reading_policy import decision, verify
 from reading_repair import mapped_candidates, source_text
+
+
+def test_optional_transcript_rejections_are_withheld_but_protocol_errors_remain_fatal():
+    import reading_repair
+
+    segments = [{"words": [{"word": "桜", "start": 0, "end": 1, "probability": 1}]}]
+
+    class RejectingConverter:
+        def __init__(self, error):
+            self.error = error
+
+        def convert(self, _request, candidates=False):
+            raise self.error
+
+    assert (
+        reading_repair.transcript_matches(
+            segments,
+            0,
+            16000,
+            [],
+            {},
+            RejectingConverter(reading_repair.ConversionRejected()),
+        )
+        == []
+    )
+    with pytest.raises(ValueError, match="Stale"):
+        reading_repair.transcript_matches(
+            segments, 0, 16000, [], {}, RejectingConverter(ValueError("Stale"))
+        )
+    inputs = {"requests": [{"occurrence_id": 0}], "protected": []}
+    with pytest.raises(reading_repair.ConversionRejected):
+        reading_repair.propose(
+            inputs,
+            [(0, 0, 16000, [])],
+            RejectingConverter(reading_repair.ConversionRejected()),
+            [],
+            [],
+            {},
+            {},
+            [],
+        )
+
+
+def test_unconvertible_optional_reading_does_not_discard_other_valid_candidates(
+    monkeypatch,
+):
+    import reading_repair
+
+    candidates = [{"hiragana": "bad"}, {"hiragana": "さくら"}]
+    monkeypatch.setattr(reading_repair, "mapped_candidates", lambda *_: candidates)
+    monkeypatch.setattr(reading_repair, "output_words", lambda _: [])
+
+    class StubConverter:
+        def convert(self, _):
+            return {}
+
+        def canonical(self, kana, _):
+            if kana == "bad":
+                raise reading_repair.ConversionRejected()
+            return {"hiragana": kana, "romaji": "sakura"}
+
+    segments = [{"words": [{"word": "桜", "start": 0, "end": 1, "probability": 1}]}]
+    assert reading_repair.transcript_matches(
+        segments, 0, 16000, [], {}, StubConverter()
+    ) == [{"hiragana": "さくら", "romaji": "sakura"}]
+
+
+@pytest.mark.parametrize(
+    "reply_id,protocol,typed", [(1, 1, True), (2, 1, False), (1, 9, False)]
+)
+def test_compact_rejections_require_matching_protocol_and_request_identity(
+    reply_id, protocol, typed
+):
+    from reading_repair import ConversionRejected, Converter
+
+    converter = Converter.__new__(Converter)
+    response = {
+        "protocol_version": protocol,
+        "request_id": reply_id,
+        "error": "invalid_request",
+    }
+    converter.process = SimpleNamespace(
+        stdin=io.BytesIO(), stdout=io.BytesIO(json.dumps(response).encode() + b"\n")
+    )
+    with pytest.raises(ValueError) as raised:
+        converter.exchange({"protocol_version": 1, "request_id": 1})
+    assert isinstance(raised.value, ConversionRejected) == typed
 
 
 def words(*values):
