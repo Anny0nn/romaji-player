@@ -3,6 +3,7 @@ pub mod alignment;
 pub mod audio;
 pub mod controller;
 pub mod conversion;
+pub mod reading;
 pub mod snapshot;
 pub mod source;
 pub mod timing;

@@ -50,6 +50,7 @@ pub fn spotify(json: &serde_json::Value) -> Result<Snapshot> {
     warnings.dedup();
     Snapshot::new(
         Source {
+            derivation: None,
             imported: false,
             provider: "Spotify".into(),
             candidate: lyrics
@@ -84,6 +85,7 @@ pub fn lrclib(payload: &serde_json::Value, text: &str) -> Result<Snapshot> {
         .unwrap_or(0.0);
     Snapshot::new(
         Source {
+            derivation: None,
             imported: false,
             provider: "LRCLIB".into(),
             candidate: format!("{artist} — {title} · {album} · {duration:.1}s"),
@@ -238,6 +240,7 @@ pub fn import(payload: &str, filename: &str) -> Result<Snapshot> {
     }
     Snapshot::new(
         Source {
+            derivation: None,
             imported: true,
             provider: "import".into(),
             candidate: filename.into(),

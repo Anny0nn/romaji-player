@@ -3,6 +3,7 @@
 set -euo pipefail
 cd -- "$(dirname -- "$0")/.."
 project_root="$(pwd)"
+[[ -x dist/RomajiRomanizer/RomajiRomanizer ]] || bash scripts/package-romanizer.sh
 [[ "$(uname -m)" == arm64 ]] || { printf 'Build on Apple Silicon.\n' >&2; exit 1; }
 .venv-experimental/bin/python -m PyInstaller --noconfirm --clean --onedir --name RomajiExperimental \
   --target-arch arm64 --distpath dist --workpath build/experimental --specpath build \
@@ -11,6 +12,8 @@ project_root="$(pwd)"
   --collect-all librosa --collect-all numba --collect-all llvmlite --collect-all mlx \
   --collect-all demucs_mlx --collect-all mlx_spectro \
   --hidden-import mlx_audio.dsp \
+  --collect-all mlx_whisper --collect-all tiktoken --collect-all tiktoken_ext \
+  --hidden-import transformers.models.hubert.modeling_hubert \
   --hidden-import transformers.models.wav2vec2.modeling_wav2vec2 \
   --copy-metadata torch --copy-metadata numpy --copy-metadata scipy --copy-metadata librosa \
   --copy-metadata numba --copy-metadata llvmlite --copy-metadata onnxruntime \
@@ -25,3 +28,5 @@ project_root="$(pwd)"
 codesign --force --deep --sign - dist/RomajiExperimental
 codesign --verify --deep --strict dist/RomajiExperimental
 dist/RomajiExperimental/RomajiExperimental --self-test
+
+dist/RomajiExperimental/RomajiExperimental --check-converter "$project_root/dist/RomajiRomanizer/RomajiRomanizer"

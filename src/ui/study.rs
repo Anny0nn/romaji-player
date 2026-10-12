@@ -181,6 +181,29 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, fullscreen: bool) {
                 for warning in &snapshot.source.warnings {
                     ui.small(warning);
                 }
+                if let Some(derived) = &snapshot.source.derivation {
+                    egui::CollapsingHeader::new(format!(
+                        "Sung corrections ({})",
+                        derived.readings.len() + derived.text_repairs.len()
+                    ))
+                    .show(ui, |ui| {
+                        ui.small(
+                            "Checked against the recorded singing. Earlier versions remain saved.",
+                        );
+                        let mut seen = std::collections::BTreeSet::new();
+                        for repair in &derived.readings {
+                            if seen.insert((&repair.expected_text, &repair.hiragana)) {
+                                ui.label(format!(
+                                    "{} → {} · {}",
+                                    repair.expected_text, repair.hiragana, repair.romaji
+                                ));
+                            }
+                        }
+                        for repair in &derived.text_repairs {
+                            ui.label(format!("{} → {}", repair.expected_text, repair.replacement));
+                        }
+                    });
+                }
                 if app.study.review_open {
                     review_panel(app, ui, &review);
                 }
@@ -489,7 +512,7 @@ fn automatic_controls(app: &mut App, ui: &mut egui::Ui) {
             use crate::study::alignment::Method;
             for (method, label, help) in [
                 (Method::Tifa, "Time words · TIFA", "Original TIFA pipeline. About 151 MB on first use; results saved per song."),
-                (Method::Experimental, "Time words · Experimental", "TIFA + two vocal separators + independent MMS checks. About 2 GB on first use; several minutes per song. Previous results are kept. Listen to check accuracy."),
+                (Method::Experimental, "Time words · Experimental", "Checks sung readings, corrects supported alternatives, then times them. About 5.5 GB on first use; several minutes per song. Previous versions and your edits are kept. Listen to check accuracy."),
             ] {
                 if ui.add_enabled(!app.study.busy, egui::Button::new(label)).on_hover_text(help).clicked() {
                     match app.study.alignment_request(method) {

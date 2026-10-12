@@ -1,6 +1,6 @@
 # Automatic sung readings and lyric repair
 
-Status: Approved (2026-10-12)
+Status: Implemented (2026-10-12)
 
 ## Goal
 
@@ -43,10 +43,11 @@ can propose alternatives, but must not approve its own proposals.
    paths per line. Retain their original UTF-8 spans, lemma, inflection and grouping.
    Measure candidate recall before expanding dictionaries or adding a dependency.
    Preserve the current reading as a candidate. No universal `行く`/`行こう` substitution.
-3. Independently transcribe suspect vocal sections without titles, lyrics or song hints.
-   Start experiments with the already available Whisper large-v3 and singing MMS
-   evidence. Compare a direct singing phoneme recognizer only if this leaves useful
-   repairs unresolved. Source/transcript matching must tolerate token splits through
+3. Independently transcribe the full Kim vocal track and original mix with Whisper
+   large-v3, without titles, lyrics or song hints; short isolated clips hallucinated
+   unrelated phrases in the trial. Use the separate RomajiASR singing phoneme model
+   to reject confident pronunciation contradictions. MMS scores remain the primary
+   ranking evidence; a near tie in the independent model is uncertainty, not a vote. Source/transcript matching must tolerate token splits through
    exact source envelopes and agreeing neighboring phonemes, not require equal word
    counts as the previous experiment did. Ambiguous mappings are withheld automatically.
 4. Rank candidates against the same acoustic frames. Measure absolute compatibility,
@@ -57,8 +58,9 @@ can propose alternatives, but must not approve its own proposals.
    stems scored by one model are correlated views, not independent model votes.
 5. Admit automatic reading repairs only when the source mapping, neighboring words and
    acoustic gates agree. For actual text repairs, require consistent independent
-   transcription evidence and phonetic verification of the bounded insertion, deletion
-   or substitution. Prefer a reading-only repair when existing kanji can represent the
+   transcription evidence and phonetic verification. The first recipe admits bounded
+   kana-only substitutions, including splits/merges of up to four complete source words;
+   arbitrary insertions, deletions and kanji text rewriting remain withheld. Prefer a reading-only repair when existing kanji can represent the
    sung expression; audio cannot decide between homophonic written forms. A model's
    familiarity with a song or a larger coverage count cannot authorize rewriting it.
 6. Reconvert accepted readings/text and align that corrected version with TIFA and the
@@ -72,11 +74,22 @@ can propose alternatives, but must not approve its own proposals.
 Python owns candidate generation, model evidence and kana-to-display conversion. Rust
 owns source identity validation, final repair selection, version creation and persistence.
 The evidence helper returns a bounded JSON proposal package containing the job/source
-identity, recording and parent-stem hashes, model/recipe fingerprints, and proposed patches.
+identity, recording hash, model/recipe fingerprints, and proposed patches. Separated
+stems are temporary evidence derived from that recording and pinned model recipe; they
+are not persisted as an additional source of truth.
 Each patch includes its original occurrence, UTF-8 source envelope and expected text,
-candidate kana or replacement Japanese text, neighboring correspondences and calibrated
-decision measurements. Rust rejects changed text, invalid boundaries, overlaps, missing
+candidate kana or replacement Japanese text, and calibrated absolute, comparative,
+neighbor-coherence and independent-pronunciation measurements. Rust rejects changed text, invalid boundaries, overlaps, missing
 evidence, stale revisions and model/recipe mismatches before admitting any patch.
+
+One Experimental invocation performs proposal, provisional reconversion and fresh
+alignment internally. Rust sends bounded conversion requests and protected spans beside
+the crop manifest; Python calls the bundled romanizer through its JSON protocol. The
+first JSON reply is the frozen repair package, followed by freshly aligned line results.
+Rust validates the package, reconverts it independently and requires exact target/span
+agreement before persisting the complete generated version. No provisional Python
+patch writes app data. The frozen helper processes reset their PyInstaller environment
+when launching one another; package relocation checks cover this boundary.
 
 Extend reading records with optional canonical hiragana and automatic provenance; old
 romaji-only records still load. For new automatic readings, the converter derives romaji
@@ -109,6 +122,27 @@ Keep the two existing actions. Experimental adds progress for checking sung read
 reports a short completion status such as `3 readings corrected · 153/153 words timed`.
 Put details, provenance and version restore under Options. Uncertain candidates remain
 unused; there is no mandatory approval dialog, manual correction or manual timing step.
+
+## Frozen first recipe
+
+Two MMS vocal views must select the same candidate, each with full-line CTC improvement
+and runner-up separation of at least eight log units, selected-word mean posterior
+at least 0.45, and support for at least half the other words at probability 0.30.
+The separate singing recognizer compares complete phrase likelihoods through its mixed
+mora/phone CTC lattice. A candidate or competing alternative that it contradicts by
+more than two log units is withheld. Shortening below 75% of the original phone count
+requires independently mapped transcription support; expansion is capped at four times.
+Exact, nonoverlapping UTF-8 envelopes, protected edits and conflicting repeats are
+checked before any save. No threshold is derived from coverage.
+
+Calibration used all fourteen local songs; none is called held-out. The six verified
+Tabi occurrences pass this rule. Thirteen wrong-verse controls admitted no reading
+repair in the dictionary replay. A disjoint lexical check uses private JSUT recordings
+with full-context blind transcription and matching HTS score phone sequences. Score
+timestamps are not alignment ground truth. Its artificial reading errors are reported
+separately from ordinary dictionary readings; this small test cannot establish general
+Japanese song accuracy. Results and final packaged acceptance belong in
+`docs/study-reading-evaluation.md`. Audio, full lyrics and private evidence stay local.
 
 ## Steps
 
@@ -163,4 +197,4 @@ personal chat contents or private development tools.
 - [Whisper transcription and limitations](https://github.com/openai/whisper)
 - [Japanese singing MMS checkpoint](https://huggingface.co/NextFire/mms-300m-ForcedAligner-karaoke-ja-Latn)
 - [RomajiASR singing phoneme inference](https://github.com/Xiantaidu/RomajiASR): an
-  experimental comparison candidate; its released models are not assumed to align words.
+  independent pronunciation check; TIFA still supplies word timing.

@@ -47,8 +47,11 @@ bundle. Run `python3 scripts/check-app-package.py` to verify the packaged distri
 ## Models and local data
 
 TIFA downloads about 151 MB on first use. Experimental alignment additionally downloads
-vocal-separation and phonetic-alignment assets. Downloads are pinned and hash-verified.
-Processing runs locally; previous timing versions remain selectable.
+about 5.3 GB of vocal separation, singing phoneme and Whisper assets. It checks sung
+readings, corrects supported alternatives, and freshly aligns the corrected version.
+Downloads are pinned and hash-verified; models run sequentially. Processing runs locally,
+and previous lyric/timing versions remain selectable. See the [reading evaluation](docs/study-reading-evaluation.md)
+for measured results and limits.
 
 Model licenses differ from the MIT application source. TIFA and MMS weights have
 noncommercial terms. See [TIFA provenance](tifa/UPSTREAM.md) and the

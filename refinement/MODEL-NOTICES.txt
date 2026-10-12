@@ -1,4 +1,4 @@
-Experimental singing timing pipeline v1
+Experimental singing timing pipeline / sung-reading-v1
 
 Inference weights download separately on first use. No song audio, lyric text or
 model weights are included in the distributed app.
@@ -28,3 +28,19 @@ TIFA and its constituent dictionaries/converters: see TIFA notices in this bundl
 Exact downloaded bytes, hashes, revisions and sizes: refinement-model-files.json
 inside the experimental runtime. Tests measure retained coverage, not listening
 accuracy. Independent evidence gates repairs; prior results remain selectable.
+
+Singing phoneme recognizer: Xiantaidu/RomajiASR release v1.0.0.
+https://github.com/Xiantaidu/RomajiASR
+Source license retained from commit 79f92eedc7e8f87ca3bc4dcf5d3178cb68c550af.
+Source and released singing HuBERT weights: Apache 2.0. Derived from
+prj-beatrice/japanese-hubert-base and rinna/japanese-hubert-base (Apache 2.0).
+Released training config uses ambiguity CTC; inference uses the equivalent stock
+Transformers HuBERT implementation, checked against the released ONNX model.
+
+Whisper large-v3: OpenAI, MIT. MLX inference: mlx-whisper 0.4.3, MIT.
+https://github.com/openai/whisper
+https://github.com/ml-explore/mlx-examples/tree/main/whisper
+MLX checkpoint conversion: mlx-community/whisper-large-v3-mlx, pinned revision
+49e6aa286ad60c14352c404340ded53710378a11, MIT.
+https://huggingface.co/mlx-community/whisper-large-v3-mlx
+Runtime license texts are bundled under ExperimentalPython.

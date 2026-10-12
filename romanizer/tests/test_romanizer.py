@@ -26,6 +26,43 @@ def request(converter, raw, overrides=None):
     }
 
 
+@pytest.mark.parametrize(
+    "text,wanted", [("闇夜", "やみよ"), ("行こう", "ゆこう"), ("ハッカ色", "はっかいろ")]
+)
+def test_context_candidates_preserve_inflection_and_exact_source(converter, text, wanted):
+    value = request(converter, "  " + text + "  ")
+    value["command"] = "candidates"
+    result = converter.convert(value)
+    group = next(g for g in result["reading_candidates"] if g["expected_text"] == text)
+    assert slice_bytes(value["raw_line"], group["raw_span"]) == text
+    assert wanted in [c["hiragana"] for c in group["candidates"]]
+    if text == "行こう":
+        assert "ゆく" not in [c["hiragana"] for c in group["candidates"]]
+    assert sum(len(g["candidates"]) for g in result["reading_candidates"]) <= 192
+    assert all(len(g["candidates"]) <= 16 for g in result["reading_candidates"])
+
+
+def test_canonical_kana_correction_and_protected_candidates(converter):
+    edit = {
+        "id": "verified",
+        "kind": "mapping_kana",
+        "raw_span": [0, 6],
+        "expected_text": "闇夜",
+        "replacement": "yami yo",
+        "hiragana": "やみ よ",
+    }
+    value = request(converter, "闇夜", [edit])
+    value["command"] = "candidates"
+    result = converter.convert(value)
+    assert result["romaji"] == "yami yo"
+    assert result["hiragana"] == "やみ よ"
+    assert result["reading_candidates"] == []
+    edit["hiragana"] = "あんや"
+    result = converter.convert(value)
+    assert result["pending_overrides"]
+    assert result["romaji"] == "an'ya"
+
+
 def test_sakura_uses_verified_sung_reading_without_changing_source_anchors(converter):
     raw = "君は故郷を出た"
     normal = converter.convert(request(converter, raw))
@@ -356,3 +393,15 @@ def test_mapping_cannot_take_only_part_of_a_displayed_group(converter):
     assert result["romaji"] == "tabeta"
     assert result["pending_overrides"][0]["id"] == "partial"
     assert all(w["mapping_reason"] == "cross_word_gemination" for w in result["words"][1:])
+
+
+def test_canonical_command_does_not_resegment_explicit_spaces(converter):
+    q = request(converter, "ゆこう はっかいろ")
+    q["command"] = "canonical"
+    assert converter.convert(q)["canonical_reading"] == {
+        "hiragana": "ゆこう はっかいろ",
+        "romaji": "yukou hakkairo",
+    }
+    q["raw_line"] = "行こう"
+    with pytest.raises(ValueError, match="canonical"):
+        converter.convert(q)

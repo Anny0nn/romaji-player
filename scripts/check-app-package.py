@@ -132,6 +132,21 @@ def main():
             "self_test": True,
             "device": "mps+mlx",
         }
+        checked = subprocess.run(
+            [
+                str(experimental),
+                "--check-converter",
+                str(contents / "Resources/RomajiRomanizer/RomajiRomanizer"),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60,
+            cwd=scratch,
+            env={"PATH": "/usr/bin:/bin"},
+        )
+        assert json.loads(checked.stdout) == {"protocol": 1, "converter_check": True}
+
         assert conversion == {
             "romaji": "ga tabeta o",
             "hiragana": "が たべた を",

@@ -24,6 +24,73 @@ pub struct Source {
     pub candidate: String,
     pub payload: String,
     pub warnings: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub derivation: Option<Derivation>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AcousticView {
+    pub gain_milli: i64,
+    pub margin_milli: i64,
+    pub probability_ppm: u32,
+    pub context_ppm: u32,
+}
+impl AcousticView {
+    pub fn supported(&self) -> bool {
+        self.gain_milli >= 8_000
+            && self.margin_milli >= 8_000
+            && (450_000..=1_000_000).contains(&self.probability_ppm)
+            && (500_000..=1_000_000).contains(&self.context_ppm)
+    }
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReadingRepair {
+    pub occurrence_id: usize,
+    pub raw_line: String,
+    pub raw_span: [usize; 2],
+    pub expected_text: String,
+    pub hiragana: String,
+    pub romaji: String,
+    pub views: Vec<AcousticView>,
+    pub verification: ReadingVerification,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReadingVerification {
+    pub gain_milli: i64,
+    pub margin_milli: i64,
+    pub phone_ratio_ppm: u32,
+    pub transcript_supported: bool,
+}
+impl ReadingVerification {
+    pub fn supported(&self) -> bool {
+        self.gain_milli >= -2_000
+            && self.margin_milli >= -2_000
+            && (self.phone_ratio_ppm >= 750_000 || self.transcript_supported)
+            && self.phone_ratio_ppm <= 4_000_000
+    }
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Derivation {
+    pub parent_snapshot: String,
+    pub base_revision: u64,
+    pub audio_sha256: String,
+    pub model_sha256: String,
+    pub recipe: String,
+    pub readings: Vec<ReadingRepair>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub text_repairs: Vec<TextRepair>,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TextRepair {
+    pub occurrence_id: usize,
+    pub original_line: String,
+    pub original_span: [usize; 2],
+    pub expected_text: String,
+    pub replacement: String,
+    pub result_line: String,
+    pub result_span: [usize; 2],
+    pub views: Vec<AcousticView>,
+    pub verification: ReadingVerification,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -72,6 +139,66 @@ impl Snapshot {
                 if span(&line.raw_line, &fragment.raw_span).is_none() || !fragment.interval.valid()
                 {
                     bail!("invalid source timing fragment");
+                }
+            }
+        }
+        if let Some(derived) = &self.source.derivation {
+            let hash = |s: &str| s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit());
+            if !hash(&derived.parent_snapshot)
+                || !hash(&derived.audio_sha256)
+                || !hash(&derived.model_sha256)
+                || derived.recipe != "sung-reading-v1"
+                || derived.readings.len() > 2_000
+            {
+                bail!("invalid automatic reading provenance");
+            }
+            let mut seen = std::collections::HashSet::new();
+            for repair in &derived.readings {
+                if !seen.insert((&repair.raw_line, repair.raw_span))
+                    || !self
+                        .occurrences
+                        .get(repair.occurrence_id)
+                        .is_some_and(|line| line.raw_line == repair.raw_line)
+                    || span(&repair.raw_line, &repair.raw_span)
+                        != Some(repair.expected_text.as_str())
+                    || !super::conversion::valid_hiragana(&repair.hiragana)
+                    || repair.romaji.is_empty()
+                    || repair.romaji.len() > 512
+                    || repair.views.len() != 2
+                    || !repair.views.iter().all(AcousticView::supported)
+                    || !repair.verification.supported()
+                {
+                    bail!("invalid source-anchored automatic reading");
+                }
+            }
+            for (index, patch) in derived.readings.iter().enumerate() {
+                if derived.readings[..index].iter().any(|old| {
+                    old.raw_line == patch.raw_line
+                        && old.raw_span[0] < patch.raw_span[1]
+                        && old.raw_span[1] > patch.raw_span[0]
+                }) {
+                    bail!("overlapping persisted automatic readings");
+                }
+            }
+            if derived.text_repairs.len() > 2_000 {
+                bail!("too many automatic lyric text repairs");
+            }
+            for repair in &derived.text_repairs {
+                if span(&repair.original_line, &repair.original_span)
+                    != Some(repair.expected_text.as_str())
+                    || span(&repair.result_line, &repair.result_span)
+                        != Some(repair.replacement.as_str())
+                    || !self
+                        .occurrences
+                        .get(repair.occurrence_id)
+                        .is_some_and(|line| line.raw_line == repair.result_line)
+                    || !super::conversion::valid_hiragana(&repair.replacement)
+                    || repair.views.len() != 2
+                    || !repair.views.iter().all(AcousticView::supported)
+                    || !repair.verification.supported()
+                    || !repair.verification.transcript_supported
+                {
+                    bail!("invalid automatic lyric text repair");
                 }
             }
         }
@@ -196,7 +323,8 @@ pub struct Bundle {
 
 impl Bundle {
     pub fn overrides(&self, track: &str, occurrence: usize) -> Vec<Override> {
-        self.edits
+        let mut result: Vec<_> = self
+            .edits
             .iter()
             .filter_map(|edit| {
                 if let Edit::Reading {
@@ -213,12 +341,35 @@ impl Bundle {
                         raw_span: anchor.raw_span,
                         expected_text: anchor.expected_text.clone(),
                         replacement: replacement.clone(),
+                        hiragana: None,
                     })
                 } else {
                     None
                 }
             })
-            .collect()
+            .collect();
+        if let Some(derived) = &self.snapshot.source.derivation
+            && let Some(line) = self.snapshot.occurrences.get(occurrence)
+        {
+            for (index, repair) in derived.readings.iter().enumerate() {
+                if repair.raw_line == line.raw_line
+                    && !result.iter().any(|saved| {
+                        saved.raw_span[0] < repair.raw_span[1]
+                            && saved.raw_span[1] > repair.raw_span[0]
+                    })
+                {
+                    result.push(Override {
+                        id: format!("automatic:{index}"),
+                        kind: "mapping_kana".into(),
+                        raw_span: repair.raw_span,
+                        expected_text: repair.expected_text.clone(),
+                        replacement: repair.romaji.clone(),
+                        hiragana: Some(repair.hiragana.clone()),
+                    });
+                }
+            }
+        }
+        result
     }
 
     pub fn manual_timing(
@@ -665,6 +816,90 @@ mod tests {
 
     fn song() -> Snapshot {
         import("[00:12][01:30]桜\n[01:40]", "fixture.lrc").unwrap()
+    }
+    fn repaired_song() -> Snapshot {
+        let mut original = song();
+        let parent_snapshot = original.id.clone();
+        original.source.derivation = Some(Derivation {
+            parent_snapshot,
+            base_revision: 3,
+            audio_sha256: "a".repeat(64),
+            model_sha256: "b".repeat(64),
+            recipe: "sung-reading-v1".into(),
+            text_repairs: Vec::new(),
+            readings: vec![ReadingRepair {
+                occurrence_id: 0,
+                raw_line: "桜".into(),
+                raw_span: [0, 3],
+                expected_text: "桜".into(),
+                hiragana: "さくら".into(),
+                romaji: "sakura".into(),
+                views: vec![
+                    AcousticView {
+                        gain_milli: 9_000,
+                        margin_milli: 9_000,
+                        probability_ppm: 800_000,
+                        context_ppm: 1_000_000
+                    };
+                    2
+                ],
+                verification: ReadingVerification {
+                    gain_milli: 9_000,
+                    margin_milli: 9_000,
+                    phone_ratio_ppm: 1_000_000,
+                    transcript_supported: false,
+                },
+            }],
+        });
+        Snapshot::new(original.source, original.occurrences).unwrap()
+    }
+    #[test]
+    fn automatic_kana_restores_repeated_lines_and_manual_edits_take_precedence() {
+        let snapshot = repaired_song();
+        let mut bundle = Bundle {
+            snapshot: snapshot.clone(),
+            pinned: true,
+            edits: Vec::new(),
+        };
+        assert_eq!(
+            bundle.overrides(TRACK, 1)[0].hiragana.as_deref(),
+            Some("さくら")
+        );
+        let encoded = serde_json::to_vec(&bundle).unwrap();
+        let restored: Bundle = serde_json::from_slice(&encoded).unwrap();
+        assert_eq!(bundle, restored);
+        restored.snapshot.validate().unwrap();
+        bundle.edits.push(reading(&snapshot, 0, "my reading"));
+        let overrides = bundle.overrides(TRACK, 1);
+        assert_eq!(overrides.len(), 1);
+        assert_eq!(overrides[0].replacement, "my reading");
+        assert!(overrides[0].hiragana.is_none());
+    }
+    #[test]
+    fn automatic_readings_reject_partial_utf8_conflicting_repeats_and_bad_evidence() {
+        for mutation in 0..4 {
+            let mut snapshot = repaired_song();
+            let derived = snapshot.source.derivation.as_mut().unwrap();
+            match mutation {
+                0 => derived.readings[0].raw_span = [1, 3],
+                1 => derived.readings.push(derived.readings[0].clone()),
+                2 => derived.readings[0].views[0].probability_ppm = 0,
+                _ => derived.readings[0].hiragana = "sakura".into(),
+            }
+            assert!(Snapshot::new(snapshot.source, snapshot.occurrences).is_err());
+        }
+    }
+    #[test]
+    fn legacy_snapshot_hash_does_not_change_when_optional_derivation_is_absent() {
+        let snapshot = song();
+        let value = serde_json::to_value(&snapshot.source).unwrap();
+        assert!(value.get("derivation").is_none());
+        let legacy_source = serde_json::json!({"imported": snapshot.source.imported,
+            "provider": snapshot.source.provider, "candidate": snapshot.source.candidate,
+            "payload": snapshot.source.payload, "warnings": snapshot.source.warnings});
+        let source: Source = serde_json::from_value(legacy_source).unwrap();
+        let recovered = Snapshot::new(source, snapshot.occurrences).unwrap();
+        assert_eq!(snapshot.id, recovered.id);
     }
     fn reading(snapshot: &Snapshot, occurrence: usize, replacement: &str) -> Edit {
         Edit::Reading {

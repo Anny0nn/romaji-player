@@ -22,7 +22,28 @@ or timings onto different text. Pinned snapshots protect edits from provider ref
 ## Automatic alignment
 
 **TIFA** runs the original local forced aligner against the current source snapshot.
-**Experimental** also tries vocal isolation and independent MMS phonetic evidence.
+**Experimental** first checks the sung readings, then times the resulting version.
+It compares bounded dictionary alternatives with two MMS vocal views, rejects confident
+contradictions using a separate singing phoneme recognizer, and can propose missing
+readings from full-song blind Whisper transcription. Supported repairs store canonical
+hiragana and derive romaji from it; all three display modes share those same source
+anchors and newly aligned timing. The first recipe also supports bounded kana-only
+lyric substitutions corroborated by vocal and original-mix transcriptions. It withholds
+ambiguous changes and preserves explicit user corrections and earlier source versions.
+
+Rust sends the frozen source/edit revision, delay, recording/model identities and protected
+spans. Python returns provisional patches and fresh alignment; Rust validates the patches,
+reconverts them and verifies exact timing targets before saving a complete result. No
+partially corrected version is applied. Completed results cannot overwrite a later edit,
+and reopening restores both scripts and timing without running models again.
+
+Models run sequentially. TIFA downloads about 151 MB; Experimental downloads about
+5.3 GB of additional pinned weights once, including Whisper large-v3 and the singing
+phoneme recognizer. The standalone bundle contains the inference runtimes. A package
+check launches the bundled romanizer from Experimental with no developer environment.
+
+See [reading evaluation](study-reading-evaluation.md) for measured limits.
+
 Candidate repairs must pass source identity, interval bounds and acoustic consistency
 checks. Existing baseline intervals are retained unless a tested repair rule authorizes
 a replacement. All results record their engine/provenance and remain selectable as

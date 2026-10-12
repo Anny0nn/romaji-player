@@ -191,7 +191,7 @@ def phonetic_units(logp, blank, targets, vocabulary):
     return units
 
 
-def mms(samples, crops, folder, progress_path, stage):
+def mms(samples, crops, folder, progress_path, stage, posteriors=False):
     import torch
     from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2ForCTC
 
@@ -210,7 +210,9 @@ def mms(samples, crops, folder, progress_path, stage):
         with torch.inference_mode():
             logp = backend(**inputs).logits[0].float().log_softmax(-1).cpu().numpy()
         result.append(
-            phonetic_units(logp, backend.config.pad_token_id, targets, vocabulary)
+            (logp, backend.config.pad_token_id)
+            if posteriors
+            else phonetic_units(logp, backend.config.pad_token_id, targets, vocabulary)
         )
     del backend, inputs
     release()
@@ -235,7 +237,7 @@ def repair(baseline, trial, evidence, targets, length_ms, source_words=None):
     ]
 
 
-def run(archive, folder, pcm, stereo_path, manifest, progress_path):
+def run(archive, folder, pcm, stereo_path, manifest, progress_path, romanizer=None):
     import numpy as np
 
     verify_assets(folder)
@@ -259,6 +261,19 @@ def run(archive, folder, pcm, stereo_path, manifest, progress_path):
         for c in crops
     ):
         raise ValueError("Original source word counts changed.")
+    if romanizer is not None:
+        return run_readings(
+            archive,
+            folder,
+            samples,
+            stereo,
+            pcm,
+            stereo_path,
+            crops,
+            manifest,
+            progress_path,
+            romanizer,
+        )
     result = [
         r["units"]
         for r in tifa(samples, crops, archive, progress_path, "TIFA baseline")
@@ -283,20 +298,176 @@ def run(archive, folder, pcm, stereo_path, manifest, progress_path):
     ]
 
 
+def run_readings(
+    archive,
+    folder,
+    samples,
+    stereo,
+    pcm,
+    stereo_path,
+    crops,
+    manifest,
+    progress_path,
+    romanizer,
+):
+    from reading_repair import (
+        Converter,
+        corrected_crops,
+        propose,
+        singing_evidence,
+        transcribe,
+    )
+
+    input_path = manifest.with_suffix(".readings.json")
+    if input_path.stat().st_size > 8 * 1024 * 1024:
+        raise ValueError("Reading request exceeds limit.")
+    inputs = json.loads(input_path.read_text())
+    if inputs["protocol_version"] != 1 or inputs["recipe"] != "sung-reading-v1":
+        raise ValueError("Unsupported reading recipe.")
+    digest = hashlib.sha256()
+    for path in (pcm, stereo_path):
+        with path.open("rb") as file:
+            while block := file.read(1024 * 1024):
+                digest.update(block)
+    if digest.hexdigest() != inputs["audio_sha256"]:
+        raise ValueError("Reading evidence uses different audio.")
+    stems, views = [], []
+    for name in ("Demucs", "Kim"):
+        vocals = separate(stereo, len(samples), folder, name, progress_path)
+        views.append(
+            mms(
+                vocals,
+                crops,
+                folder / "mms",
+                progress_path,
+                f"Checking readings · {name}",
+                posteriors=True,
+            )
+        )
+        stems.append(vocals)
+    independent, independent_vocabulary = singing_evidence(
+        stems[-1], crops, folder, progress_path
+    )
+    transcripts = [
+        transcribe(stems[-1], folder, progress_path, "vocals"),
+        transcribe(samples, folder, progress_path, "original mix"),
+    ]
+    vocabulary = json.loads((folder / "mms/vocab.json").read_text())
+    converter = Converter(romanizer)
+    try:
+        progress(progress_path, "Selecting supported sung readings…")
+        readings, text_repairs = propose(
+            inputs,
+            crops,
+            converter,
+            views,
+            independent,
+            vocabulary,
+            independent_vocabulary,
+            transcripts,
+        )
+        if len(readings) + len(text_repairs) > 256:
+            raise ValueError("Too many automatic reading repairs.")
+        corrected, counts = corrected_crops(
+            inputs, crops, converter, readings, text_repairs
+        )
+    finally:
+        converter.close()
+    result = [
+        r["units"]
+        for r in tifa(
+            samples, corrected, archive, progress_path, "Timing checked lyrics"
+        )
+    ]
+    for name, vocals, posterior in zip(("Demucs", "Kim"), stems, views, strict=True):
+        trial = tifa(
+            vocals, corrected, archive, progress_path, f"Timing checked lyrics · {name}"
+        )
+        evidence = [
+            phonetic_units(logp, blank, targets, vocabulary)
+            for (logp, blank), (_, _, _, targets) in zip(
+                posterior, corrected, strict=True
+            )
+        ]
+        result = [
+            repair(b, v, e, targets, (last - first) // 16, counts[str(occurrence)])
+            for b, v, e, (occurrence, first, last, targets) in zip(
+                result, trial, evidence, corrected, strict=True
+            )
+        ]
+    # Complete tentative version only. Rust independently checks identity, gates,
+    # original spans and reconversion before admitting any correction or timing.
+    identity = {
+        k: inputs[k]
+        for k in (
+            "protocol_version",
+            "track",
+            "snapshot",
+            "revision",
+            "delay_ms",
+            "model_sha256",
+            "audio_sha256",
+            "recipe",
+        )
+    }
+    return [
+        {
+            "kind": "repairs",
+            **identity,
+            "readings": readings,
+            "text_repairs": text_repairs,
+        },
+        *[
+            {"occurrence": occurrence, "units": units}
+            for (occurrence, _, _, _), units in zip(corrected, result, strict=True)
+        ],
+    ]
+
+
 def main():
     cache = Path(tempfile.gettempdir()) / "RomajiExperimental-numba-v1"
     cache.mkdir(exist_ok=True)
     os.environ["NUMBA_CACHE_DIR"] = str(cache)
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
+    if len(sys.argv) == 3 and sys.argv[1] == "--check-converter":
+        from reading_repair import Converter
+
+        converter = Converter(Path(sys.argv[2]))
+        try:
+            request = {
+                "protocol_version": 1,
+                "request_id": 1,
+                "track_id": "synthetic",
+                "snapshot_id": "check",
+                "occurrence_id": 0,
+                "override_revision": 0,
+                "expected_conversion_signature": converter.signature,
+                "raw_line": "行こう",
+                "overrides": [],
+            }
+            assert any(
+                c["hiragana"] == "ゆこう"
+                for g in converter.convert(request, True)["reading_candidates"]
+                for c in g["candidates"]
+            )
+            assert converter.canonical("ゆこう", request)["romaji"] == "yukou"
+            print(json.dumps({"protocol": 1, "converter_check": True}))
+        finally:
+            converter.close()
+        return
     if sys.argv[1:] == ["--self-test"]:
         import mlx.core as mx
         import torch
         from demucs_mlx.api import Separator  # noqa: F401
 
         kim_classes()
+        import mlx_whisper  # noqa: F401
         from mlx_audio.dsp import mel_filters
-        from transformers import Wav2Vec2ForCTC  # noqa: F401
+        from transformers import (
+            HubertForCTC,  # noqa: F401
+            Wav2Vec2ForCTC,  # noqa: F401
+        )
 
         if not torch.backends.mps.is_available():
             raise RuntimeError("Metal unavailable.")
@@ -307,7 +478,7 @@ def main():
         ).shape == (60, 1025)
         print(json.dumps({"protocol": 3, "self_test": True, "device": "mps+mlx"}))
         return
-    if len(sys.argv) != 7:
+    if len(sys.argv) not in (7, 8):
         raise ValueError(
             "Expected verified models, mono/stereo audio, manifest and progress path."
         )

@@ -27,6 +27,7 @@ python3 scripts/package-notices.py
 .venv-tifa/bin/python scripts/package-python-notices.py
 .venv-experimental/bin/python scripts/package-python-notices.py ExperimentalPython
 cp refinement/MODEL-NOTICES.txt dist/RomajiPlayer.app/Contents/Resources/Notices/ExperimentalModels.txt
+cp refinement/notices/* dist/RomajiPlayer.app/Contents/Resources/Notices/
 # PyInstaller includes library/dictionary license metadata. Preserve Python's notice too.
 .venv/bin/python - <<'PY'
 import sysconfig

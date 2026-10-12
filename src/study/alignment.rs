@@ -19,7 +19,7 @@ pub const MODEL_SHA: &str = "6da6832cd2cb981aae1ccc2d9330f8f7c085ce7977d1eb13bff
 const MODEL_SIZE: u64 = 150_789_526;
 const MODEL_URL: &str = "https://github.com/openvpi/TIFA/releases/download/v1.0.0/TIFA-1.0-ST.zip";
 const ENGINE: &str = "TIFA/32a0a13-source-word-v2";
-const EXPERIMENTAL_ENGINE: &str = "TIFA+Demucs+Kim+MMS/guarded-v1";
+const EXPERIMENTAL_ENGINE: &str = "TIFA+Demucs+Kim+MMS+RomajiASR+Whisper/sung-reading-v1";
 const ASSETS: &str = include_str!("../../refinement/refinement-model-files.json");
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Method {
@@ -70,6 +70,7 @@ impl Job {
     }
 }
 pub struct Request {
+    pub protected: Vec<super::reading::ProtectedSpan>,
     pub job: Job,
     pub source: Snapshot,
     pub converted: Vec<Response>,
@@ -79,13 +80,20 @@ pub struct Request {
 pub struct Generated {
     pub track: String,
     pub base_snapshot: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_revision: Option<u64>,
     pub model_sha256: String,
     pub engine: String,
     pub audio_sha256: String,
     pub delay_ms: i64,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub repaired_readings: usize,
     pub timed_words: usize,
     pub total_words: usize,
     pub snapshot: Snapshot,
+}
+fn is_zero(value: &usize) -> bool {
+    *value == 0
 }
 impl Generated {
     fn validate(&self) -> Result<()> {
@@ -99,8 +107,21 @@ impl Generated {
             || self.engine.is_empty()
             || self.timed_words == 0
             || self.timed_words > self.total_words
+            || self.repaired_readings > 256
         {
             bail!("Invalid saved automatic timing identity.");
+        }
+        if self.repaired_readings > 0
+            && !self.snapshot.source.derivation.as_ref().is_some_and(|d| {
+                d.parent_snapshot == self.base_snapshot
+                    && Some(d.base_revision) == self.base_revision
+                    && d.audio_sha256 == self.audio_sha256
+                    && d.model_sha256 == self.model_sha256
+                    && d.recipe == super::reading::RECIPE
+                    && self.repaired_readings <= d.readings.len() + d.text_repairs.len()
+            })
+        {
+            bail!("Reading result does not match its frozen evidence.");
         }
         Ok(())
     }
@@ -109,12 +130,17 @@ impl Generated {
         if document.track_id != self.track
             || document.current().snapshot.id != self.base_snapshot
             || document.delay_ms != self.delay_ms
+            || self
+                .base_revision
+                .is_some_and(|revision| revision != document.revision)
         {
             return Ok(false);
         }
-        document.offer(self.snapshot.clone())?;
-        document.use_candidate()?;
-        document.bundles[document.active].pinned = true;
+        let mut updated = document.clone();
+        updated.offer(self.snapshot.clone())?;
+        updated.use_candidate()?;
+        updated.bundles[updated.active].pinned = true;
+        *document = updated;
         Ok(true)
     }
     /// Recover a completed job after a crash, without overriding an explicit
@@ -496,7 +522,7 @@ fn infer_with_stereo(
     stereo: Option<Vec<f32>>,
     assets: Option<PathBuf>,
 ) -> Result<Generated> {
-    let crop_list: Vec<_> = crops(&request.source, request.job.delay_ms, &audio)
+    let mut crop_list: Vec<_> = crops(&request.source, request.job.delay_ms, &audio)
         .into_iter()
         .filter_map(|crop| {
             let raw = &request
@@ -608,13 +634,21 @@ fn infer_with_stereo(
             if stereo.is_none() {
                 bail!("Experimental timing needs original stereo audio.");
             }
+            super::reading::write_input(
+                request,
+                &scratch.0.join("crops.readings.json"),
+                &request.job.method.fingerprint(),
+                &audio_sha256,
+            )?;
+            let romanizer = crate::shipping::helper_command()?;
             let mut c = crate::shipping::experimental_command()?;
             c.arg(model)
                 .arg(assets.ok_or_else(|| anyhow::anyhow!("Experimental models unavailable."))?)
                 .arg(scratch.0.join("audio.pcm"))
                 .arg(scratch.0.join("stereo.pcm"))
                 .arg(scratch.0.join("crops.bin"))
-                .arg(&progress_path);
+                .arg(&progress_path)
+                .arg(romanizer.get_program());
             c
         }
     };
@@ -622,7 +656,11 @@ fn infer_with_stereo(
         command
             .stdin(std::process::Stdio::null())
             .stdout(output)
-            .stderr(std::process::Stdio::null())
+            .stderr(if cfg!(test) {
+                std::process::Stdio::inherit()
+            } else {
+                std::process::Stdio::null()
+            })
             .spawn()?,
     );
     let started = Instant::now();
@@ -652,11 +690,41 @@ fn infer_with_stereo(
     if !status.success() {
         bail!("The local timing model failed. Playback and saved lyrics are intact; retry timing.");
     }
-    let mut occurrences = request.source.occurrences.clone();
+    let mut lines = std::io::BufReader::new(std::fs::File::open(output_path)?).lines();
+    let (repaired_source, converted, repaired_readings) =
+        if request.job.method == Method::Experimental {
+            let header = lines
+                .next()
+                .ok_or_else(|| anyhow::anyhow!("Missing reading evidence."))??;
+            if header.len() > 1_048_576 {
+                bail!("Reading evidence exceeds reply limit.");
+            }
+            let package = serde_json::from_str(&header)?;
+            let mut helper =
+                super::conversion::Romanizer::start(&mut crate::shipping::helper_command()?)?;
+            super::reading::admit(
+                request,
+                package,
+                &request.job.method.fingerprint(),
+                &audio_sha256,
+                &mut helper,
+            )?
+        } else {
+            (request.source.clone(), request.converted.clone(), 0)
+        };
+    for (crop, targets) in &mut crop_list {
+        let raw = &repaired_source.occurrences[crop.occurrence].raw_line;
+        let output = converted
+            .iter()
+            .find(|r| r.occurrence_id == crop.occurrence)
+            .ok_or_else(|| anyhow::anyhow!("Missing corrected occurrence."))?;
+        *targets = word_targets(raw, output);
+    }
+    let mut occurrences = repaired_source.occurrences.clone();
     let mut seen = std::collections::BTreeSet::new();
     let mut timed_words = 0;
-    let total_words = request.converted.iter().map(|line| line.words.len()).sum();
-    for line in std::io::BufReader::new(std::fs::File::open(output_path)?).lines() {
+    let total_words = converted.iter().map(|line| line.words.len()).sum();
+    for line in lines {
         let line = line?;
         if line.len() > 1_048_576 {
             bail!("The timing helper exceeded its reply limit.");
@@ -683,7 +751,7 @@ fn infer_with_stereo(
             &result.units,
             i64::from(crop.end - crop.start) / 16,
         ) else {
-            continue;
+            bail!("Timing reply does not match the freshly converted lyrics.");
         };
         for (_, interval) in &mut words {
             interval.start_ms += crop.lyric_origin_ms;
@@ -719,7 +787,7 @@ fn infer_with_stereo(
             "The model could not time these words reliably. Existing lyrics are preserved; retry timing."
         );
     }
-    let mut source = request.source.source.clone();
+    let mut source = repaired_source.source.clone();
     source
         .warnings
         .retain(|warning| !warning.starts_with("Automatic word timing:"));
@@ -731,10 +799,12 @@ fn infer_with_stereo(
     Ok(Generated {
         track: request.job.track.clone(),
         base_snapshot: request.source.id.clone(),
+        base_revision: Some(request.job.revision),
         model_sha256: request.job.method.fingerprint(),
         engine: request.job.method.engine().into(),
         audio_sha256,
         delay_ms: request.job.delay_ms,
+        repaired_readings,
         timed_words,
         total_words,
         snapshot,
@@ -837,10 +907,12 @@ mod tests {
             let result = Generated {
                 track: document.track_id.clone(),
                 base_snapshot: document.current().snapshot.id.clone(),
+                base_revision: None,
                 model_sha256: method.fingerprint(),
                 engine: method.engine().into(),
                 audio_sha256: "a".repeat(64),
                 delay_ms: 0,
+                repaired_readings: 0,
                 timed_words: 1,
                 total_words: 1,
                 snapshot: Snapshot::new(source.source.clone(), occurrences).unwrap(),
@@ -862,6 +934,42 @@ mod tests {
             .unwrap();
         assert_eq!(restored.current().snapshot.id, previous.id);
         assert_eq!(restored.bundles.len(), 3);
+    }
+
+    #[test]
+    fn recovery_does_not_override_an_edit_made_after_a_completed_job() {
+        use super::super::snapshot::{Anchor, Document, Edit};
+        let source = super::super::source::import("[00:12.00]桜", "synthetic.lrc").unwrap();
+        let mut document = Document::new("0000000000000000000000", source.clone()).unwrap();
+        let result = Generated {
+            track: document.track_id.clone(),
+            base_snapshot: source.id.clone(),
+            base_revision: Some(document.revision),
+            model_sha256: MODEL_SHA.into(),
+            engine: ENGINE.into(),
+            audio_sha256: "a".repeat(64),
+            delay_ms: 0,
+            repaired_readings: 0,
+            timed_words: 1,
+            total_words: 1,
+            snapshot: source.clone(),
+        };
+        document
+            .save_edit(Edit::Reading {
+                id: "mine".into(),
+                anchor: Anchor::new(&document.track_id, &source, 0, [0, 3]).unwrap(),
+                replacement: "my reading".into(),
+                mapping: false,
+            })
+            .unwrap();
+        let unchanged = document.clone();
+        assert!(!result.apply(&mut document).unwrap());
+        assert!(!result.restore_if_missing(&mut document).unwrap());
+        assert_eq!(document, unchanged);
+        let mut value = serde_json::to_value(result).unwrap();
+        value.as_object_mut().unwrap().remove("base_revision");
+        let legacy: Generated = serde_json::from_value(value).unwrap();
+        assert!(legacy.base_revision.is_none());
     }
     #[tokio::test]
     async fn cancelling_experimental_setup_preserves_files_without_contacting_models() {
@@ -903,12 +1011,13 @@ mod tests {
         );
         assert_ne!(Method::Tifa.engine(), Method::Experimental.engine());
         let assets: Vec<Asset> = serde_json::from_str(ASSETS).unwrap();
-        assert_eq!(assets.len(), 9);
-        assert!(
-            assets
-                .iter()
-                .all(|a| a.url.starts_with("https://huggingface.co/") && !a.path.contains(".."))
-        );
+        assert_eq!(assets.len(), 12);
+        assert!(assets.iter().all(|a| {
+            (a.url.starts_with("https://huggingface.co/")
+                || a.url
+                    .starts_with("https://github.com/Xiantaidu/RomajiASR/releases/"))
+                && !a.path.contains("..")
+        }));
     }
     #[test]
     #[ignore = "Explicit private recorded-song/model acceptance smoke; no bundled song audio"]
@@ -955,6 +1064,7 @@ mod tests {
             Method::Tifa
         };
         let request = Request {
+            protected: Vec::new(),
             job: Job {
                 method,
                 track: document.track_id.clone(),
@@ -972,6 +1082,10 @@ mod tests {
             samples,
         };
         let model = PathBuf::from(std::env::var_os("ROMAJI_TEST_MODEL").unwrap());
+        assert!(
+            model.is_file(),
+            "Explicit acceptance model archive must exist."
+        );
         let result = if method == Method::Experimental {
             let bytes = std::fs::read(std::env::var_os("ROMAJI_TEST_STEREO").unwrap()).unwrap();
             let stereo = bytes
@@ -994,7 +1108,9 @@ mod tests {
             infer(&request, audio, model).unwrap()
         };
         assert!(result.timed_words > 0);
-        assert_eq!(result.snapshot.text_fingerprint, original.text_fingerprint);
+        if method == Method::Tifa {
+            assert_eq!(result.snapshot.text_fingerprint, original.text_fingerprint);
+        }
         assert_eq!(result.engine, method.engine());
         assert!(result.snapshot.occurrences.iter().all(|line| {
             line.fragments
@@ -1026,9 +1142,15 @@ mod tests {
                 .snapshot,
             result.snapshot
         );
+        document.save(&output.join("study")).unwrap();
+        let reopened =
+            super::super::snapshot::Document::load(&output.join("study"), &document.track_id)
+                .unwrap()
+                .unwrap();
+        assert_eq!(reopened, document);
         println!(
-            "Recorded-song word coverage: {}/{}; original text and previous versions retained.",
-            result.timed_words, result.total_words
+            "Recorded-song word coverage: {}/{}; {} readings repaired; previous versions retained.",
+            result.timed_words, result.total_words, result.repaired_readings
         );
     }
     #[test]
@@ -1062,6 +1184,7 @@ mod tests {
             })
             .unwrap();
         let request = Request {
+            protected: Vec::new(),
             job: Job {
                 method: Method::Tifa,
                 track,
@@ -1313,10 +1436,12 @@ mod tests {
         let result = Generated {
             track: "25C3HZIvRGGtkasbrZe7D1".into(),
             base_snapshot: source.id.clone(),
+            base_revision: None,
             model_sha256: MODEL_SHA.into(),
             engine: ENGINE.into(),
             audio_sha256: "a".repeat(64),
             delay_ms: 500,
+            repaired_readings: 0,
             timed_words: 1,
             total_words: 1,
             snapshot: Snapshot::new(source.source.clone(), occurrences).unwrap(),

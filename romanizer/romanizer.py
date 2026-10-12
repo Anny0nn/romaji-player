@@ -213,7 +213,7 @@ class Converter:
                 replacement = override["replacement"].strip()
                 if "\n" in replacement or "\r" in replacement or not WORD.search(replacement):
                     raise ValueError("invalid_reading")
-                mapping = override["kind"] == "mapping"
+                mapping = override["kind"] in ("mapping", "mapping_kana")
                 envelopes = [(w, source_envelope(w) if mapping else w["raw_span"]) for w in words]
                 intersecting = [
                     (w, source)
@@ -231,17 +231,25 @@ class Converter:
                     )
                 ):
                     raise ValueError("unmapped_span")
-                if override["kind"] == "reading" and len(candidates) != 1:
+                if override["kind"] in ("reading", "reading_kana") and len(candidates) != 1:
                     raise ValueError("changed_grouping")
-                if override["kind"] not in ("reading", "mapping"):
+                if override["kind"] not in ("reading", "mapping", "reading_kana", "mapping_kana"):
                     raise ValueError("invalid_kind")
+                explicit_kana = override.get("hiragana")
+                if override["kind"].endswith("_kana"):
+                    if not isinstance(explicit_kana, str) or not re.fullmatch(
+                        r"[ぁ-ゖー]+(?: [ぁ-ゖー]+)*", explicit_kana
+                    ):
+                        raise ValueError("invalid_kana")
+                    if self.kana_romaji(explicit_kana) != replacement:
+                        raise ValueError("inconsistent_kana_romaji")
                 if any(span[0] < other[1] and span[1] > other[0] for other in accepted):
                     raise ValueError("conflicting_override")
                 accepted.append(span)
                 applied.append(record)
                 candidates[0]["replacement"] = replacement
                 candidates[0]["hiragana"] = (
-                    self.corrected_hiragana(replacement)
+                    explicit_kana or self.corrected_hiragana(replacement)
                     if JAPANESE.search(override["expected_text"])
                     else replacement
                 )
@@ -290,7 +298,7 @@ class Converter:
             hiragana += reading
             cursor = end
         hiragana += data[cursor:].decode()
-        return {
+        response = {
             "protocol_version": PROTOCOL,
             **{key: request[key] for key in IDENTITY},
             "conversion_signature": self.signature,
@@ -302,6 +310,66 @@ class Converter:
             "applied_override_ids": applied,
             "pending_overrides": pending,
         }
+        if request.get("command") == "candidates":
+            response["reading_candidates"] = self.reading_candidates(raw, normalized, words)
+        if request.get("command") == "canonical":
+            if not re.fullmatch(r"[ぁ-ゖー]+(?: [ぁ-ゖー]+)*", raw):
+                raise ValueError("invalid_canonical_kana")
+            response["canonical_reading"] = {"hiragana": raw, "romaji": self.kana_romaji(raw)}
+        return response
+
+    def kana_romaji(self, kana):
+        # Spaces in a correction are deliberate display boundaries. Dictionary
+        # token boundaries inside each kana part are not boundaries of its source word.
+        return " ".join(
+            self.cut.romaji(part, capitalize=False).replace(" ", "") for part in kana.split()
+        )
+
+    def reading_candidates(self, raw, normalized, words):
+        """Bounded alternatives; never select one without independent singing evidence."""
+        paths = []
+        for nodes in self.cut.tagger.nbestToNodeList(normalized, 32):
+            cursor, path = 0, []
+            for node in nodes:
+                cursor += node.rlength
+                path.append(([cursor - node.length, cursor], node.feature.kana or node.surface))
+            paths.append(path)
+        groups, budget = [], 192
+        for word in words:
+            source = word["raw_span"]
+            if source is None or word["override_id"] is not None or budget <= 0:
+                continue
+            surface = slice_bytes(raw, source)
+            if not re.search(r"[\u3400-\u9fff\U00020000-\U0003134f]", surface):
+                continue
+            readings = []
+            norm = word["normalized_span"]
+            for path in paths:
+                pieces = [(s, k) for s, k in path if norm and s[0] < norm[1] and s[1] > norm[0]]
+                if pieces and pieces[0][0][0] == norm[0] and pieces[-1][0][1] == norm[1]:
+                    readings.append("".join(k for _, k in pieces))
+            # Contextual paths can be dominated by ambiguity elsewhere in a line.
+            # Add bounded paths for this exact inflected envelope, never a lemma.
+            readings.extend(
+                "".join(node.feature.kana or node.surface for node in nodes)
+                for nodes in self.cut.tagger.nbestToNodeList(surface, 32)
+            )
+            candidates = []
+            for reading in readings:
+                kana = jaconv.kata2hira(reading)
+                if not re.fullmatch(r"[ぁ-ゖー]{1,128}", kana) or any(
+                    c["hiragana"] == kana for c in candidates
+                ):
+                    continue
+                candidates.append({"hiragana": kana, "romaji": self.kana_romaji(kana)})
+                if len(candidates) >= min(16, budget):
+                    break
+            if len(candidates) > 1:
+                groups.append(
+                    {"raw_span": source, "expected_text": surface, "candidates": candidates}
+                )
+                budget -= len(candidates)
+        return groups
 
     def corrected_hiragana(self, replacement):
         # Existing romaji overrides have no kana field. Accept a reverse conversion

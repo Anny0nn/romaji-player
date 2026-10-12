@@ -293,6 +293,25 @@ impl Study {
             ))),
         };
         let request = super::alignment::Request {
+            protected: document
+                .current()
+                .snapshot
+                .occurrences
+                .iter()
+                .flat_map(|line| {
+                    document
+                        .current()
+                        .edits
+                        .iter()
+                        .filter(|edit| {
+                            edit.applies(&document.track_id, &document.current().snapshot, line.id)
+                        })
+                        .map(|edit| super::reading::ProtectedSpan {
+                            occurrence_id: line.id,
+                            raw_span: edit.anchor().raw_span,
+                        })
+                })
+                .collect(),
             job: job.clone(),
             source: document.current().snapshot.clone(),
             converted,
@@ -323,7 +342,7 @@ impl Study {
                     .map(|doc| result.apply(doc))
                     .transpose();
                 match applied {
-                    Ok(Some(true)) => { self.selected = None; self.converted.clear(); self.persist(); self.alignment_message = Some(format!("{} · saved {}/{} words", job.method.label(), result.timed_words, result.total_words)); }
+                    Ok(Some(true)) => { self.selected = None; self.converted.clear(); self.persist(); self.alignment_message = Some(if result.repaired_readings > 0 { format!("{} · {} sung corrections · {}/{} words timed", job.method.label(), result.repaired_readings, result.timed_words, result.total_words) } else { format!("{} · saved {}/{} words", job.method.label(), result.timed_words, result.total_words) }); }
                     Ok(_) => self.alignment_message = Some("Automatic timing saved for the previous lyric version. Return to that version to use it.".into()),
                     Err(_) => self.alignment_message = Some("Timing saved, but the current lyrics changed. Retry for this version.".into()),
                 }
@@ -967,10 +986,12 @@ mod tests {
         let generated = Generated {
             track: TRACK.into(),
             base_snapshot: source.id.clone(),
+            base_revision: None,
             model_sha256: "a".repeat(64),
             engine: "synthetic-model".into(),
             audio_sha256: "b".repeat(64),
             delay_ms: 500,
+            repaired_readings: 0,
             timed_words: 2,
             total_words: 2,
             snapshot: Snapshot::new(source.source.clone(), occurrences).unwrap(),

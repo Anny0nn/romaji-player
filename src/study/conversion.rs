@@ -18,6 +18,29 @@ pub struct Override {
     pub raw_span: [usize; 2],
     pub expected_text: String,
     pub replacement: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hiragana: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ReadingCandidate {
+    pub hiragana: String,
+    pub romaji: String,
+}
+#[derive(Clone, Debug, Deserialize)]
+pub struct CandidateGroup {
+    pub raw_span: [usize; 2],
+    pub expected_text: String,
+    pub candidates: Vec<ReadingCandidate>,
+}
+pub fn valid_hiragana(text: &str) -> bool {
+    !text.is_empty()
+        && text.len() <= 512
+        && text.trim() == text
+        && !text.contains("  ")
+        && text
+            .chars()
+            .all(|ch| ('ぁ'..='ゖ').contains(&ch) || ch == 'ー' || ch == ' ')
 }
 #[derive(Clone, Debug, Serialize)]
 pub struct Request {
@@ -66,6 +89,8 @@ pub struct Response {
     pub boundary_associations: Vec<[usize; 2]>,
     pub applied_override_ids: Vec<String>,
     pub pending_overrides: Vec<Pending>,
+    #[serde(default)]
+    pub reading_candidates: Vec<CandidateGroup>,
 }
 pub fn span<'a>(text: &'a str, range: &[usize; 2]) -> Option<&'a str> {
     (range[0] < range[1])
@@ -155,6 +180,12 @@ impl Response {
             if matches.len() != 1
                 || matches[0].raw_span != Some(edit.raw_span)
                 || span(&self.romaji, &matches[0].output_span) != Some(edit.replacement.trim())
+                || edit.hiragana.as_ref().is_some_and(|kana| {
+                    matches[0]
+                        .hiragana_span
+                        .and_then(|range| span(&self.hiragana, &range))
+                        != Some(kana.as_str())
+                })
             {
                 bail!("invalid romanizer reading correction");
             }
@@ -165,6 +196,31 @@ impl Response {
                 .is_some_and(|id| !self.applied_override_ids.contains(id))
         }) {
             bail!("unknown word override");
+        }
+        let mut candidate_spans = std::collections::HashSet::new();
+        for group in &self.reading_candidates {
+            if !candidate_spans.insert(group.raw_span)
+                || group.candidates.len() > 16
+                || span(&request.raw_line, &group.raw_span) != Some(group.expected_text.as_str())
+                || !self
+                    .words
+                    .iter()
+                    .any(|word| word.raw_span == Some(group.raw_span) && word.override_id.is_none())
+                || group.candidates.iter().any(|c| {
+                    !valid_hiragana(&c.hiragana) || c.romaji.is_empty() || c.romaji.len() > 512
+                })
+            {
+                bail!("invalid source-anchored reading candidates");
+            }
+        }
+        if self
+            .reading_candidates
+            .iter()
+            .map(|g| g.candidates.len())
+            .sum::<usize>()
+            > 192
+        {
+            bail!("too many reading candidates");
         }
         Ok(())
     }
@@ -283,6 +339,14 @@ impl Romanizer {
         response.validate(request)?;
         Ok(response)
     }
+    pub fn candidates(&mut self, request: &Request) -> Result<Response> {
+        let mut value = serde_json::to_value(request)?;
+        value["command"] = json!("candidates");
+        let response: Response = serde_json::from_value(self.exchange(&value)?)
+            .map_err(|_| anyhow!("romanizer rejected candidate request"))?;
+        response.validate(request)?;
+        Ok(response)
+    }
 }
 impl Drop for Romanizer {
     fn drop(&mut self) {
@@ -371,6 +435,7 @@ mod tests {
             raw_span: [6, 12],
             expected_text: "故郷".into(),
             replacement: "furusato".into(),
+            hiragana: None,
         });
         let edited = helper.convert(&request).unwrap();
         let word = edited
@@ -407,6 +472,7 @@ mod tests {
             raw_span: [7, 16],
             expected_text: "食べた".into(),
             replacement: "new reading".into(),
+            hiragana: None,
         });
         let response = helper.convert(&request).unwrap();
         assert_eq!(response.romaji, "ga new reading o");
@@ -427,6 +493,7 @@ mod tests {
             raw_span: [7, 16],
             expected_text: "食べた".into(),
             replacement: "new reading".into(),
+            hiragana: None,
         });
         let valid = helper.convert(&request).unwrap();
         let mut omitted = valid.clone();
