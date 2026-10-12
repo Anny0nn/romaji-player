@@ -1020,6 +1020,103 @@ mod tests {
         }));
     }
     #[test]
+    #[ignore = "Explicit private saved-song acceptance; no inference or bundled lyrics"]
+    fn reopening_recorded_results_restores_word_highlights_and_earlier_versions() {
+        use super::super::conversion::{Request as ConversionRequest, Romanizer};
+        use super::super::snapshot::Document;
+        use super::super::timing::WordTiming;
+
+        let state = PathBuf::from(std::env::var_os("ROMAJI_TEST_RESULT_DIR").unwrap());
+        let original: Document = serde_json::from_slice(
+            &std::fs::read(std::env::var_os("ROMAJI_TEST_DOCUMENT").unwrap()).unwrap(),
+        )
+        .unwrap();
+        let track = &original.track_id;
+        let mut document = Document::load(&state.join("study"), track)
+            .unwrap()
+            .unwrap();
+        let generated = Generated::load(&state, track).unwrap().unwrap();
+        assert_eq!(document.current().snapshot, generated.snapshot);
+        assert_eq!(
+            &document.bundles[..original.bundles.len()],
+            original.bundles
+        );
+        let mut helper = Romanizer::start(&mut crate::shipping::helper_command().unwrap()).unwrap();
+        let mut displayed_words = 0;
+        let mut highlightable_words = 0;
+        for line in &document.current().snapshot.occurrences {
+            let output = helper
+                .convert(&ConversionRequest {
+                    protocol_version: 1,
+                    request_id: line.id as u64 + 1,
+                    track_id: track.clone(),
+                    snapshot_id: document.current().snapshot.id.clone(),
+                    occurrence_id: line.id,
+                    override_revision: document.revision,
+                    expected_conversion_signature: helper.signature.clone(),
+                    raw_line: line.raw_line.clone(),
+                    overrides: document.current().overrides(track, line.id),
+                })
+                .unwrap();
+            assert!(output.pending_overrides.is_empty());
+            displayed_words += output.words.len();
+            for word in &output.words {
+                let Some(timing) = word
+                    .raw_span
+                    .and_then(|span| WordTiming::supplied(span, &line.fragments))
+                    .filter(|timing| {
+                        timing.fragments.iter().any(|fragment| {
+                            fragment
+                                .source
+                                .starts_with(&format!("alignment:{}:", generated.engine))
+                        })
+                    })
+                else {
+                    continue;
+                };
+                highlightable_words += 1;
+                assert!(
+                    super::super::conversion::span(&output.romaji, &word.output_span).is_some()
+                );
+                assert!(word.hiragana_span.is_some_and(|span| {
+                    super::super::conversion::span(&output.hiragana, &span).is_some()
+                }));
+                for interval in &timing.intervals {
+                    assert!(timing.active(
+                        interval.start_ms + document.delay_ms,
+                        document.delay_ms,
+                        None,
+                    ));
+                }
+            }
+        }
+        assert_eq!(displayed_words, generated.total_words);
+        assert_eq!(highlightable_words, generated.timed_words);
+
+        let prior = original.current().snapshot.clone();
+        document.offer(prior.clone()).unwrap();
+        document.use_candidate().unwrap();
+        let selected = document.clone();
+        assert!(!generated.restore_if_missing(&mut document).unwrap());
+        assert_eq!(document, selected);
+        let restored_directory = state.join("version-restore-check/study");
+        document.save(&restored_directory).unwrap();
+        let reopened = Document::load(&restored_directory, track).unwrap().unwrap();
+        assert_eq!(reopened, selected);
+        assert_eq!(reopened.current().snapshot.id, prior.id);
+        println!(
+            "Reopened acceptance: {}",
+            serde_json::json!({
+                "track": track,
+                "engine": generated.engine,
+                "highlightable_words": highlightable_words,
+                "total_words": displayed_words,
+                "previous_version_restored": true,
+                "reopened": true,
+            })
+        );
+    }
+    #[test]
     #[ignore = "Explicit private recorded-song/model acceptance smoke; no bundled song audio"]
     fn recorded_song_pipeline_preserves_source_versions_and_reports_coverage() {
         use super::super::conversion::{Request as ConversionRequest, Romanizer};
