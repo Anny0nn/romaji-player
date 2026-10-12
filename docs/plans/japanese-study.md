@@ -53,11 +53,13 @@ retained timing coverage.
 ## Validation
 
 The migrated source passes the full local gate, including the upstream Rust suite,
-study persistence and source-span tests, and helper protocol/evidence tests. The
-relocated standalone romanizer and existing app ZIP also pass their isolation checks.
-The existing app bundle is preserved locally; these checks do not claim that a new
-release binary was built from this port. Public binary release and live alignment
-acceptance remain separate work.
+study persistence and source-span tests, and helper protocol/evidence tests. A fresh
+configured Apple Silicon app and ZIP have been built from this port and pass standalone
+helper, restricted-environment and relocation checks. The
+[sung-reading plan](sung-reading-repair.md) adds automatic reading repair to Experimental;
+its [evaluation report](../study-reading-evaluation.md) records model acceptance and
+persistence on private song copies. Public binary release and fresh live login/playback
+and listening acceptance for the ported binary remain separate work.
 
 ## Out of scope
 

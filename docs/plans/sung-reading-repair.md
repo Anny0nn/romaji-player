@@ -2,6 +2,22 @@
 
 Status: Implemented (2026-10-12)
 
+Merge validation compares both packaged actions on all fourteen existing private song
+recordings, using the same input documents and mono recordings; Experimental also uses
+each recording's stereo view. The numerical report
+separates coverage and processing time from listening accuracy. The offline gate also
+checks stale-completion messaging and scans publishable source without traversing ignored
+model environments or personal links; new untracked source is still checked. Setup,
+usage, local-data backup and reproduction instructions are maintained in the README and
+CONTRIBUTING alongside the implementation.
+
+The larger recorded suite exposed a conversion mismatch on leading unpronounced wave
+dashes in a blind transcription. Assembly validation now agrees with Cutlet's whitespace
+trimming while retaining exact source/display spans. Unsupported optional transcription
+or canonical-reading inputs are withheld; mandatory source conversion, stale replies and
+protocol failures still fail the job. These are bounded robustness fixes, with dedicated
+regressions; acoustic thresholds and the first reading-selection recipe are unchanged.
+
 ## Goal
 
 Make **Experimental** correct dictionary readings using the captured singing, then time
