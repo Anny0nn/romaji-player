@@ -2,16 +2,32 @@
 
 Status: Draft
 
-## Goal
+## Goal and scope
 
-Make Experimental understand the words being sung and highlight them accurately across
-the fourteen existing test songs, working toward complete coverage before expanding to
-new recordings. A wrong reading with a confident yellow marker is a failure. A missing
-marker remains preferable to an invented timing.
+Improve Experimental toward complete coverage of **sung words** across the fourteen
+existing songs, then test unfamiliar songs. Correct abstention on words absent from the
+recording is a success. Preserve the original TIFA action and durable per-song versions.
 
-This PR begins with this plan only. Implementation and model experiments start after
-explicit approval, on this same branch and PR. The targets below are proposed experiment
-and release criteria, not results or a promise of perfect recognition on arbitrary songs.
+Keep this work in one broad PR, as requested. Use the milestones below to make progress
+reviewable without splitting the implementation into other PRs. This remains plan-only
+until explicit approval; no new model inference or application changes have started.
+
+**First deliverable:** a reproducible failure report for the fourteen songs, followed by a
+language/pronunciation challenger evaluated against the shipped Experimental recipe.
+Report gains, regressions and readiness for the Experimental button.
+
+## Decisions and responsibilities
+
+- The implementing agent owns diagnostics, experiment tooling, model-term checks,
+  automated evaluation, integration and documentation. Neither app user is assigned
+  listening labels or manual timing work.
+- Shipping an opt-in Experimental improvement uses the automated gates below. Claiming
+  listening-verified accuracy is a separate decision requiring actual reference labels.
+  The previous unassigned 500-word audit and absolute 98% commercial-song gate are removed.
+- No product choice is outstanding besides approval of this plan. Pyshiro is optional:
+  the implementing agent records checkpoint-specific permitted use before downloading,
+  and integration/distribution terms before bundling. Unclear terms mean skip that model,
+  not stall the rest of the PR or presume permission.
 
 ## Starting evidence
 
@@ -20,297 +36,269 @@ The [merged evaluation](../study-reading-evaluation.md) records TIFA at 3,121/4,
 These fourteen recordings have all influenced development; none is a genuine holdout.
 The suite has no comprehensive listening-verified word-boundary reference yet.
 
-| Recording            | Experimental | Missing words |
-| -------------------- | -----------: | ------------: |
-| SAKURA               |      265/265 |             0 |
-| うれしくて           |      363/423 |            60 |
-| departure!           |      209/221 |            12 |
-| spiral               |      238/245 |             7 |
-| Koino Uta            |      223/307 |            84 |
-| Tabi no Tochuu       |      153/153 |             0 |
-| NEVER SAY GOODBYE    |      367/430 |            63 |
-| Just Awake           |      183/306 |           123 |
-| the WORLD            |      135/153 |            18 |
-| 色彩                 |      269/291 |            22 |
-| 君のせい             |      259/270 |            11 |
-| 今世大革命           |      188/246 |            58 |
-| Bling-Bang-Bang-Born |      335/473 |           138 |
-| 天天天国地獄国       |      247/377 |           130 |
+The existing evaluation links every track and gives the complete per-song table. The
+largest gaps are Bling-Bang-Bang-Born (138), 天天天国地獄国 (130), Just Awake (123)
+and Koino Uta (84): 475/726 gaps (65.4%). Keep SAKURA and Tabi no Tochuu, currently
+fully covered, as regression sentinels.
 
-The four largest gaps account for 475/726 missing words (65.4%). Start diagnostics
-there, while retaining the two fully covered songs as regression sentinels. The source
-track links and exact recordings are identified in the existing evaluation.
+## Cheap diagnostic already completed
 
-Experimental already combines Demucs and Kim vocal separation, TIFA, MMS acoustic
-views, RomajiASR verification and full-song Whisper large-v3. Previous experiment tools
-also ran Qwen3-ASR and LLM reading proposals. Adding another vote from the same model,
-or repeating those runs unchanged, is not a new approach.
+A read-only join of cached TIFA mix diagnostics with the merged Experimental output
+matched all 671 lyric occurrences and 4,160 original word spans: 3,434 had saved fragments,
+726 did not. Raw lyric lines matched, and cached diagnostic audio/source/crop identities
+matched their case manifest. No model ran and no user data changed.
 
-Current code supplies concrete hypotheses, not established causes of the 726 gaps:
+| Historical TIFA mix reason for those 726 spans | Count |
+| ---------------------------------------------- | ----: |
+| `token_agreement`                              |   683 |
+| `duration`                                     |    25 |
+| `unsupported`                                  |    12 |
+| `incomplete`                                   |     6 |
+| `bounds` / `similarity`                        |     0 |
 
-- `src/study/alignment.rs` crops from 500 ms before a supplied line cue through
-  300 ms after the next cue, capped at 30 seconds. Incorrect line boundaries can exclude
-  the right audio before any word model sees it.
-- `tifa/tifa_helper.py` can omit unsupported pronunciations and rejects intervals shorter
-  than 80 ms. Fast words might need a different acoustic treatment; simply lowering that
-  limit could admit incorrect paths.
-- The existing Qwen experiment forces Japanese and caps generation at 256 tokens.
-  Language routing, context and truncation deserve separate measurement on mixed lyrics.
-- Two separated inputs to MMS remain two views of one model. They do not provide two
-  independent recognizers or calibrated correctness probabilities.
+404/726 missing spans (55.6%) contain ASCII Latin letters; 397 contain only ASCII
+characters. This describes source script, not the language actually sung. Latin-bearing
+spans account for 101/123 gaps in Just Awake and 95/138 in Bling-Bang-Bang-Born.
+Only seven Latin-bearing gaps have `unsupported`; 386 have `token_agreement`.
+One of 671 cached crops reaches 30 seconds: a the WORLD occurrence with three missing
+words. This supports prioritizing language/pronunciation diagnostics over the duration cap.
 
-## Approach
+These are **historical TIFA mix reasons joined to current missing spans**, not fresh
+Experimental rejection explanations or proof of the underlying acoustic cause. The
+private inputs are `cases-all14-mix.json`, `tifa-mix-all14.json` and the fourteen merged
+Experimental result bundles. Reproduce this join in milestone 1, recording input hashes
+and unmatched counts; do not silently substitute cached diagnostics from another recipe.
 
-Keep the original TIFA action stable. Develop challengers offline from explicit private
-recordings, then promote only measured improvements into Experimental. Reuse cached
-audio and evidence; do not re-record songs or change the authorized capture helper.
+## Experiments, in priority order
 
-### 1. Explain the failures before selecting models
+### 1. Diagnose and test language/pronunciation handling
 
-Extend the existing experiment tools with a versioned, private diagnostic ledger, keyed
-by recording hash, source snapshot, occurrence, original UTF-8 span, conversion signature
-and recipe/model hashes. Record source cue, exact crop sample bounds, pronunciation
-support, token/path completeness, rejection reason, raw interval and each verifier's
-evidence. Store both the first failing gate and all observable failure flags so one early
-rejection does not hide a second problem.
+Reuse the existing counter in `scripts/experiment-phonetic-alignment.py` before building
+new infrastructure. Extend it only where current evidence cannot distinguish failures.
+The minimal diagnostic ledger lives outside the checkout in an explicit private output
+root, such as `/private/tmp/romaji-accuracy-private` (directory 0700, files 0600). It and
+full lyrics, audio, labels and model evidence must never be published, even as PR logs.
+Only aggregate results, synthetic fixtures and general experiment code enter git.
 
-Separate unsupported phones, wrong reading/text, wrong line/verse location, truncated
-context, short interval, weak acoustics, overlapping voices and unresolved cases. Initial
-labels are hypotheses until evidence or listening confirms them. Include already accepted
-words in the audit: missing words are not the only possible errors.
+Key rows by recording hash, snapshot, occurrence, original UTF-8 span, conversion and
+recipe/model signatures. Include raw and accepted intervals, first rejection reason and
+other observable failure flags. Take exact crop sample bounds/origin from the **Rust job
+manifest**, extending its exported diagnostics if needed; Python must not re-derive them.
+Legacy cached crops retain their provenance and are not represented as fresh Rust output.
 
-Freeze the existing input documents and model versions. Compare each challenger against
-the same baseline, then run ablations before combining winners. Do not repeatedly feed
-the previous experiment's corrected output into the next baseline.
+Distinguish unsupported phones, wrong reading/text, **not sung / lyric mismatch**, wrong
+line/verse, truncated context, short duration, weak acoustics, overlapping voices and
+unknown causes. A failed alignment alone cannot establish that a word was not sung.
+Audit accepted words too. Freeze original inputs; each trial starts from the same source,
+not the previous trial's corrected output.
 
-### 2. Test structural and pronunciation fixes first
+The shipped Whisper path in `refinement/reading_repair.py` forces `language="ja"` and
+uses no lyric prompt. Test changed language handling there first: compare full-context
+Japanese-forced decoding with language detection and bounded English/mixed-phrase
+retries. Keep transcription blind to downloaded lyrics; source script can nominate a
+retry but cannot decide sung language. Avoid the already observed short-crop hallucinations.
+Qwen3-ASR is an optional offline comparator, not the shipped transcription path; its
+existing experiment also forces Japanese and caps generation at 256 tokens.
 
-These experiments reuse available models and target failures that model size cannot fix.
+In parallel, test bounded pronunciation alternatives for small kana, long vowels,
+contractions, particles, sung kanji readings and English spans. Preserve source mappings
+through phone conversion; score whole phrases, including null/wrong-text alternatives.
+Measure whether Latin-heavy failures originate in conversion, alignment or the Japanese
+verifier's unsupported language. A Japanese-only verifier cannot approve English changes;
+keep those proposals offline until an independently evaluated English acoustic path exists.
+Two MMS stems or two Whisper configurations are views, not independent model votes.
 
-| Experiment               | Concrete change to test                                                                                                                                                                                                                      | Evidence needed to retain it                                                                                                                                                              |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Adaptive phrase context  | Retry failed regions with neighboring lyric lines and overlapping acoustic windows; use trusted surrounding anchors and vocal activity to propose bounds. Align the joint phrase before assigning words back to occurrences.                 | Fewer wrong-line/edge failures, correct reference onsets, no duplicate assignment to adjacent lines. Silence detection proposes cuts; it does not prove word boundaries.                  |
-| Pronunciation lattice    | Preserve original spans while offering bounded kana/phone alternatives for contractions, long vowels, small kana, particles, sung kanji readings and Japanese/English spans. Score complete phrase paths with a null/wrong-text alternative. | Correct sung reading wins independent acoustic checks; unsupported symbols and invented readings are withheld. Orthography normalization must not erase audible distinctions.             |
-| Language/context routing | Compare the existing blind Qwen3/Whisper paths with automatic or explicit per-phrase language choices and sufficient output budget. Keep transcription blind to downloaded lyrics.                                                           | Lower reference kana/phone or English word error on the affected spans; no new hallucinations on instrumental/wrong-verse controls. A new configuration is not an independent model vote. |
+### 2. Recover context and test singing-specific durations
 
-For longer windows, constrain search by neighboring trusted occurrences and retain original
-sample coordinates. Do not let a repeated chorus elsewhere in the recording provide a
-plausible but wrong match. Start with bounded neighboring windows; whole-song relocation
-requires a separately evaluated monotonic occurrence assignment. Correcting an alignment
-crop need not rewrite the downloaded lyric snapshot.
+For failures near line boundaries, retry joint neighboring phrases using trusted anchors
+and vocal activity. Existing Rust crops use 500 ms before the cue, 300 ms after the next
+cue and a 30-second cap. Preserve absolute sample coordinates; align the joint phrase
+before assigning words to occurrences, rejecting duplicated or wrong-verse assignments.
+Whole-song relocation requires its own monotonic occurrence assignment evaluation.
 
-Reading proposals retain Japanese source text when only pronunciation differs. Actual
-lyric substitutions create a new snapshot with an explicit old-to-new span map. Insertion,
-deletion or word regrouping must be represented in that map and evaluated against the
-audible reference; deleting difficult words cannot improve the score. Unmapped protected
-edits block automatic replacement of the affected region. Keep earlier complete versions.
+Benchmark [pyshiro](https://github.com/wavtechyukky/pyshiro) and the
+[Japanese SHIRO models](https://github.com/intunist/SHIRO-Models-Japanese) as an optional
+independent duration-model challenger. Its singing HSMM is relevant to held vowels and
+short consonants. The model description emphasizes female/tenor training material and
+warns about low male voices and long segments; measure CPU/RAM on short phrases first.
+GPL-3.0 code and unresolved model terms are subject to the responsibility rule above.
 
-### 3. Benchmark a singing-specific duration model
+Implement an explicit versioned kana-to-checkpoint-phone mapping before comparison.
+Fixtures cover long vowels, geminates, moraic nasal, devoicing, palatalization, particles,
+silence and word boundaries; unmapped phones and English are rejected, never dropped.
+Phone-to-word aggregation must preserve original spans. Check the mapping against the
+checkpoint inventory and labelled examples, not merely round-trip self-consistency.
+Never distribute times evenly across phones or lower TIFA's 80 ms threshold merely to
+inflate retention. Any short-word recovery must pass the same acoustic/reference checks.
 
-Privately evaluate [pyshiro](https://github.com/wavtechyukky/pyshiro) with the
-[Japanese SHIRO models](https://github.com/intunist/SHIRO-Models-Japanese) as a challenger
-to current CTC alignment. It uses a duration-explicit HSMM and Japanese singing models,
-offering a different hypothesis for sustained vowels, short consonants and word boundaries.
-Aggregate measured phone boundaries into the existing displayed words; never apportion
-word times equally across phones or morae.
+### 3. Recover weak repeats and refine boundaries
 
-The model author describes 17.8 hours of training audio, mainly female voices with some
-tenor material, and warns about low male voices and long segments. Test both male and
-female recordings, short words, held vowels and dense passages. Use short, overlapping
-phrases and measure CPU runtime/RAM first. Apple Silicon performance is unverified.
+Use [librosa recurrence](https://librosa.org/doc/main/api/generated/librosa.segment.recurrence_matrix.html)
+to nominate repeated sections and [constrained DTW](https://librosa.org/doc/0.11.0/generated/librosa.sequence.dtw.html)
+on MMS vocal features to propose target boundaries. Chroma locates sections; it is too
+coarse to place words. Librosa is ISC-licensed and adds no model weights for this trial.
 
-Pyshiro's GPL-3.0 code and the model repository's unclear weight redistribution terms
-make this an isolated research candidate, not a selected bundled dependency. Resolve
-permitted research use before obtaining weights, and code/model distribution terms before
-any product integration; if that cannot be done,
-retain the experiment findings and use the other paths. A forced aligner's successful path
-is not evidence that the supplied words were actually sung.
+The contribution is a better **search window**, not copied timing: a weak occurrence may
+have enough phonetic evidence once localized, despite failing full-line alignment.
+Warp only from matching source lyrics; retain target occurrence identity and reject high
+distortion. Re-align target audio within the proposed region without a timing prior.
 
-### 4. Use repetitions and musical boundaries as supporting evidence
+The verifying path is RomajiASR CTC on the **target audio**, excluded from DTW proposal
+features. Require a complete mapped path, mean phone probability at least 0.45, onset and
+offset within 150 ms of the proposal, non-overlap with unchanged neighbors, and the
+existing reading-repair gates for any changed pronunciation. Calibrate these proposed
+thresholds on development references, then freeze them before final evaluation. Unsupported
+languages abstain. Model agreement remains a proxy, not listening truth. This avoids the
+circular requirement that a target already have an accepted timestamp before DTW helps.
 
-Where identical lyrics recur, use vocal phonetic features and constrained dynamic time
-warping to propose boundaries in the weaker occurrence. The repeat itself must have
-matching acoustic content and independently supported target words. A clearer chorus
-can suggest a pronunciation, but timing remains specific to each performance. Do not
-copy timestamps, average a changed verse, or let a strong repeat override contradictory
-singing in another occurrence.
+Test local consonant/onset or pitch-change features only for diagnosed boundary errors.
+A note change may occur inside a held word, so it cannot independently accept a word.
+Contradictory repeat readings remain withheld; each repeat needs its own acoustic evidence.
 
-Reuse librosa's [recurrence matrix](https://librosa.org/doc/main/api/generated/librosa.segment.recurrence_matrix.html)
-and [constrained DTW](https://librosa.org/doc/0.11.0/generated/librosa.sequence.dtw.html)
-implementations for the prototype. Chroma can nominate repeated sections, but the word
-warp uses vocal phonetic features; reject low-support or highly distorted paths. This
-adds no new model weights. The library is ISC-licensed; measure bounded-window CPU cost.
+### 4. Additional models only for remaining failure classes
 
-For remaining boundary errors, test local consonant/onset and pitch-change features around
-existing phonetic candidates. A note onset is not necessarily a word onset, and a sustained
-word may cover multiple notes. Such features can refine an acoustically supported boundary;
-they cannot manufacture a missing word. Both experiments remain hypotheses for Japanese
-commercial recordings, supported by research precedents rather than a ready-made solution.
+Demucs, Kim Vocal 2, MMS, RomajiASR, Whisper large-v3 and Qwen3-ASR have already been
+tried. Another conversion of Kim Vocal 2 or unchanged ensemble is not a new experiment.
+Benchmark a genuinely distinct separator only if downstream failures implicate separation.
+Keep the best-performing components by ablation, not model count.
 
-### 5. Add heavier models only for diagnosed residual errors
+Singing-recognizer adaptation is a later option if these tracks plateau. Use appropriately
+licensed training material disjoint from evaluation singers/songs, never the personal
+commercial recordings or their evaluation labels. A local LLM may propose bounded
+alternatives but cannot vote on acoustic correctness. Record a concrete training/runtime
+proposal before expanding into adaptation.
 
-If remaining failures are separation artifacts, benchmark one demonstrably different vocal
-checkpoint against the existing Kim Vocal 2 and Demucs outputs. Identify the exact base
-weights first: another conversion of the same Kim model is not a new challenger. Compare
-final reading and timing accuracy, not just a separation leaderboard score.
+## Evaluation and precise promotion rules
 
-If failures instead reflect unseen singing pronunciations, explore a singing recognizer
-adaptation using licensed, acoustically labelled Japanese singing data. Keep training
-singers/songs disjoint from evaluation, and never train on the fourteen personal commercial
-recordings or their test labels. This is a later proposal if the earlier experiments plateau,
-not a dependency for this implementation. A local LLM may suggest bounded alternatives;
-its semantic preference cannot accept a reading or contribute an acoustic verification vote.
+The fourteen songs are development data. Full-song replays may expose all their results;
+we no longer describe selected phrases from repeatedly inspected songs as blind acceptance
+material. Automated reference evaluation uses existing human-labelled data, beginning with
+[PJS human phone relabels](https://github.com/UtaUtaUtau/pjs-manual-labels) and the
+[PJS corpus](https://sites.google.com/site/shinnosuketakamichi/research-topics/pjs_corpus).
+The implementing agent owns acquisition, versioned reference import and the evaluation
+runner. Corpus and relabel state CC BY-SA 4.0. Their single male singer and roughly
+27 minutes of controlled singing limit transfer to commercial mixes. Reserve twenty
+whole PJS songs before tuning; use the remainder for calibration. The runner withholds
+reserved per-unit results from tuning reports/ledgers until recipe hashes are frozen,
+then scores both baseline and candidate together. A tested report filter enforces this;
+after inspecting failures, do not reuse that pool as an unseen acceptance set.
 
-## Accuracy and experiment gates
+Store private reference JSONL with recording hash, occurrence/reference-unit ID, audible
+phone/kana sequence, language, onset/offset in recording milliseconds, reference provenance,
+annotation version and uncertainty. Compare phone boundaries directly where the corpus
+has only phone labels; word metrics require an explicit frozen phone-to-word grouping.
+Score/JSUT synthesis times and model-generated labels are not acoustic truth.
 
-Keep the fourteen-song development benchmark and add an independently labelled listening
-audit. This is developer evaluation, not a manual timing workflow for app users. Labels must
-come from the audible performance, not dictionary output, agreement between our models,
-or a musical score's nominal timing. If qualified listening adjudication is unavailable,
-report only coverage and model agreement, and leave accuracy-dependent promotion pending.
+For a proposed recipe, all of the following are required before enabling it in Experimental:
 
-Define word onset as the first audible phone belonging to the displayed word and offset
-as the last audible phone, including held vowels but excluding following silence. Annotate
-ambiguous/overlapping cases as uncertain and report their count rather than silently
-discarding them. Keep audible sung readings alongside boundaries; preserve unvoiced
-consonants, long-vowel distinctions and English spans in the reference.
+1. Full offline regression, identity, mapping, persistence and package checks pass. Fixed
+   silence, instrumental and wrong-verse controls admit zero new words or reading changes.
+2. On frozen labelled-reference cases relevant to the changed path, compare candidate
+   and shipped baseline on identical inputs. Use at least 50 affected units over ten
+   distinct phrases; tiny samples remain exploratory. At least 98% of accepted units have
+   the correct reference reading and onset within 150 ms, and at least 95% have offsets
+   within 200 ms. These are **point estimates**, not confidence-bound gates. Previously
+   correct baseline units must remain correct, and supported reading repairs must add no
+   wrong replacements. Report phrase-clustered uncertainty separately, plus abstentions;
+   use phone or word terminology according to the actual reference granularity.
+3. On the fourteen-song suite, require at least twenty additional acoustically supported
+   words across at least three songs for a general recovery path, with no lost accepted
+   spans or moved baseline intervals outside deliberately repaired regions. A narrow
+   reading/conversion bug may qualify through a verified failing fixture instead; report
+   it as that specific fix, not evidence of general recovery. Preserve verified Tabi
+   readings and protected edits. Publish per-song gains/losses and changed regions.
+4. Keep baseline results as selectable versions. Unverified commercial-song outcomes are
+   labelled model-supported Experimental results. The reference gates evaluate **newly
+   affected paths**, not an assertion that today's entire shipped baseline achieves 98%.
+   If relevant reference data are unavailable (for example English singing), that path
+   stays offline; other passing improvements can still ship in the same PR.
 
-1. Build a development audit of at least 200 words across all fourteen songs, including
-   retained and rejected words, all fifteen automatic reading changes, the user-reported
-   departure! region and the verified Tabi readings. This diagnoses and calibrates gates.
-2. Before tuning, reserve separate phrases with at least 300 words across all fourteen
-   songs for a blind acceptance audit. Group repeated phrases together so one chorus
-   cannot appear in both pools. Stratify retained/missing words, vocal type, fast passages,
-   sustained notes and mixed languages. Keep system identity hidden during adjudication.
-   These held-out phrases still do not make the fourteen songs unseen recordings.
-3. Report retained coverage, correct sung-reading rate, onset/offset absolute error
-   (median, p90 and p95), and joint correctness: correct sung word with onset within
-   150 ms. Report fractions within 50/100/150/250 ms as well. The proposed promotion
-   target is at least 98% joint correctness among accepted, adjudicated words and at
-   least 95% offsets within 200 ms, with counts and uncertainty intervals. Separate
-   newly recovered words from the already accepted set; report each song and stratum.
-   Record sampling probabilities and report stratified estimates rather than treating an
-   oversampled difficult-word audit as the song population. Group uncertainty estimates
-   by phrase/song; repeated words are not independent observations.
-4. A challenger must improve correct recoveries on its targeted failure class without
-   observed regressions on previously correct audit words or verified readings. Require
-   zero accepted new words/readings on the fixed silence, instrumental and wrong-verse
-   controls. If it fails, keep it offline and explain the tradeoff; do not relax the gate
-   solely to reach a coverage target. A small audit cannot establish 98% population accuracy.
-5. Preserve the original 4,160-word coverage denominator for comparable unchanged spans.
-   Also report corrected displayed-word totals and a fixed listening-reference denominator,
-   including insertions/deletions and uncertain references. Full coverage is only a
-   diagnostic milestone; call a song fully verified only after its entire performance is
-   checked, including already yellow words and untranscribed singing.
+Coverage keeps the original 4,160-word denominator for unchanged spans, alongside
+corrected display totals and reference-unit totals. Track insertions, deletions, absent
+sung words and uncertain cases separately so removing lyrics cannot improve the score.
+Report onset/offset median, p90/p95 and fractions within 50/100/150/250 ms where references
+exist. Do not call a commercial song fully verified without checking the whole performance.
 
-Use [PJS](https://sites.google.com/site/shinnosuketakamichi/research-topics/pjs_corpus)
-and its [human-relabelled phone timings](https://github.com/UtaUtaUtau/pjs-manual-labels)
-for an additional Japanese phone-boundary sanity check, subject to their terms. These
-controlled recordings do not substitute for the commercial-song listening audit. Existing
-JSUT score times remain unsuitable as acoustic boundary ground truth.
+Additional blind listening is optional and currently unassigned, not a merge prerequisite.
+Any future adjudicator must understand sung Japanese and identify phone boundaries; use
+an audio/waveform annotation tool, export the same private schema, hide system identity
+and record uncertain judgments. Do not assign this work to the maintainer or his girlfriend,
+make up a staffing/time commitment, or present automated agreement as its substitute.
 
-PJS contains one male singer and about 27 minutes of singing. Use the human relabel
-rather than assuming the original labels are exact. Corpus and relabel both state
-CC BY-SA 4.0; keep attribution and evaluation inputs separate from the app package.
+After freezing the recipe, expand to at least ten new recordings from five artists with
+varied voices, speed, held notes and mixed language. Freeze configuration/model hashes
+before the first run; results and per-word logs are revealed only after the complete frozen
+run finishes. Once inspected or used for tuning, mark the set as development and reserve
+new songs for the next holdout. Without acoustic labels, this remains an unseen-song
+robustness/coverage check, not a measured accuracy benchmark.
 
-After freezing a winning recipe, evaluate at least ten genuinely new songs from at least
-five artists, including unfamiliar voices, rapid singing, long notes and code switching.
-Reserve whole recordings and all their repeats; do not tune on their outcomes. A failed
-holdout can become development data only with that change recorded and a fresh future
-holdout. Expansion follows improvement of the current list and does not block the initial
-diagnostic work. General claims about almost any Japanese song wait for that evidence.
+Reuse all fourteen cached recordings. New songs use `scripts/capture-song-suite.py` and
+the existing authorized immutable helper; never rebuild it to capture. A macOS permission
+prompt requires the user's response if it actually appears, not a planned repeated approval.
+Unavailable new recordings do not block testing or shipping improvements to the current set;
+broader claims remain pending the new-song evaluation.
 
-## Product and resource boundaries
+## Integration and milestones in this PR
 
-Only validated winners enter Experimental; retain the two existing timing buttons and
-compact Options. Use staged progress and cancellation. Cache reusable intermediate
-evidence by audio/model/recipe identity, with cleanup separate from durable user results.
-Never clear accepted saved timings when an optional model fails or a job is cancelled.
+1. **Failure report and first challenger:** reproduce the cached histogram, export missing
+   Rust diagnostics, freeze reference inputs, test shipped Whisper language handling and
+   pronunciation support. Publish aggregates and a keep/reject decision per experiment.
+2. **Context, duration and repeat challengers:** proceed according to measured failure
+   classes. Give each a bounded pilot and retain it only when it adds distinct value.
+   Failed or unavailable models get recorded outcomes, not endless dependency work.
+3. **First integrated Experimental recipe:** combine passing changes, rerun ablations and
+   the complete fourteen-song/persistence suite, then package a testable app. Record exact
+   components, model revisions, mapping versions, gates, sizes and results in this plan
+   and `docs/study-reading-evaluation.md`. Milestones are progress checkpoints, not new
+   approval requests within the authorized scope. If none passes, report that result and
+   the next concrete hypothesis rather than inventing an accuracy improvement.
+4. **Broader validation and documentation:** evaluate available new recordings with the
+   frozen recipe; update `docs/study.md` and README behavior/limits. Finish the PR when
+   selected improvements and checks are complete; deferred research remains documented.
 
-Python owns acoustic candidate generation and inference. The bundled romanizer owns
-conversion and its source-span mappings. Rust validates identities, coordinates, protected
-edits and complete result bundles before atomically saving. Any new crop/phone protocol
-must declare sample rate, recording origin, half-open source spans and coordinate units;
-subtract the saved delay exactly once when saving playback-derived times. Reconvert and
-freshly align accepted reading/text changes rather than attaching old display offsets.
+Python proposes acoustic candidates; the bundled romanizer maps source spans; Rust
+validates identity, coordinates, protected edits and atomic version saves. Protocols state
+sample rate, recording origin and half-open byte spans; subtract saved delay exactly once.
+Pronunciation-only changes preserve source text. Text changes require a new snapshot and
+explicit old-to-new span mapping, including insertions/deletions/regrouping. Unmapped
+protected edits block the affected replacement. Reconvert and freshly align accepted changes.
 
-Preserve existing user corrections, prior automatic versions, per-song preferences and
-repeat-reading safeguards. Restore/reopen must reproduce the selected version in all
-three lyric modes. Model upgrades do not silently rewrite existing accepted songs.
-
-Run models sequentially on the M2 Pro/16 GiB machine. For each shortlisted configuration,
-measure first-load and three cached runs, per-stage and whole-job time, process-tree RSS,
-MLX/MPS allocations, system memory pressure and swap change. Do not add unrelated peak
-counters and call the sum a memory measurement. Investigate memory-pressure failures
-before packaging; reduce window/batch sizes first. Record extra download/disk sizes.
-Prefer accuracy over an arbitrary speed cutoff, while keeping cancellation usable.
-
-## Steps
-
-1. After approval, add diagnostic/replay schemas, fixtures and the frozen benchmark
-   manifest; establish the audit protocol and baseline. Keep private inputs outside git.
-2. Test adaptive context, pronunciation support and language routing individually. Publish
-   aggregate failure counts, accuracy evidence, runtime and negative results in
-   `docs/study-reading-evaluation.md`.
-3. Run the isolated duration-model challenger and bounded repeat/boundary experiments
-   where diagnostics justify them. Compare both individual and combined effects; stop
-   adding models that provide no independently verified improvement.
-4. Select the smallest passing recipe, or document that none passed. Before integration,
-   record its exact model revisions, terms, gates and protocol changes in this plan; a
-   material change in scope requires renewed approval. Package only validated components.
-5. Integrate the selected Experimental recipe, test persistence and the standalone app,
-   and update `docs/study.md`, README usage/limitations and measured evaluation results.
-   Keep unproven experiments outside the shipping path. Record remaining gaps explicitly.
-6. Freeze the recipe and evaluate the new-song holdout before claiming broader accuracy.
+Retain both timing buttons, compact Options, all lyric modes and per-song preferences.
+Cancellation/failure must preserve saved results; cache cleanup must not remove durable
+versions. Upgrading models must not silently rewrite accepted songs. Run models sequentially
+on M2 Pro/16 GiB; measure first load and three cached runs, stage/whole-job time, process-tree
+RSS, MLX/MPS memory, system pressure, swap and disk/download sizes. Separate those counters
+instead of adding unrelated maxima. Prefer accuracy while keeping cancellation responsive.
 
 ## Tests and checks
 
-- Offline regressions for unsupported kana, contractions, mixed languages, short words,
-  long vowels, wrong cues, adjacent/repeated verses and truncated transcription.
-- Synthetic and recorded-feature tests for sample-rate/origin conversion, nonzero delay,
-  overlap, out-of-bounds intervals, null paths and disallowed zero/evenly distributed times.
-- Span mapping and reattachment tests for regrouping, insertions/deletions, repeats,
-  protected edits, stale jobs, recipe changes and reconversion in all lyric modes.
-- Negative acoustic controls and blinded audits above, with exact input/model identities;
-  generated references or hypotheses must never be counted as listening truth.
-- Full fourteen-song replay and reopening checks; no writes to the user's live study data.
-- New deterministic tests join `scripts/check.sh`; network, model downloads and long
-  inference stay explicit acceptance commands. Run the full gate and standalone helper/
-  app relocation checks before marking implementation ready.
+Add offline fixtures for phone mapping, English/mixed input, short/held words, wrong cues,
+repeats, absent lyrics, transcription truncation, crop identity and nonzero delay. Test
+source-span reattachment, protected edits, stale jobs, regrouping and all lyric modes.
+Include negative controls, reference scoring, ledger privacy and frozen-run report release.
+Never evenly distribute timings. Reopen all fourteen outputs in isolated private storage.
 
-## Research references and limits
+New deterministic tests join `scripts/check.sh`; downloads/inference remain explicit
+acceptance commands. Run the full gate and standalone helper/app relocation checks before
+marking implementation ready. Publish aggregates only; no live user study-data writes.
 
-Research consulted 2026-10-13. Sources below motivate experiments; they do not establish
-results for our suite or Apple Silicon compatibility.
+## Further research references
 
-- [Pyshiro](https://github.com/wavtechyukky/pyshiro) and
-  [SHIRO Japanese models](https://github.com/intunist/SHIRO-Models-Japanese): singing
-  duration-model challenger; voice coverage, licensing and local performance need checks.
-- [Joint pitch/phoneme lyrics alignment](https://arxiv.org/abs/2202.01646): evidence for
-  musical/phonetic boundary features, not a released Japanese model for our hardware.
-- [Chroma and singing phonetic features](https://arxiv.org/abs/2401.09200): a classical
-  singing alignment precedent; do not transfer its reported accuracy to Japanese pop.
-- [Recurring patterns and canonical time warping](https://arxiv.org/abs/1701.06078):
-  repeat-based alignment research on other languages; our bounded repeat experiment is
-  an adaptation hypothesis.
-- [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR): source for the already tried model
-  family. Compare changed context/language handling, not another identical ensemble.
-- [GTSinger](https://github.com/AaronZ345/GTSinger): possible later multilingual singing
-  evaluation/adaptation data. Verify annotation provenance and dataset-specific terms
-  separately from code terms; controlled singing is not a substitute for mixed recordings.
-- [MOSS-Music](https://github.com/OpenMOSS/MOSS-Music) and its
-  [model card](https://huggingface.co/OpenMOSS-Team/MOSS-Music-8B-Thinking): a distinct
-  music-trained transcription candidate, deferred. Its 9.1B parameters exceed 16 GiB
-  for unquantized BF16 weights alone; official runtime is CUDA-oriented and published
-  singing results do not establish Japanese accuracy. A validated Mac quantization would
-  be a separate feasibility experiment, not a dependency of this plan.
-- [Kotoba bilingual Whisper](https://huggingface.co/kotoba-tech/kotoba-whisper-bilingual-v1.0):
-  Japanese/English speech evidence and shared Whisper ancestry; defer unless language
-  diagnostics justify a comparison. It cannot count as an independent singing verifier.
+- [Joint pitch/phoneme alignment](https://arxiv.org/abs/2202.01646),
+  [chroma/phonetic alignment](https://arxiv.org/abs/2401.09200) and
+  [repeated sung-vowel patterns](https://arxiv.org/abs/1701.06078) inform boundary/repeat
+  experiments; their results are not Japanese pop benchmarks for our models.
+- [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) documents the already tried family;
+  changed language/context handling is the relevant experiment.
+- [GTSinger](https://github.com/AaronZ345/GTSinger) is a possible later labelled singing
+  source; review dataset-specific terms separately from code licensing before use.
+- [MOSS-Music](https://github.com/OpenMOSS/MOSS-Music) is deferred pending a viable Mac
+  runtime/quantization: its 9.1B model exceeds 16 GiB for BF16 weights alone, and published
+  singing results do not establish Japanese accuracy.
+- [Kotoba bilingual Whisper](https://huggingface.co/kotoba-tech/kotoba-whisper-bilingual-v1.0)
+  has speech evidence and shared Whisper ancestry, not an independent singing vote.
 
 ## Out of scope
 
-Manual word timing, automatic acceptance based on coverage alone, arbitrary LLM rewrites,
-cloud inference, new platforms, replacing Spotify playback, a public training-data release,
-training on personal commercial recordings, and a guarantee of 100% on every song.
-This draft adds no models, application changes or new downloads.
+Manual user timing, acceptance by coverage alone, unrestricted LLM rewrites, cloud inference,
+platform/playback changes, publishing private song data, and guaranteeing every song is perfect.
