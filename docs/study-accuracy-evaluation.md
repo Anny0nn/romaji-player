@@ -2,8 +2,79 @@
 
 This report records work after approval of the [accuracy plan](plans/singing-accuracy.md)
 on 2026-10-13. Tests use the existing fourteen private recordings on an Apple M2 Pro with
-16 GiB memory. The shipped Experimental recipe remains at **3,434/4,160 retained words**.
-The challengers below are offline experiments; neither timing button enables them yet.
+16 GiB memory. The integrated Experimental update retains **3,435/4,160 words**, versus
+3,434 previously. It adds one narrowly guarded pronunciation fallback; the broader
+challengers below remain offline. Original TIFA remains at 3,121/4,160.
+
+## Integrated result
+
+`vowel-extension-v1` handles same-vowel small-kana spellings such as `あぁ` only when
+the normal TIFA pronunciation converter rejects them. It preserves original text,
+readings and byte anchors. Independent MMS support, phrase coherence and the existing
+bounded repair policy remain required. Only nominated unsupported spans may gain timing;
+the fallback cannot authorize unrelated missing words. Valid digraphs are preserved.
+
+Both packaged helpers ran through the native app's pipeline on all fourteen cached
+recordings, with isolated result directories. Comparisons use source occurrence and byte
+span, verify identical recording/source/delay identities, and keep the 4,160-word denominator.
+
+| Recording            | Previous Experimental | Updated Experimental | Gains / losses | Existing words adjusted | TIFA / Experimental seconds |
+| -------------------- | --------------------: | -------------------: | -------------: | ----------------------: | --------------------------: |
+| SAKURA               |               265/265 |              265/265 |          0 / 0 |                       0 |                 9.6 / 220.5 |
+| うれしくて           |               363/423 |              363/423 |          0 / 0 |                       0 |                 9.3 / 266.0 |
+| departure!           |               209/221 |              209/221 |          0 / 0 |                       0 |                 6.6 / 175.4 |
+| spiral               |               238/245 |              238/245 |          0 / 0 |                       0 |                 6.4 / 161.0 |
+| Koino Uta            |               223/307 |              223/307 |          0 / 0 |                       0 |                 6.0 / 150.4 |
+| Tabi no Tochuu       |               153/153 |              153/153 |          0 / 0 |                       0 |                 5.4 / 181.0 |
+| NEVER SAY GOODBYE    |               367/430 |              367/430 |          0 / 0 |                       0 |                 7.1 / 200.8 |
+| Just Awake           |               183/306 |              183/306 |          0 / 0 |                       0 |                 6.7 / 161.6 |
+| the WORLD            |               135/153 |              135/153 |          0 / 0 |                       0 |                 5.8 / 154.9 |
+| 色彩                 |               269/291 |              270/291 |          1 / 0 |                       1 |                 6.2 / 148.9 |
+| 君のせい             |               259/270 |              259/270 |          0 / 0 |                       0 |                 6.3 / 180.5 |
+| 今世大革命           |               188/246 |              188/246 |          0 / 0 |                       0 |                 7.0 / 155.4 |
+| Bling-Bang-Bang-Born |               335/473 |              335/473 |          0 / 0 |                       0 |                 7.4 / 163.1 |
+| 天天天国地獄国       |               247/377 |              247/377 |          0 / 0 |                       0 |                 7.3 / 197.1 |
+| **Total**            |       **3,434/4,160** |      **3,435/4,160** |      **1 / 0** |                   **1** |      **6.6 / 169.3 median** |
+
+All original TIFA intervals are identical to the previous run. All fifteen automatic
+reading occurrences are unchanged, including the six verified Tabi readings. The sole
+changed existing interval is adjacent to the recovered 色彩 word inside its bounded
+repair region; no other song moves. This qualifies as a narrow conversion fix, not a
+passing general-recovery recipe or a listening-verified accuracy improvement.
+
+All **28 saved action results** were reopened and reconverted with the standalone
+romanizer. Native checks verified word highlight intervals and valid spans in romaji
+and hiragana, retained earlier bundles, selected a previous version and restored that
+selection after another save/reopen. Offline tests additionally cover protected edits,
+stale/cancelled jobs, regrouping, nonzero delay and persisted display modes.
+
+For the affected vocal crop, the first execution of TIFA retry plus MMS verification
+took **6.93 seconds**; three subsequent runs took **1.86, 2.35 and 1.91 seconds**,
+each recovering the same one word. Models reload sequentially each run; weights are
+already on disk. This stage excludes separation, transcription, source conversion,
+integrity checking and process startup. Its lifetime peak RSS reached 1.15 GB.
+Pre-release MPS driver samples reached 2.24 GB; they are allocation samples, not true
+peaks or total unified-memory use. MLX did not infer in this focused stage.
+
+The complete native jobs had cached-weight median times of **6.6 seconds TIFA** and
+**169.3 seconds Experimental**. Two-second process-tree sampling covered 25 action jobs
+(it began during the second song), with a largest sampled summed RSS of **2.99 GB**.
+RSS can double-count shared pages and excludes accelerator allocations. System swap
+used rose from 8,786 to 9,883 MiB, while `memory_pressure -Q` free percentage changed
+from 20% to 62%. This shared-machine observation includes background applications and
+research pauses; the swap delta is not attributed solely to one app job. All jobs
+completed without an out-of-memory failure. No first-download latency was remeasured.
+The fix adds no weights or runtime dependency; existing first-use downloads remain
+about 151 MB TIFA plus 5.3 GB Experimental.
+
+Standalone `RomajiPlayer.app` and its distribution zip were rebuilt from this recipe.
+`check-helper-package.py` and `check-app-package.py` passed: ARM64 architecture,
+deep/strict signing, relocation into a path containing spaces, Rust-to-bundled converter
+calls, helper protocols and the Experimental-to-romanizer boundary with a minimal PATH.
+The bundle contains inference runtimes and notices, not private recordings, reference
+labels or the research-only English checkpoint. Repository validation uses the mandatory
+full `bash scripts/check.sh` pre-push gate; model runs remain separate explicit acceptance
+commands.
 
 ## Reproduced diagnostic
 
@@ -192,7 +263,7 @@ opened for the frozen raw-phone run above; no context candidate was promoted wit
 Fixtures cover repeated source spans, exact sample origins,
 original crop bounds, conflicting proposals, weak/wrong-verse evidence and score abstentions.
 
-## Reproduction and remaining checks
+## Reproduction
 
 Models and private inputs are never downloaded by hooks or unit tests. The diagnostic
 manifest contains `cases`, `diagnostics`, `results: [{track, path}]`, `crop_provenance`
@@ -227,21 +298,20 @@ intervals by >150 ms; broad replacement is unsuitable. The vocal trials took 60.
 A targeted replay joined all 671 source/audio/crop identities in each view to the saved
 Experimental result. Both independently checked views recovered the same one word in
 色彩 and adjusted one neighboring interval through the existing bounded repair policy.
-The other two gaps remained withheld. This is a specific conversion-fallback candidate,
-not a passing general-recovery recipe; its application integration and negative controls
-remain to be completed. Context trials above do not qualify for promotion. Repeat
-localization and an independent English acoustic path remain research candidates.
+The other two gaps remained withheld. The native integration above confirms the same
+one-word gain and bounded neighboring adjustment. The context, repeat and English
+challengers remain offline.
 
 The pre-existing pyshiro adapter is not a new result. Checkpoint terms/provenance remain
 unresolved for its v2 model and the Intunist models, so this work adds neither runtime
-nor weights. No passing general-recovery recipe or packaged app change is claimed yet.
+nor weights. No passing general-recovery recipe is claimed.
 
 The [SingAlign English model card](https://huggingface.co/pymaster/SingAlign) describes a
 singing-specific HuBERT alignment head with separate encoder weights and CC-BY-NC-SA
 terms. Its linked toolkit source is unavailable, and bundled TIFA's SSL inference class
 is a stub with a different feature/model contract. It is deferred rather than treated
-as a compatible checkpoint. [NUS-48E](https://smcnus.comp.nus.edu.sg/) is a possible
-private human English-singing phone/word reference if an eligible verifier becomes usable.
+as a compatible checkpoint. [NUS-48E](https://smcnus.comp.nus.edu.sg/) supplies the
+private human English-singing phone/word references used in the verifier pilot below.
 Its linked corpus README explicitly restricts use to research. Two small audio/annotation
 pairs have now been acquired privately; none enters git or the app. The human annotations
 contain CMU phones and zero-duration `sp` word markers, rather than gold orthographic
@@ -272,7 +342,9 @@ annotations for the spoken renditions are not used.
 
 Two of twelve phrases were unsupported. The word groups have human boundaries but no
 gold spelling, so this measures supplied-phone timing rather than lyric recognition.
-Decoding took 1.5 seconds after loading, with lifetime process peak RSS 0.66 GB.
+Decoding took 1.5 seconds after loading, with lifetime process peak RSS 0.66 GB;
+the separate MPS driver-allocation sample at the end was 2.24 GB. These counters
+are not added or treated as total unified-memory use.
 **Decision:** reject app integration. The pilot fails the timing gate and is too small
 to certify a new mixed-language recovery path. No heldout result was opened to rescue
 it. Both the checkpoint and its English reference data stay outside the app.
@@ -299,6 +371,25 @@ independent target support/coherence, and seven failed fresh realignment. It too
 runner and mapping hashes are recorded privately. **Decision:** keep the experiment
 offline; it supplies neither recovery gains nor relevant affected reference cases.
 Whole-song relocation is not justified by this result.
+
+## Next bounded hypothesis
+
+The dominant unresolved class is mixed-language pronunciation: 404 missing spans contain
+Latin letters, while whole-song language detection still chooses Japanese. The attempted
+speech IPA verifier is inadequate for sung word boundaries. The next useful experiment
+is a singing-specific multilingual phone recognizer, rather than another vote between
+the same transcription models. First obtain a usable alignment checkpoint and its exact
+encoder contract, or adapt a small phoneme CTC head on eligible labelled singing data.
+Resolve checkpoint/data terms and singer/song separation before training; do not train on
+the private commercial test recordings. Freeze English/Japanese phone mappings, reserve
+new human-labelled songs, and compare accepted word groups against the same boundary,
+abstention and negative-control gates before integrating it. Runtime feasibility on
+16 GiB is a separate measurement, not inferred from checkpoint size.
+
+The reserved JLEE English reference remains available for a future frozen test. PJS's
+twenty-song pool has already been opened; reserve different data for new tuning claims.
+Additional commercial recordings are not currently available, so the ten-new-song
+robustness milestone is deferred and no unfamiliar-song accuracy claim is made.
 
 ## Negative controls
 

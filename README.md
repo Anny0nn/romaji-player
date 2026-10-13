@@ -145,11 +145,12 @@ download, but does not remove the saved study files. Account grants are held sep
 in macOS Keychain. Audio preparation and model inference are local; Spotify, lyric
 lookups and first-use model downloads still need network access.
 
-On fourteen recorded songs, Experimental retained 3,434/4,160 word timings (82.5%),
-compared with TIFA's 3,121/4,160 (75.0%). Median processing time was 178 seconds versus
-7 seconds on an M2 Pro with 16 GB. Tabi no Tochuu reached 153/153 with all six verified
-reading corrections; difficult songs still had substantial gaps. These are coverage and
-persistence results, not a listening-accuracy score. See the
+On fourteen recorded songs, the updated Experimental recipe retained 3,435/4,160 word
+timings (82.6%), compared with TIFA's 3,121/4,160 (75.0%). The pronunciation fallback
+adds one word, loses none and adjusts one neighboring interval. Median processing time
+was 169 seconds versus 7 seconds on an M2 Pro with 16 GB. Tabi no Tochuu reached
+153/153 with all six verified reading corrections; difficult songs still had substantial
+gaps. These are coverage and persistence results, not a listening-accuracy score. See the
 [evaluation and measured limits](docs/study-reading-evaluation.md) and
 [data/protocol design](docs/study.md).
 The newer [accuracy experiments](docs/study-accuracy-evaluation.md) separate retained-word

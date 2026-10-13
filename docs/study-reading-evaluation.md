@@ -5,6 +5,11 @@ lyrics. TIFA keeps its original timing-only path. Unmatched or contradictory evi
 retains the selected reading. This report records the 2026-10-12 merge validation on an
 Apple M2 Pro with 16 GiB unified memory.
 
+This remains the original recipe's merge record. The subsequent
+[accuracy implementation report](study-accuracy-evaluation.md) records `vowel-extension-v1`
+at 3,435/4,160 retained words, its one-word gain, unchanged reading repairs and rejected
+broader challengers.
+
 ## Fourteen-song comparison
 
 Both packaged actions ran on the same fourteen private documents and recordings.

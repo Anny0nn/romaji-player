@@ -1,6 +1,6 @@
 # More accurate Japanese singing readings and word timing
 
-Status: Approved (2026-10-13)
+Status: Implemented (2026-10-13)
 
 ## Goal and scope
 
@@ -308,17 +308,40 @@ marking implementation ready. Publish aggregates only; no live user study-data w
 
 ## Implementation evidence
 
-Approval is recorded in `692746d`. The first diagnostic and challenger results are in
-[`docs/study-accuracy-evaluation.md`](../study-accuracy-evaluation.md): the cached histogram
-is reproduced, all 671 Rust crops match, pronunciation scoring regresses the baseline,
-and eight blind full-song Whisper inputs detect Japanese. Human phone-reference import,
-metrics and frozen-pool protection are implemented; the twenty reserved PJS songs remain
-unopened. Broad pronunciation scoring remains off in both app actions. Context recovery
-adds 31 model-supported commercial-song words but recovers none on the relevant development
-references, so it remains offline. Its frozen phone grouping and shared atomic policy are
-implemented and tested. A narrow same-vowel small-kana fallback is undergoing the complete
-native fourteen-song/persistence run. Independent English verification and repeat localization
-remain bounded research candidates; neither is enabled by a coverage-only result.
+Approval is recorded in `692746d`. The complete aggregate evidence is in
+[`docs/study-accuracy-evaluation.md`](../study-accuracy-evaluation.md).
+
+- **Diagnostics:** all 726 missing spans reproduced; all 671 exact Rust crops,
+  source spans and recording identities matched. Latin letters appear in 404 missing
+  spans; their actual sung language or absence is not inferred from script alone.
+- **Challengers:** whole-pronunciation scoring regressed the baseline; eight blind
+  Whisper detection inputs chose Japanese. Context proposed 31 commercial-song words
+  but affected no development reference units, so it failed promotion. Verified repeat
+  localization recovered 0/39 missing words. The English speech-phoneme verifier failed
+  human word-boundary tests. These broad recovery paths remain offline. Pyshiro/SingAlign
+  remain deferred for the checkpoint-term or encoder-contract reasons above.
+- **Reference calibration:** raw supplied-phone boundaries were scored on eighty
+  development and twenty frozen reserved PJS recordings, with separate denominators and
+  abstentions. The twenty-song pool is now opened and cannot be reused as unseen tuning
+  evidence. A separate English recording remains reserved. No reading-accuracy claim
+  follows from supplying correct phones to a forced aligner.
+- **Integration:** `vowel-extension-v1` retries only unsupported same-vowel small-kana
+  inputs, with the existing independent acoustic and bounded-region guards. The complete
+  native suite retained 3,435/4,160 words: one gain, zero losses and one adjacent interval
+  adjustment. All original TIFA intervals and fifteen reading corrections are unchanged.
+  All 28 action results passed reopening, dual-script highlight and previous-version
+  restoration checks. Silence/instrumental/wrong-verse recovery controls admitted zero
+  new words. The update adds no weights or dependencies.
+- **Measurements and wider scope:** whole-job times, sampled process-tree RSS, system
+  swap/pressure and four focused stage runs with separate MPS/MLX counters are recorded.
+  Existing weight caches were reused; no first-download or clean-machine memory claim is
+  made. No new commercial recordings were available, so the ten-song expansion remains
+  deferred under the approved availability rule. A concrete singing-specific phoneme
+  adaptation hypothesis is recorded; it is not silently enabled in the app.
+
+Standalone app/zip packaging, helper smoke and relocated app checks passed. The full
+repository gate runs at the final head before PR readiness. The original plan's general
+recovery thresholds were not weakened to promote the failed experiments.
 
 ## Out of scope
 
