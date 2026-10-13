@@ -156,6 +156,11 @@ gaps. These are coverage and persistence results, not a listening-accuracy score
 The newer [accuracy experiments](docs/study-accuracy-evaluation.md) separate retained-word
 counts from human phone-boundary tests and document rejected approaches. They do not
 establish perfect lyric recognition or word timing on unfamiliar songs.
+The [audio-first reading pilot](docs/study-audio-first-evaluation.md) tests recognizing
+the sung pronunciation before choosing romaji. Its fallback recovers 19 additional
+controlled reading faults with fresh TIFA timing, but also adds two wrong repairs and
+has incomplete natural-song validation. These research tools run offline; this pilot
+does not change the app's Experimental button.
 
 ## Troubleshooting
 

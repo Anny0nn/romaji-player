@@ -1,6 +1,11 @@
 # Recover sung readings before choosing romaji
 
-Status: Approved (2026-10-13)
+Status: Implemented (2026-10-13; offline pilot, app adoption withheld)
+
+Results and adoption decision: [audio-first evaluation](../study-audio-first-evaluation.md).
+The fixed fallback gains 19 phone-correct controlled repairs across thirteen songs, with
+fresh TIFA timing and unchanged controls. It adds two wrong repairs; full native/natural-song
+validation and complete memory profiling remain unestablished, so step 5 is not activated.
 
 ## Goal
 
@@ -35,6 +40,12 @@ are unavailable until its hypotheses have been saved. Written lyrics then help r
 boundaries and spelling; they cannot force the recognizer to emit the expected pronunciation.
 Keep homophonic source spellings when acoustics cannot distinguish them. A longer sung vowel
 does not by itself authorize adding kana or changing a word.
+
+The offline pilot also compares a **dictionary pronunciation shadow** using the current
+Cutlet/Fugashi node `feature.pron`, preserving written kana, displayed words and original
+UTF-8 ownership. This distinguishes lexical long vowels from spelling (`光景` has `こーけー`,
+while `思う` retains `おもう`), without a global vowel substitution or a new dictionary.
+Apply the same pronunciation ablation to the saved Whisper transcripts for a fair baseline.
 
 ### Two concrete recognizers
 
@@ -100,8 +111,11 @@ Reconcile within the exported occurrence window using monotone phone edit alignm
 exact, unique neighboring matches. Require at least two matching phones on each available
 side; line-edge proposals require the entire remaining envelope to match uniquely. A patch
 must cover one to four complete original displayed words, preserving their byte ownership.
-Insertions/deletions, multiple valid attachments, cross-line matches and partial-word changes
-are diagnostic results initially. No substring search across choruses or borrowed timestamps.
+Inserted/deleted lyric words, multiple valid attachments, cross-line matches and partial-word
+changes are diagnostic results initially. Internal phone insertions/deletions may combine
+into one complete, nonempty reading replacement. The first reconciler abstains at line edges;
+edge attachment remains deferred until an independent whole-envelope fixture establishes it.
+No substring search across choruses or borrowed timestamps.
 
 A verified changed reading becomes an existing source-anchored `ReadingRepair`: original
 Japanese remains intact, while explicit kana drives both hiragana and romaji. Spaces in a
@@ -153,6 +167,12 @@ kana reading if its envelope is unique. There is no kana → kanji → canonical
    source only, never the audio or evaluation reference. Report these injected-error repairs
    separately from naturally wrong commercial lyrics. The recognizer must produce the same
    saved output regardless of which candidate-source variant the reconciler receives.
+
+   Test the challenger alone and a fixed baseline-first fallback: retain current-core
+   admissions, then consider independently checked blind proposals only for its abstentions.
+   Reference correctness never chooses between candidates. Report additional recoveries,
+   new errors and fresh TIFA timings separately; this offline core comparator is not a full
+   native-app replay or proof that protected edits and all natural-song cases pass.
 
    Import the PJS source sentences with pinned provenance. Admit corpus word envelopes only
    when source-to-phone alignment matches the manual phone sequence uniquely; report omitted
