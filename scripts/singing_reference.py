@@ -7,6 +7,23 @@ from collections import defaultdict
 SILENCE = {"pau", "sil", "silB", "silE"}
 
 
+def verify_extracted(archive_path, path):
+    """A frozen archive must also authenticate the extracted inference input."""
+    import hashlib
+    import zipfile
+    from pathlib import Path
+
+    with zipfile.ZipFile(archive_path) as archive:
+        matches = [name for name in archive.namelist() if Path(name).name == path.name]
+        with path.open("rb") as handle:
+            actual = hashlib.file_digest(handle, "sha256").hexdigest()
+        if (
+            len(matches) != 1
+            or hashlib.sha256(archive.read(matches[0])).hexdigest() != actual
+        ):
+            raise ValueError("Extracted reference changed from its frozen archive.")
+
+
 def htk_labels(text, duration_ms):
     """PJS .lab times are integer 100 ns ticks, not score or synthesis times."""
     result, previous = [], 0

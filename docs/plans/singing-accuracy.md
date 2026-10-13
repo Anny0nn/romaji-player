@@ -313,8 +313,12 @@ Approval is recorded in `692746d`. The first diagnostic and challenger results a
 is reproduced, all 671 Rust crops match, pronunciation scoring regresses the baseline,
 and eight blind full-song Whisper inputs detect Japanese. Human phone-reference import,
 metrics and frozen-pool protection are implemented; the twenty reserved PJS songs remain
-unopened. Optional pronunciation experiments are off in both app actions. Context/repeat
-work and an integrated passing recipe remain in progress.
+unopened. Broad pronunciation scoring remains off in both app actions. Context recovery
+adds 31 model-supported commercial-song words but recovers none on the relevant development
+references, so it remains offline. Its frozen phone grouping and shared atomic policy are
+implemented and tested. A narrow same-vowel small-kana fallback is undergoing the complete
+native fourteen-song/persistence run. Independent English verification and repeat localization
+remain bounded research candidates; neither is enabled by a coverage-only result.
 
 ## Out of scope
 

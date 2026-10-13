@@ -122,7 +122,66 @@ split and implementation. The runner emits no partial per-song heldout reports; 
 is released only when the entire run finishes. Offline tests cover stale receipts,
 partition overlap, HTK units, abstentions and invalid/mismatched prediction identities.
 
-## Reproduction and next checks
+## Neighboring-phrase context pilot
+
+`scripts/build-context-cases.py` constructs neighboring windows from the exported Rust
+sample bounds. It preserves original occurrence/UTF-8 ownership, checks mix/stem hashes,
+and excludes contexts containing existing reading repairs when replaying older canonical
+targets. All trial inputs remain private. `scripts/evaluate-context-trial.py` replays
+TIFA and independent MMS evidence through `refinement/context_policy.py`.
+
+The complete pilot used 311 joint windows. TIFA took 28.0 seconds and MMS 53.3 seconds,
+with process lifetime peak RSS 0.96 GB and 0.58 GB respectively. Evidence must agree at
+both endpoints within 150 ms, meet MMS probability 0.45 and the existing phrase/region
+guards, and retain the original source occurrence's crop bounds. Conflicting context
+proposals are rejected atomically; compatible overlapping proposals are not spliced.
+No word is relocated to another occurrence or given an interpolated timestamp.
+
+| Recording                  | Additional model-supported words | Existing intervals adjusted | Lost words |
+| -------------------------- | -------------------------------: | --------------------------: | ---------: |
+| Koino Uta                  |                                7 |                           2 |          0 |
+| the WORLD                  |                                1 |                           0 |          0 |
+| 色彩                       |                                6 |                           5 |          0 |
+| うれしくて                 |                                1 |                           0 |          0 |
+| 天天天国地獄国             |                                8 |                           9 |          0 |
+| 今世大革命                 |                                7 |                           1 |          0 |
+| 君のせい                   |                                1 |                           1 |          0 |
+| Remaining seven recordings |                                0 |                           0 |          0 |
+| **Total**                  |                           **31** |                      **18** |      **0** |
+
+That would increase retention from 3,434 to 3,465/4,160 if enabled. An earlier policy
+allowed one extra word beyond its original crop; enforcing the native app's bounds
+withheld it. These are cached commercial-song proposals, not verified improvements.
+
+`scripts/benchmark-singing-context.py` then tested the actual TIFA/MMS/context functions
+on the eighty PJS development recordings, grouping complete CV/N sequences into at
+most two-mora reference units. This is an explicit **nonlexical phone grouping**, not
+a word or reading-recognition benchmark. Unknown `I/U/O`, ambiguous `cl` and incomplete
+phone sequences reject the entire phrase. Short phrases are excluded from this two-line
+test, with counts reported separately. The 3,059 original vowel/N units therefore do
+not share a denominator with the 916 eligible grouped units in 123 voiced phrases.
+
+| Condition                            | Baseline aligned groups | Joint windows retried | Newly affected groups | Joint onset ≤150 ms / offset ≤200 ms on aligned groups |
+| ------------------------------------ | ----------------------: | --------------------: | --------------------: | -----------------------------------------------------: |
+| Clean reference singing              |                 881/916 |                    34 |                     0 |                                                 93.19% |
+| Fixed band-limited noise at 0 dB SNR |                 855/916 |                    49 |                     0 |                                                 79.53% |
+
+Both runs had zero losses or regressions, because no proposals passed the contextual
+policy. They took 48.4 and 52.2 seconds, with lifetime peak RSS 2.59 and 2.61 GB.
+The synthetic noise preserves human reference endpoints; it does not create labelled
+commercial mixtures. Sixty-six unsupported and 32 short/long phrases are reported rather
+than silently erased. Correct input kana are supplied to both recipes; this cannot
+measure reading selection. The grouped app-style path and raw phone decoder calibration
+above are different measurements.
+
+**Decision:** keep context recovery offline. It meets the commercial recovery-count
+threshold but supplies zero affected human-reference units, failing the required sample
+size of fifty units over ten distinct phrases. Do not mask correct baseline words or
+lower thresholds to manufacture a qualifying result. The twenty reserved PJS songs remain
+unopened for context tuning. Fixtures cover repeated source spans, exact sample origins,
+original crop bounds, conflicting proposals, weak/wrong-verse evidence and score abstentions.
+
+## Reproduction and remaining checks
 
 Models and private inputs are never downloaded by hooks or unit tests. The diagnostic
 manifest contains `cases`, `diagnostics`, `results: [{track, path}]`, `crop_provenance`
@@ -159,7 +218,8 @@ Experimental result. Both independently checked views recovered the same one wor
 色彩 and adjusted one neighboring interval through the existing bounded repair policy.
 The other two gaps remained withheld. This is a specific conversion-fallback candidate,
 not a passing general-recovery recipe; its application integration and negative controls
-remain to be completed. Neighboring-phrase context and repeat localization are next.
+remain to be completed. Context trials above do not qualify for promotion. Repeat
+localization and an independent English acoustic path remain research candidates.
 
 The pre-existing pyshiro adapter is not a new result. Checkpoint terms/provenance remain
 unresolved for its v2 model and the Intunist models, so this work adds neither runtime
@@ -171,3 +231,7 @@ terms. Its linked toolkit source is unavailable, and bundled TIFA's SSL inferenc
 is a stub with a different feature/model contract. It is deferred rather than treated
 as a compatible checkpoint. [NUS-48E](https://smcnus.comp.nus.edu.sg/) is a possible
 private human English-singing phone/word reference if an eligible verifier becomes usable.
+Its linked corpus README explicitly restricts use to research. Two small audio/annotation
+pairs have now been acquired privately; none enters git or the app. The human annotations
+contain CMU phones and zero-duration `sp` word markers, rather than gold orthographic
+transcripts. An English grapheme verifier must not manufacture its gold words from ASR.

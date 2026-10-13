@@ -2,14 +2,32 @@
 
 import copy
 import sys
+import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from singing_reference import evaluate, htk_labels, selected_ids
+from singing_reference import evaluate, htk_labels, selected_ids, verify_extracted
 
 
 class ReferenceTests(unittest.TestCase):
+    def test_extracted_reference_is_authenticated_by_frozen_archive(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            path, archive = root / "labels.lab", root / "labels.zip"
+            path.write_text("0 1000000 a")
+            with zipfile.ZipFile(archive, "w") as handle:
+                handle.writestr("nested/labels.lab", path.read_bytes())
+            verify_extracted(archive, path)
+            path.write_text("0 1000000 i")
+            with self.assertRaisesRegex(ValueError, "Extracted"):
+                verify_extracted(archive, path)
+            with zipfile.ZipFile(archive, "a") as handle:
+                handle.writestr("other/labels.lab", path.read_bytes())
+            with self.assertRaisesRegex(ValueError, "Extracted"):
+                verify_extracted(archive, path)
+
     def test_htk_units_gaps_silence_and_unknown_uncertainty(self):
         labels = htk_labels("0 1000000 pau\n1000000 1500000 k\n2000000 4000000 a", 500)
         self.assertEqual(labels[1]["end_ms"], 150)

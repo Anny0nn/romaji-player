@@ -103,13 +103,18 @@ class DiagnosticsTests(unittest.TestCase):
 
     def test_rust_coordinates_and_delay_are_not_rederived(self):
         case = {**self.case, "start_ms": 1250, "end_ms": 21250}
+        for word in case["words"]:
+            word.update(hiragana=word["expected_text"], romaji="fixture")
         crop = {
             "occurrence": 0,
             "start_sample": 4000,
             "end_sample": 324000,
             "lyric_origin_ms": 1000,
             "raw_line": case["raw_line"],
-            "targets": [{"raw_span": w["raw_span"]} for w in case["words"]],
+            "targets": [
+                {"raw_span": w["raw_span"], "text": w["hiragana"], "romaji": "fixture"}
+                for w in case["words"]
+            ],
             "conversion_signature": "converted",
         }
         manifest = {

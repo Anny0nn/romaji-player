@@ -102,6 +102,8 @@ def analyze(cases, diagnostics, results):
                     "audio_sha256": case["audio_sha256"],
                     "conversion_signature": case.get("conversion_signature"),
                     "rust_crop_samples": case.get("rust_crop_samples"),
+                    "lyric_origin_ms": case.get("lyric_origin_ms"),
+                    "recording_origin_ms": case.get("recording_origin_ms"),
                     "saved_recipe": {
                         key: saved.get(key)
                         for key in (
@@ -169,6 +171,15 @@ def attach_rust_crops(cases, manifests):
             or crop["raw_line"] != case["raw_line"]
             or [w["raw_span"] for w in case["words"]]
             != [t["raw_span"] for t in crop["targets"]]
+            or any(
+                t["text"]
+                != (
+                    "".join(c for c in w["hiragana"] if c.isalnum())
+                    or w["expected_text"]
+                )
+                or t["romaji"] != w["romaji"]
+                for w, t in zip(case["words"], crop["targets"], strict=True)
+            )
             or not crop["conversion_signature"]
         ):
             raise ValueError(
@@ -180,6 +191,10 @@ def attach_rust_crops(cases, manifests):
                 **case,
                 "conversion_signature": crop["conversion_signature"],
                 "rust_crop_samples": [first, last],
+                "lyric_origin_ms": crop["lyric_origin_ms"],
+                "recording_origin_ms": origin,
+                "delay_ms": manifest["delay_ms"],
+                "source_word_count": crop.get("source_word_count", len(case["words"])),
             }
         )
     if used != set(rows):
