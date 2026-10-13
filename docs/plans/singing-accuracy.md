@@ -1,6 +1,6 @@
 # More accurate Japanese singing readings and word timing
 
-Status: Draft
+Status: Approved (2026-10-13)
 
 ## Goal and scope
 
@@ -9,8 +9,8 @@ existing songs, then test unfamiliar songs. Correct abstention on words absent f
 recording is a success. Preserve the original TIFA action and durable per-song versions.
 
 Keep this work in one broad PR, as requested. Use the milestones below to make progress
-reviewable without splitting the implementation into other PRs. This remains plan-only
-until explicit approval; no new model inference or application changes have started.
+reviewable without splitting the implementation into other PRs. Implementation was
+explicitly approved on 2026-10-13 and continues on this branch and PR.
 
 **First deliverable:** a reproducible failure report for the fourteen songs, followed by a
 language/pronunciation challenger evaluated against the shipped Experimental recipe.
@@ -24,7 +24,7 @@ Report gains, regressions and readiness for the Experimental button.
 - Shipping an opt-in Experimental improvement uses the automated gates below. Claiming
   listening-verified accuracy is a separate decision requiring actual reference labels.
   The previous unassigned 500-word audit and absolute 98% commercial-song gate are removed.
-- No product choice is outstanding besides approval of this plan. Pyshiro is optional:
+- Pyshiro is optional:
   the implementing agent records checkpoint-specific permitted use before downloading,
   and integration/distribution terms before bundling. Unclear terms mean skip that model,
   not stall the rest of the PR or presume permission.
