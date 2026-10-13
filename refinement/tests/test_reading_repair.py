@@ -4,7 +4,7 @@ import io
 import json
 import sys
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import numpy as np
 import pytest
@@ -13,6 +13,50 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / "refinement"), str(ROOT / "tifa"), str(ROOT / "tifa/vendor")]
 from reading_policy import decision, verify
 from reading_repair import mapped_candidates, source_text
+
+
+@pytest.mark.parametrize("language", ["ja", "en", None])
+def test_blind_language_trials_keep_transcription_task_and_release_models(
+    monkeypatch, tmp_path, language
+):
+    import refinement_helper
+    from reading_repair import transcribe
+
+    holder = SimpleNamespace(model=object(), model_path="loaded")
+    mx = ModuleType("mlx.core")
+    mx.set_memory_limit = lambda _: None
+    mx.set_cache_limit = lambda _: None
+    whisper = ModuleType("mlx_whisper")
+    implementation = ModuleType("mlx_whisper.transcribe")
+    implementation.ModelHolder = holder
+    calls, released = [], []
+
+    def decode(samples, **options):
+        calls.append(options)
+        return {"segments": [{"text": "synthetic"}], "language": "en"}
+
+    whisper.transcribe = decode
+    monkeypatch.setitem(sys.modules, "mlx", ModuleType("mlx"))
+    monkeypatch.setitem(sys.modules, "mlx.core", mx)
+    monkeypatch.setitem(sys.modules, "mlx_whisper", whisper)
+    monkeypatch.setitem(sys.modules, "mlx_whisper.transcribe", implementation)
+    monkeypatch.setattr(refinement_helper, "release", lambda: released.append(True))
+    diagnostics = {}
+    assert transcribe(
+        np.ones(16000, dtype=np.float32),
+        tmp_path,
+        tmp_path / "progress",
+        "fixture",
+        language=language,
+        diagnostics=diagnostics,
+    ) == [{"text": "synthetic"}]
+    assert calls[0]["language"] == language
+    assert calls[0]["task"] == "transcribe"
+    assert calls[0]["initial_prompt"] is None
+    assert calls[0]["condition_on_previous_text"] is False
+    assert diagnostics == {"detected_language": "en"}
+    assert holder.model is None and holder.model_path is None
+    assert released == [True]
 
 
 def test_optional_transcript_rejections_are_withheld_but_protocol_errors_remain_fatal():

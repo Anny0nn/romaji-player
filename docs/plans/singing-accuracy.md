@@ -118,10 +118,15 @@ Whole-song relocation requires its own monotonic occurrence assignment evaluatio
 
 Benchmark [pyshiro](https://github.com/wavtechyukky/pyshiro) and the
 [Japanese SHIRO models](https://github.com/intunist/SHIRO-Models-Japanese) as an optional
-independent duration-model challenger. Its singing HSMM is relevant to held vowels and
-short consonants. The model description emphasizes female/tenor training material and
-warns about low male voices and long segments; measure CPU/RAM on short phrases first.
-GPL-3.0 code and unresolved model terms are subject to the responsibility rule above.
+independent duration-model challenger. A research adapter already exists in
+`scripts/experiment-phonetic-alignment.py`; do not count importing it as a new experiment.
+Its singing HSMM is relevant to held vowels and short consonants. Intunist's model
+description emphasizes female/tenor material and warns about low male voices; those
+training claims do not describe pyshiro's separate v2 checkpoint. Intunist provides no
+model license, and pyshiro documents v1 training credits but no checkpoint-specific v2
+terms/provenance. Both remain deferred pending clarification under the responsibility
+rule above; neither is bundled or newly downloaded for this implementation. Measure
+CPU/RAM on short phrases if an eligible checkpoint becomes available.
 
 Implement an explicit versioned kana-to-checkpoint-phone mapping before comparison.
 Fixtures cover long vowels, geminates, moraic nasal, devoicing, palatalization, particles,
@@ -178,7 +183,10 @@ material. Automated reference evaluation uses existing human-labelled data, begi
 The implementing agent owns acquisition, versioned reference import and the evaluation
 runner. Corpus and relabel state CC BY-SA 4.0. Their single male singer and roughly
 27 minutes of controlled singing limit transfer to commercial mixes. Reserve twenty
-whole PJS songs before tuning; use the remainder for calibration. The runner withholds
+whole PJS songs before tuning; use the remainder for calibration. This is a project-tuning
+holdout, not a certified model-unseen set: TIFA and RomajiASR disclose insufficient private
+training provenance to exclude PJS. Keep unknown uppercase phone symbols distinct rather
+than silently mapping them to lowercase vowels. The runner withholds
 reserved per-unit results from tuning reports/ledgers until recipe hashes are frozen,
 then scores both baseline and candidate together. A tested report filter enforces this;
 after inspecting failures, do not reuse that pool as an unseen acceptance set.
@@ -297,6 +305,16 @@ marking implementation ready. Publish aggregates only; no live user study-data w
   singing results do not establish Japanese accuracy.
 - [Kotoba bilingual Whisper](https://huggingface.co/kotoba-tech/kotoba-whisper-bilingual-v1.0)
   has speech evidence and shared Whisper ancestry, not an independent singing vote.
+
+## Implementation evidence
+
+Approval is recorded in `692746d`. The first diagnostic and challenger results are in
+[`docs/study-accuracy-evaluation.md`](../study-accuracy-evaluation.md): the cached histogram
+is reproduced, all 671 Rust crops match, pronunciation scoring regresses the baseline,
+and eight blind full-song Whisper inputs detect Japanese. Human phone-reference import,
+metrics and frozen-pool protection are implemented; the twenty reserved PJS songs remain
+unopened. Optional pronunciation experiments are off in both app actions. Context/repeat
+work and an integrated passing recipe remain in progress.
 
 ## Out of scope
 
