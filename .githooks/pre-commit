@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Fast checks before every commit. Enable with: git config core.hooksPath .githooks
+set -euo pipefail
+exec bash "$(git rev-parse --show-toplevel)/scripts/check.sh" --quick

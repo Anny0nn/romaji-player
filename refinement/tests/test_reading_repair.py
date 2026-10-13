@@ -1,0 +1,284 @@
+"""Bounded mapping and independent rejection, without real song inputs or models."""
+
+import io
+import json
+import sys
+from pathlib import Path
+from types import SimpleNamespace
+
+import numpy as np
+import pytest
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path[:0] = [str(ROOT / "refinement"), str(ROOT / "tifa"), str(ROOT / "tifa/vendor")]
+from reading_policy import decision, verify
+from reading_repair import mapped_candidates, source_text
+
+
+def test_optional_transcript_rejections_are_withheld_but_protocol_errors_remain_fatal():
+    import reading_repair
+
+    segments = [{"words": [{"word": "桜", "start": 0, "end": 1, "probability": 1}]}]
+
+    class RejectingConverter:
+        def __init__(self, error):
+            self.error = error
+
+        def convert(self, _request, candidates=False):
+            raise self.error
+
+    assert (
+        reading_repair.transcript_matches(
+            segments,
+            0,
+            16000,
+            [],
+            {},
+            RejectingConverter(reading_repair.ConversionRejected()),
+        )
+        == []
+    )
+    with pytest.raises(ValueError, match="Stale"):
+        reading_repair.transcript_matches(
+            segments, 0, 16000, [], {}, RejectingConverter(ValueError("Stale"))
+        )
+    inputs = {"requests": [{"occurrence_id": 0}], "protected": []}
+    with pytest.raises(reading_repair.ConversionRejected):
+        reading_repair.propose(
+            inputs,
+            [(0, 0, 16000, [])],
+            RejectingConverter(reading_repair.ConversionRejected()),
+            [],
+            [],
+            {},
+            {},
+            [],
+        )
+
+
+def test_unconvertible_optional_reading_does_not_discard_other_valid_candidates(
+    monkeypatch,
+):
+    import reading_repair
+
+    candidates = [{"hiragana": "bad"}, {"hiragana": "さくら"}]
+    monkeypatch.setattr(reading_repair, "mapped_candidates", lambda *_: candidates)
+    monkeypatch.setattr(reading_repair, "output_words", lambda _: [])
+
+    class StubConverter:
+        def convert(self, _):
+            return {}
+
+        def canonical(self, kana, _):
+            if kana == "bad":
+                raise reading_repair.ConversionRejected()
+            return {"hiragana": kana, "romaji": "sakura"}
+
+    segments = [{"words": [{"word": "桜", "start": 0, "end": 1, "probability": 1}]}]
+    assert reading_repair.transcript_matches(
+        segments, 0, 16000, [], {}, StubConverter()
+    ) == [{"hiragana": "さくら", "romaji": "sakura"}]
+
+
+@pytest.mark.parametrize(
+    "reply_id,protocol,typed", [(1, 1, True), (2, 1, False), (1, 9, False)]
+)
+def test_compact_rejections_require_matching_protocol_and_request_identity(
+    reply_id, protocol, typed
+):
+    from reading_repair import ConversionRejected, Converter
+
+    converter = Converter.__new__(Converter)
+    response = {
+        "protocol_version": protocol,
+        "request_id": reply_id,
+        "error": "invalid_request",
+    }
+    converter.process = SimpleNamespace(
+        stdin=io.BytesIO(), stdout=io.BytesIO(json.dumps(response).encode() + b"\n")
+    )
+    with pytest.raises(ValueError) as raised:
+        converter.exchange({"protocol_version": 1, "request_id": 1})
+    assert isinstance(raised.value, ConversionRejected) == typed
+
+
+def words(*values):
+    return [{"text": t, "romaji": r} for t, r in values]
+
+
+def test_transcript_mapping_groups_split_tokens_through_stable_neighbors():
+    old = words(
+        ("あおい", "aoi"),
+        ("ちきゅう", "chikyuu"),
+        ("に", "ni"),
+        ("ありがとう", "arigatou"),
+    )
+    new = words(
+        ("あおい", "aoi"),
+        ("ほ", "ho"),
+        ("し", "shi"),
+        ("に", "ni"),
+        ("ありがとう", "arigatou"),
+    )
+    assert mapped_candidates(old, new) == [
+        {"first": 1, "last": 2, "hiragana": "ほ し", "romaji": "ho shi"}
+    ]
+    assert (
+        mapped_candidates(
+            old, words(("さくら", "sakura"), ("もり", "mori"), ("あるく", "aruku"))
+        )
+        == []
+    )
+    assert (
+        mapped_candidates(
+            words(("ちきゅう", "chikyuu"), ("に", "ni")),
+            words(("ほし", "hoshi"), ("に", "ni")),
+        )
+        == []
+    )
+
+
+def test_invalid_utf8_and_incomplete_source_spans_are_rejected():
+    assert source_text("ｶﾞ 闇夜", [7, 13]) == "闇夜"
+    for bounds in ([1, 3], [-1, 3], [0, 999], [True, 3], [3, 3]):
+        with pytest.raises((ValueError, UnicodeDecodeError)):
+            source_text("闇夜", bounds)
+
+
+def test_correlated_views_require_absolute_support_context_and_finite_measurements():
+    good = {"gain": 12, "margin": 9, "probability": 0.7, "context": 0.8}
+    assert decision([good, good])
+    for key, bad in [
+        ("gain", 7.999),
+        ("margin", 7.999),
+        ("probability", 0.449999),
+        ("context", 0.49999),
+        ("gain", float("nan")),
+    ]:
+        assert not decision([good, {**good, key: bad}])
+    assert not decision([good])
+
+
+def test_independent_model_compares_all_alternatives_and_vetoes_contradiction(
+    monkeypatch,
+):
+    import singing_phonemes
+
+    scores = {
+        "あおい いこう よ": 10.0,
+        "あおい ゆこう よ": 11.0,
+        "あおい ゆく よ": 15.0,
+    }
+    monkeypatch.setattr(
+        singing_phonemes,
+        "phrase_score",
+        lambda _p, _b, w, _v: scores[" ".join(x["text"] for x in w)],
+    )
+    values = words(("あおい", "aoi"), ("いこう", "ikou"), ("よ", "yo"))
+    candidate = {"hiragana": "ゆこう", "romaji": "yukou"}
+    evidence = verify(
+        values,
+        1,
+        candidate,
+        [{"hiragana": "ゆく", "romaji": "yuku"}],
+        np.zeros((1, 1)),
+        0,
+        {},
+    )
+    assert evidence["gain_milli"] == 1000
+    assert evidence["margin_milli"] == -4000
+    assert not evidence["supported"]
+    scores["あおい ゆく よ"] = 11.5
+    assert verify(values, 1, candidate, [], np.zeros((1, 1)), 0, {})["supported"]
+
+
+def test_source_envelope_rejects_punctuation_gaps_partial_words_and_protected_groups():
+    from reading_repair import complete_envelope
+
+    def word(span):
+        return {"raw_span": span, "mapping_status": "mapped", "override_id": None}
+
+    assert complete_envelope(
+        "闇夜 道", {"words": [word([0, 6]), word([7, 10])]}, [0, 10]
+    )
+    assert not complete_envelope(
+        "闇夜、道", {"words": [word([0, 6]), word([9, 12])]}, [0, 12]
+    )
+    assert not complete_envelope(
+        "闇夜 道", {"words": [word([0, 6]), word([7, 10])]}, [0, 3]
+    )
+    assert not complete_envelope(
+        "闇夜", {"words": [{**word([0, 6]), "override_id": "user"}]}, [0, 6]
+    )
+
+
+def test_conflicting_repeat_or_saved_correction_withholds_shared_reading(monkeypatch):
+    import reading_repair
+
+    targets = [
+        {"raw_span": [0, 6], "text": "あんや", "romaji": "anya"},
+        {"raw_span": [6, 9], "text": "を", "romaji": "o"},
+        {"raw_span": [9, 15], "text": "あるく", "romaji": "aruku"},
+    ]
+
+    class StubConverter:
+        def convert(self, request, candidates=False):
+            return {
+                "words": [
+                    {
+                        "raw_span": t["raw_span"],
+                        "override_id": None,
+                        "mapping_status": "mapped",
+                    }
+                    for t in targets
+                ],
+                "reading_candidates": [
+                    {
+                        "raw_span": [0, 6],
+                        "candidates": [
+                            {"hiragana": "あんや", "romaji": "anya"},
+                            {"hiragana": "やみよ", "romaji": "yamiyo"},
+                        ],
+                    }
+                ],
+            }
+
+    def selection(
+        _words, _index, _candidates, views, _vocabulary, include_baseline=False
+    ):
+        baseline = views[0][0] == 0
+        return {
+            "hiragana": "あんや" if baseline else "やみよ",
+            "romaji": "anya" if baseline else "yamiyo",
+            "baseline": baseline,
+            "acoustic_pass": not baseline,
+            "views": [{"gain": 20, "margin": 20, "probability": 0.9, "context": 1}] * 2,
+        }
+
+    monkeypatch.setattr(reading_repair, "rank", selection)
+    monkeypatch.setattr(
+        reading_repair,
+        "verify",
+        lambda *args, **kw: {
+            "gain_milli": 10000,
+            "margin_milli": 10000,
+            "phone_ratio_ppm": 1500000,
+            "transcript_supported": False,
+            "supported": True,
+        },
+    )
+    requests = [
+        {"occurrence_id": i, "raw_line": "闇夜を歩く", "overrides": []}
+        for i in range(2)
+    ]
+    crops = [(i, 0, 16000, targets) for i in range(2)]
+    views = [[(1, 0), (0, 0)]] * 2
+    inputs = {"requests": requests, "protected": []}
+    assert reading_repair.propose(
+        inputs, crops, StubConverter(), views, [(None, 0)] * 2, {}, {}, []
+    ) == ([], [])
+    inputs["protected"] = [{"occurrence_id": 1, "raw_span": [0, 6]}]
+    views = [[(1, 0), (1, 0)]] * 2
+    assert reading_repair.propose(
+        inputs, crops, StubConverter(), views, [(None, 0)] * 2, {}, {}, []
+    ) == ([], [])

@@ -18,6 +18,7 @@ pub mod search;
 pub mod settings;
 pub mod show;
 pub mod sidebar;
+mod study;
 pub mod topbar;
 mod update;
 pub mod widgets;

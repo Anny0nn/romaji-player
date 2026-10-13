@@ -1,0 +1,6 @@
+--- a/inference/backend.py
++++ b/inference/backend.py
+@@ -38,0 +39 @@
++    token_probability: Tensor | None = None  # [B, N], local diagnostic metadata; no numerical change
+@@ -243,0 +245 @@
++            token_probability=token_prob,

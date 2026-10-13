@@ -1,166 +1,199 @@
-<p align="center">
-  <img src="docs/assets/images/logo.svg" alt="Spotifast logo" width="88" height="88">
-</p>
+# RomajiPlayer
 
-<h1 align="center">Spotifast</h1>
+A free, open-source Japanese sing-along player for Apple Silicon Macs, built on
+[Spotifast](https://github.com/crmne/spotifast). Play Spotify music inside the app and
+follow large lyrics with a marker on the word being sung. Romaji spells the Japanese
+pronunciation with Latin letters; showing hiragana above it helps you learn both.
 
-<p align="center"><strong>Spotify, native and fast.</strong><br>A lightweight music app for Linux, macOS, and Windows.</p>
+- Large lyrics with the current line and timed word highlighted.
+- Separate **TIFA** and **Experimental** buttons for local automatic word alignment.
+- Saved timings and lyric versions per song, preserved across restarts.
+- Experimental sung-reading corrections checked against the audio, then re-aligned.
+- Compact **Options** controls for import, delay and saved versions.
 
-<p align="center">
-  <a href="https://spotifast.rocks/download/"><strong>Download</strong></a> ·
-  <a href="https://spotifast.rocks/getting-started/">Getting started</a> ·
-  <a href="https://spotifast.rocks/using-spotifast/">User guide</a> ·
-  <a href="CONTRIBUTING.md">Contribute</a>
-</p>
+This is an early study build. Automatic alignment and reading repair can make mistakes;
+missing intervals stay unmarked. There is no manual word-timing step.
 
-<p align="center">
-  <a href="Cargo.toml"><img src="https://img.shields.io/badge/Built_with-Rust-1ed760" alt="Built with Rust"></a>
-  <a href="https://spotifast.rocks/download/"><img src="https://img.shields.io/badge/Linux_%C2%B7_macOS_%C2%B7_Windows-24292f" alt="Linux, macOS, and Windows"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-1ed760" alt="MIT license"></a>
-</p>
+## Use the app
 
-Spotifast is a Spotify client written in Rust with
-[egui](https://github.com/emilk/egui). It plays music through
-[librespot](https://github.com/librespot-org/librespot), typically uses
-100–250 MB of RAM, starts in well under a second, and has no browser engine.
+1. Open `RomajiPlayer.app` and sign in to Spotify. Playback uses your Premium account
+   inside the app. If another device is active, choose **Play in this app**.
+2. Play a Japanese song from search or your library. Open **Lyrics** using the player
+   bar button, or press **L**. You can also paste a Spotify track link under **Options**
+   and choose **Play**.
+3. Select **Romaji**, **Hiragana + romaji**, or **Hiragana**. This display preference
+   persists across restarts. The expand button gives the lyrics more space.
+4. Supplied line timing works immediately. To add word highlighting, choose one of the
+   two timing buttons below. Wait for the saved-result message, then sing along.
 
-The interface includes complete Spanish, Turkish, and Ukrainian translations.
+| Action                        | What it does                                                                                                            | Model download on first use |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------: |
+| **Time words · TIFA**         | Times the currently selected lyrics using the original TIFA aligner.                                                    |                About 151 MB |
+| **Time words · Experimental** | Separates vocals, checks alternative sung readings and supported lyric corrections, then freshly times the new version. |    About 5.3 GB beyond TIFA |
 
-**Playback needs Spotify Premium.** Free accounts can browse and search, but
-cannot play music through Spotifast.
+Both actions prepare the selected recording for analysis without microphone recording.
+Models run locally and sequentially; the first run also needs internet for model downloads.
+Experimental takes several minutes per song on an M2 Pro with 16 GB unified memory.
+Its additional corrections are conservative: uncertain words keep their existing reading.
+Run **TIFA** for the simpler timing pass, or **Experimental** when the displayed reading
+differs from the singing. A word-count increase is useful coverage evidence, not proof
+that the new intervals or readings are correct.
 
-![Spotifast Home with the playlist library, recommendations, queue, and player visible](docs/screenshot.png)
+Timings and corrected versions are saved per song. Once completion is reported, you can
+close and reopen the app without running the models again. Use **Cancel timing** to stop
+an in-progress job; the previous usable version stays available.
 
-<details>
-<summary><strong>Watch Spotifast in action</strong></summary>
+Under **Options**:
 
-https://github.com/user-attachments/assets/a5f669ce-b3b7-4f8e-9933-976a78876c7e
+- **Saved lyric versions** → **Preview** → **Use these lyrics** restores an earlier
+  source or timing result. Experimental keeps the earlier versions.
+- **Sung corrections** shows the source word and its accepted hiragana/romaji reading.
+- **Delay** shifts lyric highlighting by 250 ms at a time. A positive delay moves it
+  later. This is a whole-song adjustment, not word timing.
+- **Import lyrics…** accepts UTF-8 `.lrc` or `.txt`. Automatic timing needs line-synced
+  lyrics; an LRC file supplies those cues. **Refresh** offers newly downloaded lyrics
+  while preserving saved versions and corrections.
+- **Original Japanese** lets you inspect the downloaded text. **Follow** resumes
+  automatic scrolling after you scroll away from the current line.
 
-</details>
+## Build on macOS
 
-[Features](#your-music-on-your-desktop) · [Install](#install) · [First playback](#start-listening) · [Mini player](#the-winamp-mini-player) · [MilkDrop](#music-in-motion) · [Help](#guides-and-help)
+There is no public binary release for this study build yet. Build it locally on Apple
+Silicon with macOS 15 or later. The tested minimum is an M2 Pro with 16 GB unified memory.
+Use Rust 1.98.1 (`rust-toolchain.toml` pins it), Python 3.14, Node.js/npm, CMake and Xcode
+Command Line Tools. Allow disk space for the Python environments, standalone runtimes,
+build output and optional model cache, in addition to the model download sizes above.
 
-## Your music, on your desktop
+### Spotify setup
 
-| Feature | What you can do |
-|---|---|
-| **Library and search** | Browse playlists, Liked Songs, albums, artists, and podcasts. Search the catalogue and edit playlists you own. |
-| **Spotify Connect** | Play on this computer or control playback on your other devices. |
-| **Themes** | Choose light, dark, system appearance, or custom colours. On Omarchy, follow your desktop theme. |
-| **Desktop controls** | Use keyboard shortcuts and media keys. Keep music playing from the tray when supported by your desktop and settings. |
-| **Winamp mini player** | Use classic skins with an equalizer, playlist, and animated sound displays. |
-| **MilkDrop** | Watch music-reactive visuals in a separate window or full screen. See platform availability below. |
+Create your own application in the [Spotify developer dashboard](https://developer.spotify.com/dashboard).
+Copy `.env.example` to `.env`, set `SPOTIFY_CLIENT_ID`, and register this exact redirect URI:
 
-## Install
-
-| Platform | Installation |
-|---|---|
-| **macOS** | `brew install --cask crmne/tap/spotifast`, or [download the Mac app](https://spotifast.rocks/download/#macos). |
-| **Arch Linux** | `yay -S spotifast-bin` |
-| **Windows** | Choose your build on the [Download page](https://spotifast.rocks/download/). |
-| **Other Linux** | Find Flatpak, AppImage, Nix, and other options on the [Download page](https://spotifast.rocks/download/). |
-| **From source** | Follow [Build from source](https://spotifast.rocks/getting-started/#build-from-source) for dependencies and commands. |
-
-When uninstalling on Windows, an in-use installed executable (`spotifast.exe`)
-prompts **Retry**, **Close Spotifast**, or **Cancel** before any files are removed.
-**Close Spotifast** ends the installed process immediately; unsaved changes may
-be lost. In this case, silent uninstall exits without removing files.
-
-## Start listening
-
-1. Open Spotifast and choose **Sign in with Spotify**. Approve access in your
-   browser, then return to the app to see your library.
-2. To listen on this computer, open the device menu in the bottom player bar
-   and choose **Set up playback here**, also available in Settings.
-3. Complete the separate playback approval in your browser. Your computer
-   appears as a Spotify Connect device named **Spotifast**.
-
-Library access and local playback have separate approvals. Spotifast remembers
-both using your computer's protected storage. See
-[Getting started](https://spotifast.rocks/getting-started/) for the full walkthrough
-and [How it connects](https://spotifast.rocks/how-it-connects/) for the details.
-
-## The Winamp mini player
-
-A classic look for your music, with Winamp 2 `.wsz` skins, an equalizer,
-a playlist, and animated sound displays. Switch with **Ctrl+M**
-(**Cmd+Shift+M** on macOS), the shrink button, or Settings.
-
-<p align="center">
-  <img src="docs/assets/images/winamp.png" alt="Spotifast's Winamp mini player with the built-in skin, equalizer, and playlist" width="320">
-</p>
-
-[Explore the mini player](https://spotifast.rocks/winamp/), including skins,
-window sizes, controls, and the return to the main player.
-
-## Music in motion
-
-MilkDrop reacts to music playing on this computer, with more than 10,000
-presets downloaded on first use. Open it from the visualiser button,
-Settings, or the mini player's **V** menu.
-
-![MilkDrop visualiser displaying coloured concentric patterns in Spotifast](docs/assets/images/milkdrop-poster.jpg)
-
-Included on **Linux**, **macOS**, and **Windows Intel/AMD** builds.
-It is not included in the Windows on ARM download.
-[Read the MilkDrop guide](https://spotifast.rocks/milkdrop/) for presets,
-controls, and fullscreen mode.
-
-## Guides and help
-
-The complete guide lives at **[spotifast.rocks](https://spotifast.rocks/)**.
-
-| You want to… | Read |
-|---|---|
-| Sign in, set up playback, or configure themes, fonts, and proxies | [Getting started](https://spotifast.rocks/getting-started/) |
-| Learn shortcuts, command-line controls, and updates | [Everyday use](https://spotifast.rocks/using-spotifast/) |
-| Find configuration and stored files | [Settings and files](https://spotifast.rocks/settings-and-files/) |
-| Understand scrolling performance and reduce loading delays | [Make it even faster](https://spotifast.rocks/make-it-even-faster/) |
-| Understand what is stored and sent | [Privacy](https://spotifast.rocks/privacy/) · [How it connects](https://spotifast.rocks/how-it-connects/) |
-| Check Spotify and librespot limitations | [What Spotify allows](https://spotifast.rocks/what-spotify-allows/) |
-| Understand account risk | [Will my account get banned?](https://spotifast.rocks/what-is-spotifast/#will-my-spotify-account-get-banned) |
-| Report a bug or propose a feature | Read [Contributing](CONTRIBUTING.md), then use the [issue forms](https://github.com/crmne/spotifast/issues/new/choose). |
-
-## Contributing
-
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or pull
-request. To look at the interface without a Spotify account, run:
-
-```sh
-cargo run --features demo -- --demo
+```text
+http://127.0.0.1:8989/login
 ```
 
-Translations live in `assets/i18n/`; see
-[Translating Spotifast](docs/_reference/translating.md). Release packaging
-is described in [PACKAGING.md](PACKAGING.md).
+Keep the callback unchanged; Spotify requires an explicit loopback IP and disallows
+`localhost`. This desktop build uses PKCE, so it needs no client secret, Spotify cookie
+or token in `.env`. See Spotify's [redirect rules](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri)
+and [PKCE instructions](https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow).
 
-## More native apps
+In Development Mode, the app owner needs Premium and at most five users can authenticate.
+Add each account in the dashboard's **Users Management** allowlist; each account streaming
+music also needs Premium. Your build uses your own registration, and a shared configured
+build uses that registration's allowlist. See [Spotify quota modes](https://developer.spotify.com/documentation/web-api/concepts/quota-modes).
+New registrations have restricted Web API access, so some inherited browsing features
+may be unavailable; account-specific failures can differ from a working playback login.
 
-**Want WhatsApp just as fast and native?** [ZapFast](https://zapfast.rocks)
-is Spotifast's sibling. Both are built on
-[fastframe](https://github.com/crmne/fastframe).
+### Build and launch
 
-## Sonos playback
+```sh
+git clone https://github.com/Anny0nn/romaji-player.git
+cd romaji-player
+cp .env.example .env
+# Edit .env before building.
+python3.14 -m venv .venv
+.venv/bin/python -m pip install -r romanizer/requirements.lock
+python3.14 -m venv .venv-tifa
+.venv-tifa/bin/python -m pip install -r tifa/requirements.lock
+python3.14 -m venv .venv-experimental
+.venv-experimental/bin/python -m pip install --no-deps -r refinement/requirements.lock
+python3 scripts/fetch-aligner-source.py
+bash scripts/package-romanizer.sh
+bash scripts/package-tifa.sh
+bash scripts/package-experimental.sh
+bash scripts/dev.sh
+```
 
-Sonos speakers use the Spotify Connect session for playback control. Enable
-local playback first, then select the speaker in the device picker.
+The development command runs the configured native app. After changing a Python helper,
+re-run its `package-*.sh` command; the app uses the packaged helpers.
 
-## Acknowledgements
+For a standalone app and ZIP:
 
-Spotifast uses [librespot](https://github.com/librespot-org/librespot),
-[egui](https://github.com/emilk/egui), the [Inter](https://rsms.me/inter/)
-typeface (OFL), and [Lucide](https://lucide.dev) icons (ISC).
+```sh
+bash scripts/package.sh
+python3 scripts/check-helper-package.py
+python3 scripts/check-app-package.py
+open dist/RomajiPlayer.app
+```
 
-Spotifast is an independent project and is not affiliated with Spotify.
-Spotify is a trademark of Spotify AB.
+Output is `dist/RomajiPlayer.app` and `dist/RomajiPlayer.zip`. Recipients need no Python,
+Rust or development tools, but need their own Premium login and access to the configured
+Spotify app. Each Mac downloads its own models and stores its own lyrics/timings. Local
+builds are ad-hoc signed; macOS may require approval to open them or access the saved
+Keychain login again after an update. A notarized public release is separate work.
 
-Licensed under the [MIT License](LICENSE).
+## Models and local data
 
-## Star history
+Downloads are pinned and hash-verified. Lyrics are tried from Spotify, with LRCLIB as a
+fallback; provider text is a candidate and can have the wrong recording or reading.
+A dictionary can choose 闇夜 as `an'ya` while the singer uses `yamiyo`. Experimental
+can save the supported `やみよ` / `yamiyo` reading without replacing the kanji.
+Experimental combines Cutlet/UniDic candidates, Demucs and Kim vocals, MMS acoustic
+checks, RomajiASR singing phonemes and blind full-song Whisper large-v3 transcription.
+It can repair supported readings and bounded kana text substitutions, while retaining
+prior versions. It does not freely rewrite ambiguous kanji from audio.
 
-<a href="https://www.star-history.com/?repos=crmne%2Fspotifast&amp;type=date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=crmne/spotifast&amp;type=date&amp;theme=dark">
-    <img alt="Spotifast GitHub stars over time" src="https://api.star-history.com/chart?repos=crmne/spotifast&amp;type=date">
-  </picture>
-</a>
+Saved study data lives under
+`~/Library/Application Support/io.github.Anny0nn.RomajiPlayer/study/`; downloaded weights
+are in the adjacent `models/` directory. Back up `study/` to retain your per-song versions.
+Updating or moving the app preserves this data. Removing model caches requires another
+download, but does not remove the saved study files. Account grants are held separately
+in macOS Keychain. Audio preparation and model inference are local; Spotify, lyric
+lookups and first-use model downloads still need network access.
+
+On fourteen recorded songs, Experimental retained 3,434/4,160 word timings (82.5%),
+compared with TIFA's 3,121/4,160 (75.0%). Median processing time was 178 seconds versus
+7 seconds on an M2 Pro with 16 GB. Tabi no Tochuu reached 153/153 with all six verified
+reading corrections; difficult songs still had substantial gaps. These are coverage and
+persistence results, not a listening-accuracy score. See the
+[evaluation and measured limits](docs/study-reading-evaluation.md) and
+[data/protocol design](docs/study.md).
+
+## Troubleshooting
+
+- **Sign-in or playback denied:** check Premium, the configured Client ID, exact callback
+  and allowlist. Playback and Web API authorization are separate integrations inherited
+  from Spotifast; successful authorization alone does not confirm in-app audio.
+- **Only a line lights up:** the source has no word timing. Run a timing action; withheld
+  words remain unmarked when the model cannot validate their intervals.
+- **Words do not match the singing:** try Experimental and inspect **Sung corrections**.
+  If the provider supplied a different verse/recording, choose the matching lyric candidate
+  or import an LRC. This recipe protects saved correction spans, including prior automatic
+  corrections; restore an earlier source version to re-evaluate a previously corrected
+  word. Unsupported changes keep their current reading.
+- **All lyrics consistently lead or lag:** adjust **Delay**. If individual words drift,
+  a whole-song delay will not repair their alignment; try the other timing result.
+- **A timing job fails or you change versions during it:** the prior version is retained.
+  Wait for conversion to finish, then retry the selected version. Keep the app open until
+  the job reports completion if you want its result saved.
+
+## Licenses and service limits
+
+Model licenses differ from the MIT application source. TIFA and MMS weights have
+noncommercial terms. See [TIFA provenance](tifa/UPSTREAM.md) and the
+[experimental model notices](refinement/MODEL-NOTICES.txt); review the original Demucs
+weight terms before using that optional model. Weights, recordings, downloaded lyrics,
+credentials and personal development configuration are excluded from git.
+
+This is an unofficial Spotify integration. Spotify's
+[Compliance Tips](https://developer.spotify.com/compliance-tips) explicitly disallow
+synchronizing Spotify recordings with lyrics. Working login or Development Mode access
+does not establish approval for this use. Model and service terms apply independently
+of the free MIT application source.
+
+## Development
+
+Use feature branches and pull requests targeting this fork. Enable the local hooks with
+`git config core.hooksPath .githooks`; run `bash scripts/check.sh` before pushing.
+The offline suite does not sign in, download models or contact music/lyrics services.
+See [the implementation plan](docs/plans/japanese-study.md) and
+[contributing instructions](CONTRIBUTING.md).
+
+## Credits and license
+
+Spotifast is by Carmine Paolino and contributors. RomajiPlayer retains its native
+Rust/egui interface, librespot playback and MIT attribution. Application code is
+[MIT licensed](LICENSE); bundled dependencies and separately downloaded models retain
+their own notices and terms. Upstream's website sources remain in `docs/` for provenance;
+they describe Spotifast, while the study build is documented here.

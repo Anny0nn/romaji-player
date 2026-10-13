@@ -5,8 +5,8 @@ version = "0.12.0"
 edition = "2024"
 rust-version = "1.98"
 license = "MIT"
-description = "A native Spotify client"
-repository = "https://github.com/crmne/spotifast"
+description = "A native Spotify player with Japanese sing-along lyrics"
+repository = "https://github.com/Anny0nn/romaji-player"
 keywords = ["spotify", "music", "egui", "librespot", "player"]
 categories = ["multimedia::audio"]
 

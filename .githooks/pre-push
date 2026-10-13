@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Refuses pushes to main (it changes only by merging a pull request) and runs every check before
+# any other push. Enable with: git config core.hooksPath .githooks
+set -euo pipefail
+
+zero='0000000000000000000000000000000000000000'
+run_checks=false
+while read -r _local_ref local_sha remote_ref _remote_sha; do
+  if [[ "$remote_ref" == refs/heads/main ]]; then
+    printf 'Refusing to push to main: open a pull request instead.\n' >&2
+    exit 1
+  fi
+  # A branch deletion pushes no commits, so it needs no checks.
+  [[ "$local_sha" == "$zero" ]] || run_checks=true
+done
+
+if [[ "$run_checks" == true ]]; then
+  bash "$(git rev-parse --show-toplevel)/scripts/check.sh"
+fi

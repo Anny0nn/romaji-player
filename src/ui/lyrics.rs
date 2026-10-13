@@ -122,6 +122,14 @@ pub fn side_panel(app: &mut App, ui: &mut egui::Ui) {
 }
 
 fn contents(app: &mut App, ui: &mut egui::Ui) {
+    if legacy_display(app) {
+        legacy_contents(app, ui);
+    } else {
+        super::study::show(app, ui, false);
+    }
+}
+
+fn legacy_contents(app: &mut App, ui: &mut egui::Ui) {
     let palette = app.palette;
     let Some(now) = app.now_playing() else {
         widgets::empty_state(
@@ -281,21 +289,6 @@ fn contents(app: &mut App, ui: &mut egui::Ui) {
                 }
                 ui.add_space(LINE_GAP);
             }
-            // Words without timing can only be followed by the clock: sit
-            // at the part of the text the song is probably at.
-            if app.lyrics_following && !lyrics.synced && now.duration_ms > 0 {
-                let fraction =
-                    (f64::from(now.position_ms) / f64::from(now.duration_ms)).clamp(0.0, 1.0);
-                let content = ui.min_rect();
-                let y = content.top() + content.height() * fraction as f32;
-                ui.scroll_to_rect(
-                    egui::Rect::from_min_max(
-                        egui::pos2(content.left(), y),
-                        egui::pos2(content.right(), y + 1.0),
-                    ),
-                    Some(Align::Center),
-                );
-            }
             // Room for the last line to rise to where a sung line sits.
             ui.add_space((ui.clip_rect().height() * (1.0 - SUNG_LINE_AT)).max(60.0));
         },
@@ -360,7 +353,8 @@ fn with_cover(app: &mut App, ui: &mut egui::Ui, rect: Rect, top: f32) {
     // The cover moves aside only for words to read. While they load it
     // stays in the middle, so a song that turns out to have none never
     // moves at all.
-    let words = matches!(&app.lyrics, Loadable::Loaded(Some(lyrics)) if !lyrics.instrumental);
+    let words = app.study.document.is_some()
+        || matches!(&app.lyrics, Loadable::Loaded(Some(lyrics)) if !lyrics.instrumental);
     if words {
         // The cover and the lyrics are one group, centred in the window.
         let gap = 64.0;
@@ -617,6 +611,14 @@ fn track_heading(app: &App, ui: &mut egui::Ui) {
 }
 
 fn fullscreen_contents(app: &mut App, ui: &mut egui::Ui) {
+    if legacy_display(app) {
+        legacy_fullscreen_contents(app, ui);
+    } else {
+        super::study::show(app, ui, true);
+    }
+}
+
+fn legacy_fullscreen_contents(app: &mut App, ui: &mut egui::Ui) {
     let palette = theme::Palette::dark();
     let Some(now) = app.now_playing() else {
         widgets::empty_state(
@@ -778,22 +780,6 @@ fn fullscreen_contents(app: &mut App, ui: &mut egui::Ui) {
                 }
                 ui.add_space(27.0);
             }
-            // Words without timing can only be followed by the clock: sit
-            // at the part of the text the song is probably at.
-            if following && !lyrics.synced && now.duration_ms > 0 {
-                let fraction =
-                    (f64::from(now.position_ms) / f64::from(now.duration_ms)).clamp(0.0, 1.0);
-                let content = ui.min_rect();
-                let y = content.top() + content.height() * fraction as f32;
-                ui.scroll_to_rect_animation(
-                    egui::Rect::from_min_max(
-                        egui::pos2(content.left(), y),
-                        egui::pos2(content.right(), y + 1.0),
-                    ),
-                    Some(Align::Center),
-                    animation,
-                );
-            }
             ui.add_space(below.max(60.0));
         });
     // Scrolling by hand means the reader wants to look elsewhere; the
@@ -814,6 +800,17 @@ fn fullscreen_contents(app: &mut App, ui: &mut egui::Ui) {
                 next - now.position_ms,
             )));
     }
+}
+
+// Keep the upstream renderer for its demo/non-track fixtures; real Spotify tracks
+// always use the source-backed study view, including errors and missing lyrics.
+fn legacy_display(app: &App) -> bool {
+    app.study.document.is_none()
+        && app.now_playing().map_or(app.offline, |now| {
+            !now.uri
+                .strip_prefix("spotify:track:")
+                .is_some_and(crate::study::snapshot::valid_track)
+        })
 }
 
 #[cfg(test)]

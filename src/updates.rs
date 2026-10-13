@@ -14,8 +14,8 @@ use fastframe_update::{MacConfig, ReqwestTransport, UpdateConfig};
 
 pub const CONFIG: UpdateConfig = UpdateConfig {
     macos: MacConfig {
-        bundle_ids: &["rocks.spotifast.Spotifast"],
-        executable_names: &["Spotifast"],
+        bundle_ids: &[crate::shipping::BUNDLE_ID],
+        executable_names: &["RomajiPlayer"],
         legacy_bundle_names: &[],
     },
     // Releases are verified against checksums.txt alone until they are
@@ -23,8 +23,8 @@ pub const CONFIG: UpdateConfig = UpdateConfig {
     // carry the key: from then on an unsigned release is refused.
     publisher_key: None,
     ..UpdateConfig::new(
-        "crmne/spotifast",
-        "Spotifast",
+        "Anny0nn/romaji-player",
+        "RomajiPlayer",
         "spotifast",
         env!("CARGO_PKG_VERSION"),
     )

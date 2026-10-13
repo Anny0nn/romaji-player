@@ -1019,6 +1019,8 @@ pub enum Action {
         uris: Vec<String>,
         index: u32,
     },
+    /// Singalong entry point always starts this Mac's internal player.
+    PlayStudyTrack(String),
     PlayFromRow {
         context: RowContext,
         uri: String,

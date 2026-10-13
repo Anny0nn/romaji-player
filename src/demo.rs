@@ -266,6 +266,8 @@ fn page<T>(items: Vec<T>) -> ApiPage<T> {
 }
 
 pub fn populate(app: &mut App) {
+    // Upstream screenshot fixtures opt into the specific panels they exercise.
+    app.show_lyrics_panel = false;
     app.backend.set_offline(true);
     app.offline = true;
     app.auth = AuthStatus::Connected {
@@ -680,6 +682,8 @@ fn sample_lyrics() -> crate::lyrics::Lyrics {
             .collect(),
         synced: true,
         instrumental: false,
+        source_snapshot: None,
+        candidates: Vec::new(),
     }
 }
 

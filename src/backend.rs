@@ -579,6 +579,7 @@ struct PlaylistCacheWrite {
 }
 
 pub enum Command {
+    AlignLyrics(Box<crate::study::alignment::Request>),
     OpenThemesFolder,
     ProxyRestored {
         lease: CredentialLease,
@@ -781,6 +782,7 @@ pub struct LyricsRequest {
     /// The track the answer is for, so a stale one is ignored.
     pub uri: String,
     pub query: crate::lyrics::Query,
+    pub refresh: bool,
 }
 
 pub enum Event {
@@ -2142,6 +2144,7 @@ impl Worker {
                     });
                 }
                 Command::Lyrics(request) => self.fetch_lyrics(*request),
+                Command::AlignLyrics(request) => self.align_lyrics(*request),
                 Command::Rootlist => self.fetch_rootlist(),
                 Command::RootlistFinished { generation, result } => {
                     self.on_rootlist_finished(generation, result);
@@ -3593,6 +3596,29 @@ impl Worker {
         self.start_album_type_lookup();
     }
 
+    fn align_lyrics(&self, request: crate::study::alignment::Request) {
+        use crate::study::alignment::Status;
+        let job = request.job.clone();
+        let Some(engine) = &self.engine else {
+            *job.status.lock().unwrap_or_else(|p| p.into_inner()) =
+                Status::Failed("Sign in to in-app playback, then retry automatic timing.".into());
+            return;
+        };
+        let session = engine.session().clone();
+        let state = self.dirs.state.clone();
+        let waker = self.waker.clone();
+        tokio::spawn(async move {
+            let result = crate::study::alignment::run(session, request, state).await;
+            *job.status.lock().unwrap_or_else(|p| p.into_inner()) = match result {
+                Ok(result) => Status::Complete(Box::new(result)),
+                Err(error) => Status::Failed(format!(
+                    "Automatic timing: {error}. You can retry; existing lyrics are preserved."
+                )),
+            };
+            waker.wake();
+        });
+    }
+
     fn fetch_lyrics(&self, request: LyricsRequest) {
         let http = self.http.client();
         let events = self.events.clone();
@@ -3603,15 +3629,21 @@ impl Worker {
             // Spotify's own words go first: they follow the recording
             // exactly. Everything else, a signed-out session included,
             // falls back to LRCLIB.
-            let result = match spotify_lyrics(engine, &request.uri, &cache_dir).await {
-                Some(found) => Ok(Some(found)),
-                None => match http {
-                    Ok(http) => crate::lyrics::fetch(&http, &cache_dir, &request.query)
+            let result =
+                match spotify_lyrics(engine, &request.uri, &cache_dir, request.refresh).await {
+                    Some(found) => Ok(Some(found)),
+                    None => match http {
+                        Ok(http) => crate::lyrics::fetch_with_refresh(
+                            &http,
+                            &cache_dir,
+                            &request.query,
+                            request.refresh,
+                        )
                         .await
                         .map_err(|error| format!("{error:#}")),
-                    Err(error) => Err(error),
-                },
-            };
+                        Err(error) => Err(error),
+                    },
+                };
             let _ = events.send(Event::Lyrics {
                 uri: request.uri,
                 result,
@@ -4601,10 +4633,11 @@ async fn spotify_lyrics(
     engine: Option<Arc<Engine>>,
     uri: &str,
     cache_dir: &std::path::Path,
+    refresh: bool,
 ) -> Option<crate::lyrics::Lyrics> {
     let id = uri.strip_prefix("spotify:track:")?;
     let path = cache_dir.join(format!("spotify-{id}.json"));
-    if let Some(cached) = crate::lyrics::cached(&path) {
+    if !refresh && let Some(cached) = crate::lyrics::cached(&path) {
         return cached;
     }
     match engine?.lyrics_json(uri).await {

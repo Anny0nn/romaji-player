@@ -46,6 +46,10 @@ pub struct Lyrics {
     pub synced: bool,
     /// The database knows there are no words.
     pub instrumental: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_snapshot: Option<crate::study::snapshot::Snapshot>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub candidates: Vec<crate::study::snapshot::Snapshot>,
 }
 
 impl Lyrics {
@@ -98,6 +102,8 @@ pub fn from_spotify(json: &serde_json::Value) -> Option<Lyrics> {
         lines,
         synced,
         instrumental: false,
+        source_snapshot: crate::study::source::spotify(json).ok(),
+        candidates: Vec::new(),
     })
 }
 
@@ -117,8 +123,17 @@ pub async fn fetch(
     cache_dir: &Path,
     query: &Query,
 ) -> Result<Option<Lyrics>> {
+    fetch_with_refresh(http, cache_dir, query, false).await
+}
+
+pub async fn fetch_with_refresh(
+    http: &reqwest::Client,
+    cache_dir: &Path,
+    query: &Query,
+    refresh: bool,
+) -> Result<Option<Lyrics>> {
     let cache_path = cache_dir.join(format!("{}.json", cache_key(query)));
-    if let Some(cached) = read_cache(&cache_path) {
+    if !refresh && let Some(cached) = read_cache(&cache_path) {
         return Ok(cached);
     }
     let found = lookup(http, query).await?;
@@ -143,12 +158,15 @@ async fn lookup(http: &reqwest::Client, query: &Query) -> Result<Option<Lyrics>>
     if query.duration_ms > 0 {
         exact.push(("duration", duration.as_str()));
     }
-    if let Some(record) = get::<Record>(http, "/get", &exact).await?
+    let exact_record = get::<Record>(http, "/get", &exact).await?;
+    if let Some(record) = &exact_record
+        && (record.synced().is_some() || record.instrumental)
+        && score(record, query).is_some()
         && let Some(lyrics) = record.lyrics()
     {
         return Ok(Some(lyrics));
     }
-    let candidates = get::<Vec<Record>>(
+    let mut candidates = get::<Vec<Record>>(
         http,
         "/search",
         &[
@@ -158,7 +176,48 @@ async fn lookup(http: &reqwest::Client, query: &Query) -> Result<Option<Lyrics>>
     )
     .await?
     .unwrap_or_default();
-    Ok(pick(candidates, query).and_then(|record| record.lyrics()))
+    if let Some(record) = exact_record {
+        candidates.push(record);
+    }
+    Ok(choose_records(candidates, query))
+}
+
+fn choose_records(records: Vec<Record>, query: &Query) -> Option<Lyrics> {
+    let mut ranked: Vec<_> = records
+        .into_iter()
+        .filter_map(|record| score(&record, query).map(|score| (score, record)))
+        .collect();
+    // Search for timed matches before using any plain fallback.
+    if ranked.iter().any(|(_, record)| record.synced().is_some()) {
+        ranked.retain(|(_, record)| record.synced().is_some());
+    }
+    ranked.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
+    let mut snapshots = Vec::new();
+    let mut result = None;
+    for (_, record) in ranked {
+        if let Some(lyrics) = record.lyrics() {
+            if let Some(snapshot) = &lyrics.source_snapshot {
+                // Identical text/timing from duplicate rows is one candidate.
+                if !snapshots
+                    .iter()
+                    .any(|saved: &crate::study::snapshot::Snapshot| {
+                        saved.occurrences == snapshot.occurrences
+                    })
+                {
+                    snapshots.push(snapshot.clone());
+                }
+            }
+            if result.is_none() {
+                result = Some(lyrics);
+            }
+        }
+    }
+    let mut result = result?;
+    if snapshots.len() > 1 {
+        result.source_snapshot = None;
+        result.candidates = snapshots.into_iter().take(8).collect();
+    }
+    Some(result)
 }
 
 /// One LRCLIB request. A 404 is "nobody has transcribed this" and a 400 is
@@ -190,15 +249,19 @@ async fn get<T: DeserializeOwned>(
     ))
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 struct Record {
+    id: Option<u64>,
+    album_name: String,
     track_name: String,
     artist_name: String,
     duration: Option<f64>,
     instrumental: bool,
     synced_lyrics: Option<String>,
     plain_lyrics: Option<String>,
+    #[serde(flatten)]
+    extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 impl Record {
@@ -228,6 +291,10 @@ impl Record {
                     lines,
                     synced: true,
                     instrumental: false,
+                    source_snapshot: serde_json::to_value(self)
+                        .ok()
+                        .and_then(|payload| crate::study::source::lrclib(&payload, synced).ok()),
+                    candidates: Vec::new(),
                 });
             }
         }
@@ -242,13 +309,20 @@ impl Record {
                 .collect(),
             synced: false,
             instrumental: false,
+            source_snapshot: serde_json::to_value(self)
+                .ok()
+                .and_then(|payload| crate::study::source::lrclib(&payload, plain).ok()),
+            candidates: Vec::new(),
         })
     }
 }
 
 /// How well a search result fits what is playing; `None` rules it out.
 fn score(record: &Record, query: &Query) -> Option<i64> {
-    if !loose_match(&record.track_name, &clean_title(&query.title)) {
+    if normalize(&clean_title(&record.track_name)) != normalize(&clean_title(&query.title)) {
+        return None;
+    }
+    if normalize(&clean_artist(&record.artist_name)) != normalize(&clean_artist(&query.artist)) {
         return None;
     }
     let mut score = 0;
@@ -273,6 +347,7 @@ fn score(record: &Record, query: &Query) -> Option<i64> {
     Some(score)
 }
 
+#[cfg(test)]
 fn pick(records: Vec<Record>, query: &Query) -> Option<Record> {
     let mut best: Option<(i64, Record)> = None;
     for record in records {
@@ -570,6 +645,8 @@ fn leading_stamp(text: &str) -> Option<(u32, usize)> {
 
 #[derive(Serialize, Deserialize)]
 struct Cached {
+    #[serde(default)]
+    schema: u32,
     found: Option<Lyrics>,
 }
 
@@ -592,6 +669,7 @@ fn read_cache(path: &PathBuf) -> Option<Option<Lyrics>> {
     let text = std::fs::read_to_string(path).ok()?;
     serde_json::from_str::<Cached>(&text)
         .ok()
+        .filter(|cached| cached.schema == 2)
         .map(|cached| cached.found)
 }
 
@@ -600,6 +678,7 @@ fn write_cache(path: &Path, found: &Option<Lyrics>) {
         let _ = std::fs::create_dir_all(parent);
     }
     if let Ok(text) = serde_json::to_string(&Cached {
+        schema: 2,
         found: found.clone(),
     }) {
         let _ = std::fs::write(path, text);
@@ -609,6 +688,50 @@ fn write_cache(path: &Path, found: &Option<Lyrics>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn timed_search_beats_plain_and_ambiguous_recordings_require_selection() {
+        let query = Query {
+            artist: "Artist".into(),
+            title: "Song".into(),
+            album: "Album".into(),
+            duration_ms: 200000,
+        };
+        let plain = record("Song", "Artist", 200.0, false);
+        let mut alternate = record("Song", "Artist", 202.0, true);
+        alternate.synced_lyrics = Some("[00:03] Different timing".into());
+        let timed = record("Song", "Artist", 201.0, true);
+        let result = choose_records(vec![plain, timed, alternate], &query).unwrap();
+        assert!(result.synced);
+        assert!(result.source_snapshot.is_none());
+        assert_eq!(result.candidates.len(), 2);
+        assert!(choose_records(vec![record("Song", "Unrelated", 200.0, true)], &query).is_none());
+        let result = choose_records(
+            vec![
+                record("Song", "Artist", 200.0, true),
+                record("Song", "Artist", 200.0, true),
+            ],
+            &query,
+        )
+        .unwrap();
+        assert!(result.source_snapshot.is_some());
+        assert!(result.candidates.is_empty());
+    }
+
+    #[test]
+    fn old_cache_without_raw_source_is_invalidated() {
+        let dir = crate::study::testutil::TestDir::new();
+        let path = dir.path().join("legacy.json");
+        std::fs::write(
+            &path,
+            r#"{"found":{"lines":[],"synced":false,"instrumental":false}}"#,
+        )
+        .unwrap();
+        assert!(read_cache(&path).is_none());
+        let found = record("Song", "Artist", 200.0, true).lyrics();
+        store(&path, &found);
+        assert_eq!(cached(&path), Some(found));
+    }
 
     #[test]
     fn a_featuring_is_cut_where_it_starts_whatever_the_case_costs() {
@@ -675,6 +798,7 @@ mod tests {
             instrumental: false,
             synced_lyrics: synced.then(|| "[00:01.00] a".to_string()),
             plain_lyrics: Some("a".to_string()),
+            ..Record::default()
         }
     }
 
@@ -718,6 +842,8 @@ mod tests {
             lines: parse_lrc("[00:05]a\n[00:10]b\n[00:15]c"),
             synced: true,
             instrumental: false,
+            source_snapshot: None,
+            candidates: Vec::new(),
         };
         assert_eq!(lyrics.active_line(0), None);
         assert_eq!(lyrics.active_line(5_000), Some(0));
@@ -727,6 +853,8 @@ mod tests {
             lines: vec![Line::default()],
             synced: false,
             instrumental: false,
+            source_snapshot: None,
+            candidates: Vec::new(),
         };
         assert_eq!(plain.active_line(5_000), None);
     }
