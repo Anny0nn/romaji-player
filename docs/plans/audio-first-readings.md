@@ -1,6 +1,6 @@
 # Recover sung readings before choosing romaji
 
-Status: Draft
+Status: Approved (2026-10-13)
 
 ## Goal
 
