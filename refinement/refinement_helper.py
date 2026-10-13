@@ -26,7 +26,7 @@ from refinement_policy import (
     repair_regions,
     supported_raw,
 )
-from tifa_helper import Aligner, prepare_model, read_manifest
+from tifa_helper import Aligner, prepare_model, read_manifest, vowel_extensions
 
 ROOT = Path(__file__).resolve().parent
 
@@ -80,14 +80,31 @@ def release():
     mx.clear_cache()
 
 
-def tifa(samples, crops, archive, progress_path, stage):
+def tifa(samples, crops, archive, progress_path, stage, *, vowel_retry=False):
     aligner = Aligner(prepare_model(archive))
     result = []
     for n, (_, first, last, targets) in enumerate(crops):
         progress(progress_path, f"{stage} · line {n + 1}/{len(crops)}")
         raw = []
         units = aligner.align(samples[first:last], targets, diagnostics=raw)
-        result.append({"units": units, "raw_units": raw})
+        row = {"units": units, "raw_units": raw}
+        if vowel_retry and any(
+            vowel_extensions(t["text"]) != t["text"] for t in targets
+        ):
+            _, original = aligner.words(targets)
+            _, expanded = aligner.words(targets, expand_vowels=True)
+            eligible = sorted(set(expanded) - set(original))
+            if eligible:
+                extra = []
+                trial = aligner.align(
+                    samples[first:last], targets, diagnostics=extra, expand_vowels=True
+                )
+                row["vowel_retry"] = {
+                    "units": trial,
+                    "raw_units": extra,
+                    "eligible": [targets[i]["raw_span"] for i in eligible],
+                }
+        result.append(row)
     del aligner
     release()
     return result
@@ -219,13 +236,24 @@ def mms(samples, crops, folder, progress_path, stage, posteriors=False):
     return result
 
 
-def repair(baseline, trial, evidence, targets, length_ms, source_words=None):
+def repair(
+    baseline, trial, evidence, targets, length_ms, source_words=None, *, eligible=None
+):
     candidates = supported_raw(trial, evidence, length_ms)
-    repaired = (
-        repair_regions(baseline, candidates, evidence)
-        if coherent_line(candidates, evidence, source_words)
-        else baseline
-    )
+    coherent = coherent_line(candidates, evidence, source_words)
+    if eligible is not None:
+        nominated = {tuple(s) for s in eligible}
+        if not nominated <= {tuple(t["raw_span"]) for t in targets}:
+            raise ValueError("Vowel retry changed its source anchors.")
+        # A pronunciation fallback cannot authorize unrelated missing words.
+        # Retained neighbors may move only through the existing bounded region gate.
+        candidates = [
+            {**new, "start_ms": -1, "end_ms": -1}
+            if old["start_ms"] < 0 and tuple(new["raw_span"]) not in nominated
+            else new
+            for old, new in zip(baseline, candidates, strict=True)
+        ]
+    repaired = repair_regions(baseline, candidates, evidence) if coherent else baseline
     return [
         {
             "raw_span": t["raw_span"],
@@ -381,7 +409,12 @@ def run_readings(
     ]
     for name, vocals, posterior in zip(("Demucs", "Kim"), stems, views, strict=True):
         trial = tifa(
-            vocals, corrected, archive, progress_path, f"Timing checked lyrics · {name}"
+            vocals,
+            corrected,
+            archive,
+            progress_path,
+            f"Timing checked lyrics · {name}",
+            vowel_retry=True,
         )
         evidence = [
             phonetic_units(logp, blank, targets, vocabulary)
@@ -391,6 +424,22 @@ def run_readings(
         ]
         result = [
             repair(b, v, e, targets, (last - first) // 16, counts[str(occurrence)])
+            for b, v, e, (occurrence, first, last, targets) in zip(
+                result, trial, evidence, corrected, strict=True
+            )
+        ]
+        result = [
+            repair(
+                b,
+                v["vowel_retry"],
+                e,
+                targets,
+                (last - first) // 16,
+                counts[str(occurrence)],
+                eligible=v["vowel_retry"]["eligible"],
+            )
+            if "vowel_retry" in v
+            else b
             for b, v, e, (occurrence, first, last, targets) in zip(
                 result, trial, evidence, corrected, strict=True
             )

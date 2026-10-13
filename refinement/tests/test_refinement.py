@@ -72,6 +72,58 @@ def test_ctc_uses_observed_20ms_grid_and_25ms_window_without_duration_scaling():
     assert ctc_path([[0, -1]], [1, 1]) is None
 
 
+def test_vowel_retry_only_recovers_nominated_source_and_keeps_outer_anchors():
+    targets = [{"raw_span": [i, i + 1], "text": "あ", "romaji": "a"} for i in range(4)]
+    baseline = [
+        unit([0, 1], -1, -1),
+        unit([1, 2], 50, 400),
+        unit([2, 3], -1, -1),
+        unit([3, 4], 800, 1000),
+    ]
+    trial = [
+        unit([0, 1], 0, 100),
+        unit([1, 2], 100, 400),
+        unit([2, 3], 500, 600),
+        unit([3, 4], 800, 1000),
+    ]
+    evidence = [{**u, "mean_probability": 0.8} for u in trial]
+    result = repair(
+        baseline,
+        {"units": trial, "raw_units": baseline},
+        evidence,
+        targets,
+        1000,
+        eligible=[[0, 1]],
+    )
+    assert [(u["start_ms"], u["end_ms"]) for u in result] == [
+        (0, 100),
+        (100, 400),
+        (-1, -1),
+        (800, 1000),
+    ]
+    evidence[1]["mean_probability"] = 0.1
+    rejected = repair(
+        baseline,
+        {"units": trial, "raw_units": baseline},
+        evidence,
+        targets,
+        1000,
+        eligible=[[0, 1]],
+    )
+    assert [(u["start_ms"], u["end_ms"]) for u in rejected] == [
+        (u["start_ms"], u["end_ms"]) for u in baseline
+    ]
+    with pytest.raises(ValueError, match="anchors"):
+        repair(
+            baseline,
+            {"units": trial, "raw_units": baseline},
+            evidence,
+            targets,
+            1000,
+            eligible=[[8, 9]],
+        )
+
+
 def test_invalid_model_bytes_fail_before_any_network_or_model_import(
     tmp_path, monkeypatch
 ):
