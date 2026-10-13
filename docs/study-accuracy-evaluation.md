@@ -107,7 +107,17 @@ unknown phones. That leaves **4,506 aligned phones and 942 abstentions**.
 Three TIFA skip penalties (0, 0.5 and 1) produced identical boundaries. The complete
 three-recipe run took **26.6 seconds** after loading, with **0.85 GB** process lifetime
 peak RSS. **Decision:** changing that penalty has no demonstrated value on this reference
-pilot. No twenty-song reserved result has been opened or used for tuning.
+pilot.
+
+After freezing archive, recipe and implementation hashes, the twenty reserved recordings
+were evaluated together: **1,434 reference phones, 1,291 aligned and 143 abstentions**.
+All **1,291/1,291** aligned phones met onset ≤150 ms and offset ≤200 ms, with identical
+results for the three penalties. Onset median/p90/p95 errors were 4.0/13.6/18.8 ms;
+offset errors were 3.9/12.4/16.2 ms. The descriptive Wilson interval is 99.70–100%; the
+phrase bootstrap is degenerate at 100% because every aligned unit passes. Neither
+interval establishes perfect population accuracy. The three-recipe run took 7.4 seconds
+after loading, with lifetime peak RSS 0.92 GB. This pool is now opened and must not be
+reused as unseen tuning evidence.
 
 PJS is one male singer in controlled conditions. `cl` also labels glottal stops in the
 human relabel; this score preserves the supplied label instead of claiming a geminate
@@ -115,7 +125,7 @@ recognition test. References have no published per-boundary uncertainty; the imp
 records it as unknown. [TIFA's release](https://github.com/openvpi/TIFA/releases/tag/v1.0.0)
 discloses private training data without enough detail to rule out PJS. The partition is
 held out from this project's tuning, **not certified unseen by the pretrained model**.
-These results therefore cannot establish 99.87% accuracy on commercial songs.
+These results therefore cannot establish word or reading accuracy on commercial songs.
 
 The heldout command requires a previously frozen receipt matching recipes, archives,
 split and implementation. The runner emits no partial per-song heldout reports; evidence
@@ -177,8 +187,9 @@ above are different measurements.
 **Decision:** keep context recovery offline. It meets the commercial recovery-count
 threshold but supplies zero affected human-reference units, failing the required sample
 size of fifty units over ten distinct phrases. Do not mask correct baseline words or
-lower thresholds to manufacture a qualifying result. The twenty reserved PJS songs remain
-unopened for context tuning. Fixtures cover repeated source spans, exact sample origins,
+lower thresholds to manufacture a qualifying result. The reserved PJS pool was subsequently
+opened for the frozen raw-phone run above; no context candidate was promoted with it.
+Fixtures cover repeated source spans, exact sample origins,
 original crop bounds, conflicting proposals, weak/wrong-verse evidence and score abstentions.
 
 ## Reproduction and remaining checks
@@ -235,3 +246,66 @@ Its linked corpus README explicitly restricts use to research. Two small audio/a
 pairs have now been acquired privately; none enters git or the app. The human annotations
 contain CMU phones and zero-duration `sp` word markers, rather than gold orthographic
 transcripts. An English grapheme verifier must not manufacture its gold words from ASR.
+
+## Independent English verifier pilot
+
+The pinned [XLSR eSpeak phoneme checkpoint](https://huggingface.co/facebook/wav2vec2-xlsr-53-espeak-cv-ft)
+is an Apache-2.0 speech model trained with Common Voice phone targets, rather than a
+singing recognizer. Revision `3e836924cfd3b858a0bbdbc1f7ef412105d00446` has a
+1.26 GB FP32 weight file. `scripts/english-ctc-model-files.json` records exact sizes and
+SHA-256 hashes; `scripts/benchmark-english-phones.py` verifies them before offline loading.
+It bypasses the eSpeak tokenizer and maps human CMU phones to the checkpoint's IPA
+inventory using an explicit [en-US crosswalk](https://github.com/cmusphinx/cmudict-tools/blob/master/accents/en-US.csv).
+Unmapped `ER` rejects a whole phrase; stressless `AH` uses canonical `ʌ` rather than
+guessing its schwa realization. These are known mapping limits.
+
+The research-only NUS pilot uses ADIZ song 01 for development; JLEE song 05 remains
+reserved with hashes frozen, without parsing its labels or running inference. Neither
+audio nor annotations are distributed. Both have human singing annotations; automatic
+annotations for the spoken renditions are not used.
+
+| ADIZ development measurement                       | Reference units | Accepted | Within onset ≤150 ms and offset ≤200 ms |
+| -------------------------------------------------- | --------------: | -------: | --------------------------------------: |
+| Complete forced phone paths                        |             146 |      109 |                          67/109 (61.5%) |
+| Phones with mean probability ≥0.45                 |             146 |       57 |                           52/57 (91.2%) |
+| Human `sp` word groups with mean probability ≥0.45 |              37 |       17 |                           10/17 (58.8%) |
+
+Two of twelve phrases were unsupported. The word groups have human boundaries but no
+gold spelling, so this measures supplied-phone timing rather than lyric recognition.
+Decoding took 1.5 seconds after loading, with lifetime process peak RSS 0.66 GB.
+**Decision:** reject app integration. The pilot fails the timing gate and is too small
+to certify a new mixed-language recovery path. No heldout result was opened to rescue
+it. Both the checkpoint and its English reference data stay outside the app.
+
+## Weak-repeat localization pilot
+
+`scripts/experiment-repeat-windows.py` found **21 weak repeated occurrences with 39
+missing Japanese words across eight songs**. Each matches a fully timed occurrence's
+original text and word readings in the same recording. English spans and previously
+corrected reading lines are excluded. Nomination uses exact existing lyric occurrences,
+so this bounded pilot does not need whole-song chroma retrieval.
+
+Fresh MMS vocal posteriors, with the actual blank channel removed, provide cosine DTW
+features with band radius 0.25. Duration ratios outside 0.5–2 are rejected. Target-audio
+RomajiASR independently checks complete mixed mora/phone paths and word endpoints;
+tokens cannot cross source-word boundaries, and interior phone times are never divided.
+Accepted proposals must be within 150 ms at both endpoints, then survive a fresh TIFA
+alignment in a ±300 ms window, original crop bounds and unchanged supported neighboring
+anchors. Conflicting new intervals are rejected together without trimming them.
+
+The pilot added **zero words**: five proposals failed DTW bounds/distortion, 27 failed
+independent target support/coherence, and seven failed fresh realignment. It took
+27.4 seconds after input verification, with lifetime peak RSS 0.95 GB. Input, model,
+runner and mapping hashes are recorded privately. **Decision:** keep the experiment
+offline; it supplies neither recovery gains nor relevant affected reference cases.
+Whole-song relocation is not justified by this result.
+
+## Negative controls
+
+`scripts/check-phonetic-controls.py` explicitly runs the small-vowel fallback and the
+offline context policy against synthetic silence, a fixed five-tone instrumental signal,
+and an unrelated PJS singing excerpt. Each control has two synthetic Japanese target
+lines including a same-vowel small-kana spelling. **All three admit zero new words**
+through either recovery operator. The spelling fallback proposes no reading changes.
+These are focused recovery tests, not a measurement of false positives across arbitrary
+music or the entire pre-existing transcription pipeline.
