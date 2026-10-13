@@ -174,13 +174,17 @@ def singing_evidence(samples, crops, folder, progress_path):
     return result, vocabulary
 
 
-def transcribe(samples, folder, progress_path, name):
+def transcribe(
+    samples, folder, progress_path, name, *, language="ja", diagnostics=None
+):
     import mlx.core as mx
     import mlx_whisper
     import numpy as np
     from mlx_whisper.transcribe import ModelHolder
     from refinement_helper import progress, release
 
+    if language not in (None, "ja", "en"):
+        raise ValueError("Unsupported transcription language experiment.")
     if np.sqrt(np.mean(np.square(samples.astype(np.float64)))) < 0.0001:
         return []
     progress(progress_path, f"Checking lyric text · {name}")
@@ -190,7 +194,7 @@ def transcribe(samples, folder, progress_path, name):
         value = mlx_whisper.transcribe(
             samples,
             path_or_hf_repo=str(folder / "whisper"),
-            language="ja",
+            language=language,
             task="transcribe",
             temperature=0.0,
             condition_on_previous_text=False,
@@ -198,6 +202,8 @@ def transcribe(samples, folder, progress_path, name):
             verbose=None,
             word_timestamps=True,
         )
+        if diagnostics is not None:
+            diagnostics["detected_language"] = value.get("language")
         return value["segments"]
     finally:
         ModelHolder.model = None

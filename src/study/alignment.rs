@@ -19,7 +19,8 @@ pub const MODEL_SHA: &str = "6da6832cd2cb981aae1ccc2d9330f8f7c085ce7977d1eb13bff
 const MODEL_SIZE: u64 = 150_789_526;
 const MODEL_URL: &str = "https://github.com/openvpi/TIFA/releases/download/v1.0.0/TIFA-1.0-ST.zip";
 const ENGINE: &str = "TIFA/32a0a13-source-word-v2";
-const EXPERIMENTAL_ENGINE: &str = "TIFA+Demucs+Kim+MMS+RomajiASR+Whisper/sung-reading-v1";
+const EXPERIMENTAL_ENGINE: &str =
+    "TIFA+Demucs+Kim+MMS+RomajiASR+Whisper/sung-reading-v1+vowel-extension-v1";
 const ASSETS: &str = include_str!("../../refinement/refinement-model-files.json");
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Method {
@@ -42,7 +43,12 @@ impl Method {
     fn fingerprint(self) -> String {
         match self {
             Self::Tifa => MODEL_SHA.into(),
-            Self::Experimental => format!("{:x}", Sha256::digest(ASSETS.as_bytes())),
+            Self::Experimental => {
+                let mut digest = Sha256::new();
+                digest.update(ASSETS.as_bytes());
+                digest.update(EXPERIMENTAL_ENGINE.as_bytes());
+                format!("{:x}", digest.finalize())
+            }
         }
     }
 }
@@ -445,6 +451,26 @@ fn word_targets(raw: &str, converted: &Response) -> Vec<Target> {
         .collect()
 }
 
+fn crop_targets(request: &Request, audio: &super::audio::Audio) -> Vec<(Crop, Vec<Target>)> {
+    crops(&request.source, request.job.delay_ms, audio)
+        .into_iter()
+        .filter_map(|crop| {
+            let raw = &request
+                .source
+                .occurrences
+                .iter()
+                .find(|line| line.id == crop.occurrence)?
+                .raw_line;
+            let converted = request
+                .converted
+                .iter()
+                .find(|line| line.occurrence_id == crop.occurrence)?;
+            let targets = word_targets(raw, converted);
+            (!targets.is_empty()).then_some((crop, targets))
+        })
+        .collect()
+}
+
 /// Discard individual bad predictions, retaining the largest ordered set of real endpoints.
 /// No clock is interpolated, snapped, or assigned to a different source word.
 fn predicted_words(
@@ -522,23 +548,7 @@ fn infer_with_stereo(
     stereo: Option<Vec<f32>>,
     assets: Option<PathBuf>,
 ) -> Result<Generated> {
-    let mut crop_list: Vec<_> = crops(&request.source, request.job.delay_ms, &audio)
-        .into_iter()
-        .filter_map(|crop| {
-            let raw = &request
-                .source
-                .occurrences
-                .iter()
-                .find(|line| line.id == crop.occurrence)?
-                .raw_line;
-            let converted = request
-                .converted
-                .iter()
-                .find(|line| line.occurrence_id == crop.occurrence)?;
-            let targets = word_targets(raw, converted);
-            (!targets.is_empty()).then_some((crop, targets))
-        })
-        .collect();
+    let mut crop_list = crop_targets(request, &audio);
     if crop_list.is_empty() {
         bail!("Automatic timing needs line-synced Japanese lyrics. Refresh to try another source.");
     }
@@ -865,6 +875,132 @@ pub async fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn exported_crop_coordinates_keep_recording_origin_and_delay_distinct() {
+        let source =
+            super::super::source::import("[00:10.00]空\n[00:20.00]月", "synthetic.lrc").unwrap();
+        let audio = super::super::audio::Audio {
+            origin_ms: 5_000,
+            samples: vec![0.0; 20 * 16_000],
+        };
+        let result = crops(&source, 250, &audio);
+        assert_eq!(result.len(), 2);
+        assert_eq!((result[0].start, result[0].end), (76_000, 248_800));
+        assert_eq!(result[0].lyric_origin_ms, 9_500);
+        assert_eq!(
+            i64::from(audio.origin_ms) + i64::from(result[0].start) / 16 - 250,
+            result[0].lyric_origin_ms
+        );
+        assert_eq!(result[1].end, audio.samples.len() as u32);
+    }
+
+    #[test]
+    #[ignore = "Explicit private document/audio export; no inference or downloads"]
+    fn recorded_song_exports_rust_crop_manifest() {
+        use super::super::conversion::{Request as ConversionRequest, Romanizer};
+        let document: super::super::snapshot::Document = serde_json::from_slice(
+            &std::fs::read(std::env::var_os("ROMAJI_TEST_DOCUMENT").unwrap()).unwrap(),
+        )
+        .unwrap();
+        document.validate().unwrap();
+        let source = document.current().snapshot.clone();
+        let mut helper = Romanizer::start(&mut crate::shipping::helper_command().unwrap()).unwrap();
+        let converted = source
+            .occurrences
+            .iter()
+            .map(|line| {
+                helper
+                    .convert(&ConversionRequest {
+                        protocol_version: 1,
+                        request_id: line.id as u64 + 1,
+                        track_id: document.track_id.clone(),
+                        snapshot_id: source.id.clone(),
+                        occurrence_id: line.id,
+                        override_revision: document.revision,
+                        expected_conversion_signature: helper.signature.clone(),
+                        raw_line: line.raw_line.clone(),
+                        overrides: document.current().overrides(&document.track_id, line.id),
+                    })
+                    .unwrap()
+            })
+            .collect();
+        let pcm_path = PathBuf::from(std::env::var_os("ROMAJI_TEST_PCM").unwrap());
+        let bytes = std::fs::read(&pcm_path).unwrap();
+        assert_eq!(bytes.len() % 4, 0);
+        let samples = bytes
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|b| f32::from_le_bytes(*b))
+            .collect();
+        let audio = super::super::audio::Audio {
+            origin_ms: 0,
+            samples,
+        };
+        let request = Request {
+            protected: vec![],
+            source,
+            converted,
+            job: Job {
+                method: Method::Experimental,
+                track: document.track_id.clone(),
+                snapshot: document.current().snapshot.id.clone(),
+                revision: document.revision,
+                delay_ms: document.delay_ms,
+                cancel: Arc::new(AtomicBool::new(false)),
+                status: Arc::new(Mutex::new(Status::Running("export".into()))),
+            },
+        };
+        let rows: Vec<_> = crop_targets(&request, &audio).into_iter().map(|(crop, targets)| {
+            let line = request.source.occurrences.iter().find(|l| l.id == crop.occurrence).unwrap();
+            let converted = request.converted.iter().find(|l| l.occurrence_id == crop.occurrence).unwrap();
+            serde_json::json!({
+                "occurrence": crop.occurrence, "start_sample": crop.start, "end_sample": crop.end,
+                "lyric_origin_ms": crop.lyric_origin_ms, "raw_line": line.raw_line,
+                "conversion_signature": converted.conversion_signature, "source_word_count": converted.words.len(),
+                "targets": targets.iter().map(|t| serde_json::json!({
+                    "raw_span": t.raw_span, "text": t.text, "romaji": t.romaji,
+                })).collect::<Vec<_>>(),
+            })
+        }).collect();
+        let output = PathBuf::from(std::env::var_os("ROMAJI_TEST_MANIFEST_DIR").unwrap());
+        let project = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .canonicalize()
+            .unwrap();
+        std::fs::create_dir_all(&output).unwrap();
+        assert!(!output.canonicalize().unwrap().starts_with(project));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&output, std::fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        let path = output.join("rust-crops.json");
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            file.set_permissions(std::fs::Permissions::from_mode(0o600))
+                .unwrap();
+        }
+        let value = serde_json::json!({
+            "schema_version": 1, "producer": "Rust crop_targets", "sample_rate": 16000,
+            "recording_origin_ms": audio.origin_ms, "recording_samples": audio.samples.len(),
+            "mono_pcm_sha256": format!("{:x}", Sha256::digest(&bytes)),
+            "track": document.track_id, "snapshot": request.source.id,
+            "revision": request.job.revision, "delay_ms": request.job.delay_ms, "crops": rows,
+        });
+        file.write_all(&serde_json::to_vec(&value).unwrap())
+            .unwrap();
+        println!(
+            "Exported Rust crop count: {}",
+            value["crops"].as_array().unwrap().len()
+        );
+    }
 
     #[tokio::test]
     async fn publishing_a_verified_model_replaces_the_old_cache_atomically() {

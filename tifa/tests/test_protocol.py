@@ -14,6 +14,7 @@ from tifa_helper import (
     read_manifest,
     result_line,
     retain_interval,
+    vowel_extensions,
 )
 
 
@@ -65,6 +66,43 @@ def test_silence_never_forces_positive_spans_or_loads_pronunciations():
     ]
 
 
+def test_pronunciation_selection_is_opt_in_and_keeps_complete_word_alternatives():
+    from types import SimpleNamespace
+
+    import torch
+    from lib.path_traversal import materialize_paths
+
+    # Second candidate adds a phone; choosing individual tokens would mix readings.
+    tensors = {
+        "paths": torch.tensor([[[3, 4], [0, 5], [6, 6]]]),
+        "words": torch.tensor([[1, 1, 2]]),
+        "groups": torch.tensor([[[1, 1], [0, 2], [1, 1]]]),
+        "candidates": torch.tensor([[[True, True], [True, False]]]),
+    }
+    calls = []
+    spec = object()
+
+    class Backend:
+        def score(self, received, **kwargs):
+            assert received is spec
+            assert kwargs["unit"] == "levenshtein"
+            calls.append(kwargs)
+            return SimpleNamespace(choices=torch.tensor([[2, 1]]))
+
+    aligner = Aligner.__new__(Aligner)
+    aligner.backend = Backend()
+    original = aligner.pronunciation_choices(spec, tensors, False)
+    assert original.tolist() == [[1, 1]]
+    assert calls == []
+    selected = aligner.pronunciation_choices(spec, tensors, True)
+    tokens, owners, _ = materialize_paths(
+        tensors["paths"], tensors["words"], tensors["groups"], selected
+    )
+    assert tokens.tolist() == [[4, 5, 6]]
+    assert owners.tolist() == [[1, 1, 2]]
+    assert len(calls) == 1
+
+
 def test_missing_kana_dictionary_entry_preserves_supported_source_words(tmp_path):
     from g2p.converters.japanese import JapaneseKanaConverter
     from lib.vocabulary import Vocabulary
@@ -86,6 +124,31 @@ def test_missing_kana_dictionary_entry_preserves_supported_source_words(tmp_path
     )
     assert indices == [0, 2]
     assert len(words) == 2
+    words, indices = aligner.words(
+        [{"text": "あぁ", "romaji": "aa"}], expand_vowels=True
+    )
+    assert indices == [0]
+    assert words[0].text == "あぁ"
+    assert [g.phonemes for g in words[0].readings[0].paths[0]] == [["a"], ["a"]]
+
+
+def test_vowel_fallback_never_rewrites_valid_digraphs_or_guesses_other_kana():
+    assert (
+        vowel_extensions("あぁぁ いぃ うぅ えぇ おぉ アァ")
+        == "あああ いい うう ええ おお アア"
+    )
+    for unchanged in (
+        "うぁ",
+        "きぇ",
+        "ふぁ",
+        "きゃ",
+        "ティー",
+        "ぁ",
+        "あぃ",
+        "っ",
+        "アぁ",
+    ):
+        assert vowel_extensions(unchanged) == unchanged
 
 
 def test_library_amplitude_diagnostics_cannot_corrupt_jsonl(capsys):

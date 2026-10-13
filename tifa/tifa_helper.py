@@ -147,6 +147,23 @@ def retain_interval(spans, indices, similarity, agreement, length_ms):
     return start, end
 
 
+def vowel_extensions(text):
+    """Expand only same-vowel small-kana elongation, never contracted digraphs.
+
+    This is a phonetic input fallback; source text, displayed reading and byte spans
+    remain intact. Unknown small vowels and script mixtures remain unsupported.
+    """
+    pairs = dict(zip("ぁぃぅぇぉァィゥェォ", "あいうえおアイウエオ", strict=True))
+    result = []
+    for char in text:
+        large = pairs.get(char)
+        if result and large == result[-1]:
+            result.append(large)
+        else:
+            result.append(char)
+    return "".join(result)
+
+
 class Aligner:
     def __init__(self, folder):
         import torch
@@ -185,7 +202,7 @@ class Aligner:
             ),
         }
 
-    def words(self, targets):
+    def words(self, targets, *, expand_vowels=False):
         from g2p.converters.base import G2PConversionError, G2PReading, G2PWord
         from g2p.encoding import G2PEncodingError, encode_paths
 
@@ -199,7 +216,17 @@ class Aligner:
             except (G2PConversionError, KeyError):
                 # The kana converter raises KeyError for spellings absent from its
                 # phoneme dictionary (for example あぁ). Keep other source words.
-                continue
+                normalized = (
+                    vowel_extensions(text)
+                    if expand_vowels and language == "ja"
+                    else text
+                )
+                if normalized == text:
+                    continue
+                try:
+                    parts = self.converters[language].convert(normalized)
+                except (G2PConversionError, KeyError):
+                    continue
             if not parts:
                 continue
             paths = [
@@ -219,12 +246,33 @@ class Aligner:
             target_indices.append(index)
         return words, target_indices
 
-    def align(self, samples, targets, diagnostics=None):
+    def pronunciation_choices(self, spec, tensors, score_pronunciations):
+        from lib.path_traversal import first_choices
+
+        if not score_pronunciations:
+            return first_choices(tensors["candidates"])
+        return self.backend.score(
+            spec,
+            paths=tensors["paths"],
+            words=tensors["words"],
+            candidates=tensors["candidates"],
+            unit="levenshtein",
+        ).choices
+
+    def align(
+        self,
+        samples,
+        targets,
+        diagnostics=None,
+        *,
+        score_pronunciations=False,
+        expand_vowels=False,
+    ):
         import numpy as np
         import torch
         from g2p.encoding import encode_paths
         from inference.backend import SpectrogramContext
-        from lib.path_traversal import first_choices, materialize_paths
+        from lib.path_traversal import materialize_paths
         from scipy.signal import resample_poly
 
         units = [
@@ -243,19 +291,13 @@ class Aligner:
             )
         if not np.isfinite(samples).all() or np.sqrt(np.mean(samples**2)) < 0.0001:
             return units
-        words, target_indices = self.words(targets)
+        words, target_indices = self.words(targets, expand_vowels=expand_vowels)
         if not words:
             return units
         encoded, _, _ = encode_paths(
             words, self.vocabulary, "raise", languages=["ja", "en"]
         )
         tensors = {k: torch.from_numpy(v)[None].to("mps") for k, v in encoded.items()}
-        tokens, owners, groups = materialize_paths(
-            tensors["paths"],
-            tensors["words"],
-            tensors["groups"],
-            first_choices(tensors["candidates"]),
-        )
         resampled = resample_poly(samples, 3, 1).astype(np.float32)
         with torch.inference_mode():
             spec = self.backend.spectrogram(
@@ -263,6 +305,10 @@ class Aligner:
                 torch.tensor([len(resampled) / 48000]),
             )
             spec = SpectrogramContext(spec.features.to("mps"), spec.mask.to("mps"))
+            choices = self.pronunciation_choices(spec, tensors, score_pronunciations)
+            tokens, owners, groups = materialize_paths(
+                tensors["paths"], tensors["words"], tensors["groups"], choices
+            )
             result = self.backend.align(
                 spec, tokens=tokens, groups=groups, unit="frame", skip_penalty=0.5
             )

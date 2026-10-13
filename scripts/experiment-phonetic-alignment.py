@@ -292,7 +292,14 @@ def crop(case):
     return ensemble.read_pcm(case)
 
 
-def tifa(cases, archive, penalty, double_sokuon):
+def tifa(
+    cases,
+    archive,
+    penalty,
+    double_sokuon,
+    score_pronunciations=False,
+    expand_vowels=False,
+):
     import numpy as np
 
     sys.path.insert(0, str(ROOT / "tifa"))
@@ -366,8 +373,13 @@ def tifa(cases, archive, penalty, double_sokuon):
         start = time.perf_counter()
         targets = ensemble.alignment_targets(case["words"])
         with contextlib.redirect_stdout(io.StringIO()):
-            units = aligner.align(samples, targets)
-            _, supported = aligner.words(targets)
+            units = aligner.align(
+                samples,
+                targets,
+                score_pronunciations=score_pronunciations,
+                expand_vowels=expand_vowels,
+            )
+            _, supported = aligner.words(targets, expand_vowels=expand_vowels)
         raw_units = [
             {
                 "raw_span": u["raw_span"],
@@ -385,6 +397,10 @@ def tifa(cases, archive, penalty, double_sokuon):
                 "units": units,
                 "raw_units": raw_units,
                 "unsupported_words": len(targets) - len(supported),
+                "pronunciation_selection": "acoustic"
+                if score_pronunciations
+                else "first",
+                "expand_vowels": expand_vowels,
                 "skipped_phonemes": int(
                     np.sum(captured["spans"][:, 1] <= captured["spans"][:, 0])
                 )
@@ -773,6 +789,8 @@ def main():
     )
     parser.add_argument("--skip-penalty", type=float, default=0.5)
     parser.add_argument("--double-sokuon", action="store_true")
+    parser.add_argument("--score-pronunciations", action="store_true")
+    parser.add_argument("--expand-vowels", action="store_true")
     parser.add_argument("--baseline", type=Path)
     parser.add_argument("--trial", type=Path)
     parser.add_argument("--posteriors", type=Path)
@@ -800,7 +818,14 @@ def main():
             args.stems,
         )
     elif args.stage == "tifa":
-        result = tifa(cases, args.archive, args.skip_penalty, args.double_sokuon)
+        result = tifa(
+            cases,
+            args.archive,
+            args.skip_penalty,
+            args.double_sokuon,
+            args.score_pronunciations,
+            args.expand_vowels,
+        )
     elif args.stage == "separate":
         result = separate(
             cases, args.model, args.stem_directory, args.stereo, args.separator

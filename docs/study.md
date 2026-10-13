@@ -50,6 +50,19 @@ Unsupported optional transcription candidates are withheld without aborting timi
 the selected lyrics. Source conversion, frozen-identity and protocol failures still abort
 the job; input rejections are distinguished from stale or malformed helper replies.
 
+The `vowel-extension-v1` update adds a narrow Experimental fallback for same-vowel
+small-kana spellings such as `あぁ` when TIFA's normal pronunciation converter rejects
+them. It retains the original text, source spans and display reading. Only nominated
+unsupported words may gain timing; existing neighbors can move only through the bounded
+repair policy, with independent MMS support and phrase coherence. Valid digraphs such as
+`ふぁ` are preserved. TIFA's original action remains unchanged. Experimental result
+fingerprints now include the recipe identity as well as pinned model assets, while older
+saved versions continue to load without reconversion or inference.
+
+The [accuracy experiments](study-accuracy-evaluation.md) record why broader pronunciation
+scoring, neighboring context, repeat localization and an English speech verifier remain
+offline. Their research commands are explicit; hooks do not download models or run them.
+
 Rust sends the frozen source/edit revision, delay, recording/model identities and protected
 spans. Python returns provisional patches and fresh alignment; Rust validates the patches,
 reconverts them and verifies exact timing targets before saving a complete result. No

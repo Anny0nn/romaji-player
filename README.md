@@ -133,6 +133,9 @@ Experimental combines Cutlet/UniDic candidates, Demucs and Kim vocals, MMS acous
 checks, RomajiASR singing phonemes and blind full-song Whisper large-v3 transcription.
 It can repair supported readings and bounded kana text substitutions, while retaining
 prior versions. It does not freely rewrite ambiguous kanji from audio.
+Experimental also retries unsupported same-vowel small-kana spellings such as `あぁ`,
+with independent acoustic checks. Broader context, repeat and mixed-language approaches
+are being measured offline; a higher coverage count alone does not enable them in the app.
 
 Saved study data lives under
 `~/Library/Application Support/io.github.Anny0nn.RomajiPlayer/study/`; downloaded weights
@@ -142,13 +145,17 @@ download, but does not remove the saved study files. Account grants are held sep
 in macOS Keychain. Audio preparation and model inference are local; Spotify, lyric
 lookups and first-use model downloads still need network access.
 
-On fourteen recorded songs, Experimental retained 3,434/4,160 word timings (82.5%),
-compared with TIFA's 3,121/4,160 (75.0%). Median processing time was 178 seconds versus
-7 seconds on an M2 Pro with 16 GB. Tabi no Tochuu reached 153/153 with all six verified
-reading corrections; difficult songs still had substantial gaps. These are coverage and
-persistence results, not a listening-accuracy score. See the
+On fourteen recorded songs, the updated Experimental recipe retained 3,435/4,160 word
+timings (82.6%), compared with TIFA's 3,121/4,160 (75.0%). The pronunciation fallback
+adds one word, loses none and adjusts one neighboring interval. Median processing time
+was 169 seconds versus 7 seconds on an M2 Pro with 16 GB. Tabi no Tochuu reached
+153/153 with all six verified reading corrections; difficult songs still had substantial
+gaps. These are coverage and persistence results, not a listening-accuracy score. See the
 [evaluation and measured limits](docs/study-reading-evaluation.md) and
 [data/protocol design](docs/study.md).
+The newer [accuracy experiments](docs/study-accuracy-evaluation.md) separate retained-word
+counts from human phone-boundary tests and document rejected approaches. They do not
+establish perfect lyric recognition or word timing on unfamiliar songs.
 
 ## Troubleshooting
 
