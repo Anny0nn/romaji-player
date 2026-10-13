@@ -1,11 +1,47 @@
 # Recover sung readings before choosing romaji
 
-Status: Implemented (2026-10-13; offline pilot, app adoption withheld)
+Status: Approved (2026-10-13; Mac completeness extension; offline pilot complete)
 
 Results and adoption decision: [audio-first evaluation](../study-audio-first-evaluation.md).
 The fixed fallback gains 19 phone-correct controlled repairs across thirteen songs, with
 fresh TIFA timing and unchanged controls. It adds two wrong repairs; full native/natural-song
 validation and complete memory profiling remain unestablished, so step 5 is not activated.
+
+## Approved Mac completeness extension
+
+The maintainer's next instruction prioritizes **higher retained-word percentages on the
+fourteen real songs in the Mac app**. Continue on this branch and PR. The recognition
+pilot above is complete; synthetic recovery counts are supporting evidence for this
+extension, not its product outcome. The starting packaged Experimental recipe retains
+3,435/4,160 source words; 725 are missing, including 404 spans with Latin letters.
+
+1. Reuse the fourteen native saved results and recordings as the fixed baseline. Export
+   current corrected readings, original occurrences/byte spans and Rust sample bounds.
+   Report each song's before/after words, newly retained words, losses and moved intervals.
+   Never reduce the denominator or count an unmarked word as timed.
+2. First test dictionary pronunciation shadows as an alignment-only fallback on missing
+   Japanese words. Preserve displayed kana/romaji and existing repairs. Independently
+   compare actual singing-model endpoints with freshly computed TIFA intervals; keep
+   source ownership, original crop bounds, supported neighbors and non-overlap checks.
+3. Test explicit English Whisper passes on crops containing missing Latin-script words,
+   rather than whole-song automatic language detection. Recognition is audio-only with
+   no lyric prompt. Match observed words uniquely to original source positions, retain
+   native timestamps and require independent TIFA endpoint support before filling a gap.
+   Latin script nominates a retry; it does not prove the singer is using English. Treat
+   mix/Kim passes as correlated observations, not separate model votes.
+4. Keep passes separate in reports. Test silence, instrumental and wrong-verse inputs,
+   source/grouping changes, delay and saved-edit/version preservation. Preserve existing
+   accepted timings; reject collisions instead of trimming or interpolating timestamps.
+   Reuse human singing references where they fit the new operation, reporting remaining
+   accuracy limits honestly. No manual timing or user labelling task is introduced.
+5. Integrate a beneficial, independently supported fallback into Experimental, replay
+   the full native fourteen-song suite, verify saved/reopened results and original TIFA,
+   then package a Mac app for testing. Report actual per-song coverage and processing
+   costs on M2 Pro /16 GiB. The adoption criteria for replacing reading recognition above
+   remain separate; this extension may ship a timing-only recovery without adopting that
+   recognizer as a new lyric-writing path. If neither retry helps safely, keep trying a
+   distinct bounded hypothesis and record why; do not present another benchmark-only
+   milestone as the requested completeness improvement.
 
 ## Goal
 
