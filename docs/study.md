@@ -59,6 +59,22 @@ repair policy, with independent MMS support and phrase coherence. Valid digraphs
 fingerprints now include the recipe identity as well as pinned model assets, while older
 saved versions continue to load without reconversion or inference.
 
+The `singing-word-recovery-v1` stage fills remaining gaps using freshly observed
+TIFA endpoints checked against the existing RomajiASR singing model on Kim vocals.
+It first checks the selected Japanese pronunciation, then two fixed CMU-to-Japanese
+phonetic hypotheses for English words sung with Japanese pronunciations. These aliases
+are acoustic inputs only: they never rewrite source text, hiragana or romaji. Unknown
+phones remain unsupported. Models are reused sequentially, with no additional weights.
+
+A recovered word needs a complete positive-similarity TIFA path with at least 0.90
+token agreement, at least 0.45 singing-model probability, both endpoints within
+150 ms, at least 80 ms duration, and the existing phrase-coherence gate. Every missing
+or unsupported source word still counts in that gate's denominator. The stage preserves
+every interval retained by the earlier Experimental stages and rejects overlaps; it
+never trims, spreads or copies timestamps. Each repeated occurrence uses its own audio
+window. This timing-only addition leaves the sung-reading repair protocol unchanged.
+Its [evaluation](study-completeness-evaluation.md) separates coverage from correctness.
+
 The [accuracy experiments](study-accuracy-evaluation.md) record why broader pronunciation
 scoring, neighboring context, repeat localization and an English speech verifier remain
 offline. Their research commands are explicit; hooks do not download models or run them.
