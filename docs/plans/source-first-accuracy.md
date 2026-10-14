@@ -1,6 +1,6 @@
 # Source-aware singing accuracy and word boundaries
 
-Status: Draft
+Status: Approved (2026-10-14; maintainer requested implementation in the successor PR)
 
 ## Goal
 
