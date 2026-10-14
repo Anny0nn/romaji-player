@@ -190,6 +190,13 @@ to produce its first deliverable.
    `docs/study-representation-evaluation.md`, run the full repository gate at the final
    head, and set this plan to Implemented when its deliverables are complete.
 
+Implementation notes: a trial explicitly preserving `ー` produced identical targets;
+Unicode already classifies the long-vowel mark as a letter, so the existing filter keeps
+it. No normalization change is adopted from that trial. Experimental packaging also
+needs a verified staging directory: Finder recreated `.DS_Store` during two attempted
+in-place rebuilds, leaving a partially removed runtime. Replace it only after the new
+staged package passes signing and converter checks.
+
 ## Tests and checks
 
 - Existing known readings: Tabi's `闇夜`, `行こう` and `ハッカ色`, departure!'s `地球`,

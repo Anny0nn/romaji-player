@@ -5,8 +5,12 @@ cd -- "$(dirname -- "$0")/.."
 project_root="$(pwd)"
 [[ -x dist/RomajiRomanizer/RomajiRomanizer ]] || bash scripts/package-romanizer.sh
 [[ "$(uname -m)" == arm64 ]] || { printf 'Build on Apple Silicon.\n' >&2; exit 1; }
+mkdir -p dist
+# Validate a fresh package before replacing the usable runtime. Finder can recreate
+# .DS_Store while PyInstaller recursively deletes a directory it is displaying.
+package_stage="$(mktemp -d "$project_root/dist/.experimental.XXXXXX")"
 .venv-experimental/bin/python -m PyInstaller --noconfirm --clean --onedir --name RomajiExperimental \
-  --target-arch arm64 --distpath dist --workpath build/experimental --specpath build \
+  --target-arch arm64 --distpath "$package_stage" --workpath build/experimental --specpath build \
   --paths tifa --paths tifa/vendor --paths refinement \
   --hidden-import modules.backbones.jebf --hidden-import onnxruntime \
   --collect-all librosa --collect-all numba --collect-all llvmlite --collect-all mlx \
@@ -25,8 +29,19 @@ project_root="$(pwd)"
   --add-data "$project_root/refinement/refinement-model-files.json:." \
   --add-data "$project_root/.venv-experimental/lib/python3.14/site-packages/mlx_audio/sts/models/mel_roformer:mel_roformer" \
   refinement/refinement_helper.py
-codesign --force --deep --sign - dist/RomajiExperimental
-codesign --verify --deep --strict dist/RomajiExperimental
-dist/RomajiExperimental/RomajiExperimental --self-test
+codesign --force --deep --sign - "$package_stage/RomajiExperimental"
+codesign --verify --deep --strict "$package_stage/RomajiExperimental"
+"$package_stage/RomajiExperimental/RomajiExperimental" --self-test
 
-dist/RomajiExperimental/RomajiExperimental --check-converter "$project_root/dist/RomajiRomanizer/RomajiRomanizer"
+"$package_stage/RomajiExperimental/RomajiExperimental" --check-converter "$project_root/dist/RomajiRomanizer/RomajiRomanizer"
+if [[ -e dist/RomajiExperimental ]]; then
+  mv dist/RomajiExperimental "$package_stage/previous"
+fi
+mv "$package_stage/RomajiExperimental" dist/RomajiExperimental
+codesign --verify --deep --strict dist/RomajiExperimental
+# Cleanup affects only generated staging output; lingering Finder metadata is harmless.
+python3 - "$package_stage" <<'PY'
+import shutil
+import sys
+shutil.rmtree(sys.argv[1], ignore_errors=True)
+PY
