@@ -135,6 +135,16 @@ hypotheses do not explicitly reconstruct the original Japanese romaji. This is a
 input-routing hypothesis for the next trial, alongside alternate kanji reading selection.
 Script counts alone do not diagnose acoustic failures or prove the lyrics match the audio.
 
+A preliminary private probe on 嘘 keeps its 167 original groups and existing intervals.
+Literal Japanese-romaji phones add **0** words; additionally expanding marked long vowels
+adds **1**, from 116 to 117/167. Nine macron-bearing targets otherwise prevent complete
+line parsing. With those targets represented, fresh TIFA retains 43 of the 51 missing
+words, but only nine have both endpoints within 150 ms of the singing recognizer;
+seven also pass its probability gate, and one survives context/overlap checks against
+the saved intervals. This is a diagnostic probe on one selected song, not a promoted
+recipe or a correctness benchmark. Its vocals, posteriors, candidate intervals and code
+receipts remain private for further investigation. The app has no routing change yet.
+
 ## Freezing later trials
 
 `scripts/select-song-suite.py` reads a versioned private measurement file, validates
