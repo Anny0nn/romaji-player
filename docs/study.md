@@ -26,6 +26,9 @@ the original kanji's dictionary reading after a correction.
 All offsets are UTF-8 byte ranges into their named string. Python owns normalization,
 correction application, grouping and display maps; Rust owns persistence and validates
 request/signature identity. Katakana changes script without another dictionary lookup.
+Both clients bound requests to 64 KiB and replies to 1 MiB: source-owned word records
+can expand a valid short transcript beyond 64 KiB. Larger or incomplete replies still
+fail, as do stale source/request identities and changed converter signatures.
 Original Japanese displays the selected snapshot's exact text and raw word spans. If
 ownership overlaps or is ambiguous, that view uses line highlighting while other views
 retain usable word timings. Corrections are source-span edits; a

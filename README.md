@@ -171,6 +171,9 @@ songs still have substantial gaps. See the [representation evaluation](docs/stud
 The newer [accuracy experiments](docs/study-accuracy-evaluation.md) separate retained-word
 counts from human phone-boundary tests and document rejected approaches. They do not
 establish perfect lyric recognition or word timing on unfamiliar songs.
+The expanded [61-recording catalog](docs/study-song-catalog.md) records the initial
+measurements and a frozen ten-song trial set: seven lowest-coverage songs and three
+highest-coverage songs below 100%. Fully covered songs stay in regression fixtures.
 The [audio-first reading pilot](docs/study-audio-first-evaluation.md) tests recognizing
 the sung pronunciation before choosing romaji. Its fallback recovers 19 additional
 controlled reading faults with fresh TIFA timing, but also adds two wrong repairs and

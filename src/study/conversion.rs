@@ -511,6 +511,36 @@ mod tests {
     }
 
     #[test]
+    fn dotted_kana_preserves_other_script_spans_and_explicit_original_line_fallback() {
+        use super::super::LyricMode;
+        let mut helper = helper();
+        let mut request = fixture(&helper);
+        request.raw_line = "ゲ・ン・カ・イを歌う".into();
+        let response = helper.convert(&request).unwrap();
+        assert!(response.words.iter().any(|word| word.raw_span.is_none()));
+        assert!(response.words.iter().any(|word| word.raw_span.is_some()));
+        assert_eq!(
+            response.display_text(&request.raw_line, LyricMode::Japanese),
+            request.raw_line
+        );
+        assert!(
+            response
+                .display_spans(&request.raw_line, LyricMode::Japanese)
+                .iter()
+                .all(Option::is_none)
+        );
+        for mode in [LyricMode::Romaji, LyricMode::Hiragana, LyricMode::Katakana] {
+            let text = response.display_text(&request.raw_line, mode);
+            assert!(
+                response
+                    .display_spans(&request.raw_line, mode)
+                    .iter()
+                    .all(|range| { range.is_some_and(|range| span(text, &range).is_some()) })
+            );
+        }
+    }
+
+    #[test]
     fn geminated_group_has_exact_source_and_both_display_spans() {
         let mut helper = helper();
         let mut request = fixture(&helper);

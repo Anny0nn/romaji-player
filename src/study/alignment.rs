@@ -1171,6 +1171,7 @@ mod tests {
         let mut helper = Romanizer::start(&mut crate::shipping::helper_command().unwrap()).unwrap();
         let mut displayed_words = 0;
         let mut highlightable_words = 0;
+        let mut original_script_fallback_lines = 0;
         for line in &document.current().snapshot.occurrences {
             let output = helper
                 .convert(&ConversionRequest {
@@ -1186,6 +1187,25 @@ mod tests {
                 })
                 .unwrap();
             assert!(output.pending_overrides.is_empty());
+            let original_spans =
+                output.display_spans(&line.raw_line, super::super::LyricMode::Japanese);
+            if output.words.iter().any(|word| word.raw_span.is_none()) {
+                // An unresolved group makes original-script ownership ambiguous.
+                // The approved contract requires the entire line to fall back,
+                // while mapped words retain their other script timings below.
+                assert!(original_spans.iter().all(Option::is_none));
+                original_script_fallback_lines += 1;
+            } else {
+                assert_eq!(
+                    original_spans,
+                    output
+                        .words
+                        .iter()
+                        .map(|word| word.raw_span)
+                        .collect::<Vec<_>>()
+                );
+                assert!(original_spans.iter().all(Option::is_some));
+            }
             displayed_words += output.words.len();
             for word in &output.words {
                 let Some(timing) = word
@@ -1211,9 +1231,6 @@ mod tests {
                 assert!(word.katakana_span.is_some_and(|span| {
                     super::super::conversion::span(&output.katakana, &span).is_some()
                 }));
-                let original_spans =
-                    output.display_spans(&line.raw_line, super::super::LyricMode::Japanese);
-                assert!(original_spans.iter().all(Option::is_some));
                 for interval in &timing.intervals {
                     assert!(timing.active(
                         interval.start_ms + document.delay_ms,
@@ -1244,6 +1261,7 @@ mod tests {
                 "engine": generated.engine,
                 "highlightable_words": highlightable_words,
                 "total_words": displayed_words,
+                "original_script_fallback_lines": original_script_fallback_lines,
                 "previous_version_restored": true,
                 "reopened": true,
             })

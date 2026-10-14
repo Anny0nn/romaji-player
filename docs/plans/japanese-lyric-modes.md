@@ -286,3 +286,20 @@ the old 64 KiB request limit. Give the Python and Rust clients a separate bounde
 and explicit rejection of oversized or incomplete messages. Retry only failed inputs
 and record this transport correction in their runtime provenance; do not rerun or
 replace successful baseline receipts. This changes neither targets nor acoustic gates.
+
+The initial measurement phase is complete: all 61 recordings have valid receipts,
+including successful transport-only retries for the three failures. The frozen ten-song
+set and first structural diagnosis are recorded in `docs/study-song-catalog.md`.
+GIRI GIRI also exposed an acceptance-check assumption: two ambiguous dotted-kana
+lines correctly require the approved original-script line fallback. The check must
+verify this explicit fallback without dropping the retained-count, other-script span,
+playback/delay or earlier-version assertions; a synthetic fixture covers it.
+
+The next trial must distinguish English from Japanese already written as romaji:
+嘘's provider source is pre-romanized Japanese, but Latin targets currently take the
+English pronunciation route. Test a bounded Japanese-romaji pronunciation hypothesis
+on the frozen set, preserving source groups, displayed text and existing intervals.
+The hypothesis needs independently checked fresh timing under the existing gates;
+round-trip spelling alone is not acoustic evidence. Preserve kanji-reading trials too:
+the set also has 85 missing groups containing kanji. No routing change is promoted
+without the negative, timing and protected-reading regressions above.
