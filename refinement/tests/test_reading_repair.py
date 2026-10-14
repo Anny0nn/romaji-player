@@ -125,7 +125,8 @@ def test_unconvertible_optional_reading_does_not_discard_other_valid_candidates(
 
 
 @pytest.mark.parametrize(
-    "reply_id,protocol,typed", [(1, 1, True), (2, 1, False), (1, 9, False)]
+    "reply_id,protocol,typed",
+    [(1, 2, True), (2, 2, False), (1, 1, False), (1, 9, False)],
 )
 def test_compact_rejections_require_matching_protocol_and_request_identity(
     reply_id, protocol, typed
@@ -142,12 +143,44 @@ def test_compact_rejections_require_matching_protocol_and_request_identity(
         stdin=io.BytesIO(), stdout=io.BytesIO(json.dumps(response).encode() + b"\n")
     )
     with pytest.raises(ValueError) as raised:
-        converter.exchange({"protocol_version": 1, "request_id": 1})
+        converter.exchange({"protocol_version": 2, "request_id": 1})
     assert isinstance(raised.value, ConversionRejected) == typed
 
 
 def words(*values):
     return [{"text": t, "romaji": r} for t, r in values]
+
+
+def test_model_target_rejects_changed_reading_and_dictionary_shadow_on_a_saved_edit():
+    import copy
+
+    from reading_repair import alignment_target
+
+    converted = {"hiragana": "ゆこう", "romaji": "yukou"}
+    word = {
+        "raw_span": [0, 9],
+        "expected_text": "行こう",
+        "hiragana_span": [0, 9],
+        "output_span": [0, 5],
+        "override_id": "saved",
+        "reading": {
+            "written": "ゆこう",
+            "romaji": "yukou",
+            "alignment_text": "ゆこう",
+            "pronunciation": None,
+            "origin": "saved",
+        },
+    }
+    assert alignment_target("行こう", converted, word)["text"] == "ゆこう"
+    for change in [
+        {"alignment_text": "いこう"},
+        {"pronunciation": "いこー"},
+        {"romaji": "ikou"},
+    ]:
+        damaged = copy.deepcopy(word)
+        damaged["reading"].update(change)
+        with pytest.raises(ValueError, match="Inconsistent"):
+            alignment_target("行こう", converted, damaged)
 
 
 def test_transcript_mapping_groups_split_tokens_through_stable_neighbors():

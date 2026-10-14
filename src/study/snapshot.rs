@@ -933,6 +933,8 @@ mod tests {
             normalized_span: Some(range),
             output_span: [0, 3],
             hiragana_span: None,
+            katakana_span: None,
+            reading: crate::study::conversion::Reading::default(),
             expected_text: None,
             constituent_nodes: vec![range],
             override_id: None,
@@ -944,7 +946,7 @@ mod tests {
         let current = document.current();
         helper
             .convert(&Request {
-                protocol_version: 1,
+                protocol_version: crate::study::conversion::PROTOCOL,
                 request_id: document.revision,
                 track_id: TRACK.into(),
                 snapshot_id: current.snapshot.id.clone(),

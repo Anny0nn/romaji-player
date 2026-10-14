@@ -102,7 +102,7 @@ def answer_text(output, thinking):
 
 
 def annotate_transcripts(cases, executable):
-    hello = {"protocol_version": 1, "request_id": 0, "command": "hello"}
+    hello = {"protocol_version": 2, "request_id": 0, "command": "hello"}
     signature = json.loads(
         subprocess.run(
             [str(executable)],
@@ -115,7 +115,7 @@ def annotate_transcripts(cases, executable):
     )["conversion_signature"]
     requests = [
         {
-            "protocol_version": 1,
+            "protocol_version": 2,
             "request_id": i + 1,
             "track_id": "synthetic",
             "snapshot_id": "experiment",

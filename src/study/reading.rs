@@ -76,7 +76,7 @@ fn overrides(output: &Response) -> Vec<Override> {
 }
 fn conversion_request(request: &Request, output: &Response) -> ConversionRequest {
     ConversionRequest {
-        protocol_version: 1,
+        protocol_version: crate::study::conversion::PROTOCOL,
         request_id: output.occurrence_id as u64 + 1,
         track_id: request.job.track.clone(),
         snapshot_id: request.source.id.clone(),
@@ -416,7 +416,7 @@ mod tests {
         };
         for line in &request.source.occurrences {
             let input = ConversionRequest {
-                protocol_version: 1,
+                protocol_version: crate::study::conversion::PROTOCOL,
                 request_id: line.id as u64 + 1,
                 track_id: request.job.track.clone(),
                 snapshot_id: request.source.id.clone(),

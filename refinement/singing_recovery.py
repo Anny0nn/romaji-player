@@ -73,5 +73,26 @@ def recover(samples, crops, aligner, posteriors, vocabulary, baseline, counts, u
                     (last - first) // 16,
                     counts[str(occurrence)],
                 )
+            if any(
+                u["start_ms"] < 0
+                and t.get("pronunciation")
+                and t["pronunciation"] != t["text"]
+                for t, u in zip(targets, current, strict=True)
+            ):
+                # Same source groups and selected written readings. The dictionary's
+                # inflected spoken form is an acoustic hypothesis only, never a repair.
+                spoken = [
+                    {**t, "text": t.get("pronunciation") or t["text"]} for t in targets
+                ]
+                independent = word_alignment(*evidence, spoken, vocabulary)
+                raw = []
+                trial = aligner.align(samples[first:last], spoken, diagnostics=raw)
+                current = recover_singing_gaps(
+                    current,
+                    {"units": trial, "raw_units": raw},
+                    independent,
+                    (last - first) // 16,
+                    counts[str(occurrence)],
+                )
         result.append(current)
     return result

@@ -13,7 +13,8 @@ import jaconv
 import unidic_lite
 from cutlet.cutlet import normalize_text
 
-PROTOCOL = 1
+PROTOCOL = 2
+REPRESENTATION = "source-reading-v1"
 LIMIT = 65536
 IDENTITY = (
     "request_id",
@@ -50,6 +51,11 @@ def slice_bytes(text, span):
     return data[start:end].decode("utf-8", errors="strict")
 
 
+def katakana(text):
+    """Change script only; preserve ASCII, punctuation and unavailable readings."""
+    return "".join(chr(ord(ch) + 0x60) if "ぁ" <= ch <= "ゖ" or ch in "ゝゞ" else ch for ch in text)
+
+
 def boundary_map(raw, normalized):
     """Only independently reconstructible boundaries are exact. Never round."""
     associations = []
@@ -79,6 +85,7 @@ class Converter:
                     digest.update(chunk)
         signature = {
             "protocol": PROTOCOL,
+            "representation": REPRESENTATION,
             "versions": versions,
             "python": sys.version,
             "unicode": unicodedata.unidata_version,
@@ -152,7 +159,7 @@ class Converter:
                     else:
                         crossing.update((index - 1, index))
             crossing_spans = set()
-            assembled, positions, readings = "", [], {}
+            assembled, positions, readings, pronunciations = "", [], {}, {}
             cursor = 0
             for index, (node, token) in enumerate(zip(nodes, tokens, strict=True)):
                 cursor += node.rlength
@@ -168,6 +175,11 @@ class Converter:
                 kana = jaconv.kata2hira(reading)
                 readings[tuple(norm_span)] = (
                     None if re.search(r"[\u3400-\u9fff\U00020000-\U0003134f]", kana) else kana
+                )
+                pronunciations[tuple(norm_span)] = (
+                    jaconv.kata2hira(node.feature.pron)
+                    if not node.is_unk and node.feature.pron
+                    else None
                 )
             romaji = assembled.rstrip()
             for match in WORD.finditer(romaji):
@@ -190,6 +202,9 @@ class Converter:
                 word["hiragana"] = (
                     "".join(pieces) if complete and all(p is not None for p in pieces) else None
                 )
+                spoken = [pronunciations[tuple(n)] for n, _ in constituents]
+                word["pronunciation"] = "".join(spoken) if complete and all(spoken) else None
+                word["reading_origin"] = "dictionary"
                 if crossed:
                     word["mapping_reason"] = "cross_word_gemination"
                 words.append(word)
@@ -256,6 +271,8 @@ class Converter:
                     else replacement
                 )
                 candidates[0]["override_id"] = record
+                candidates[0]["pronunciation"] = None
+                candidates[0]["reading_origin"] = "saved"
                 candidates[0]["raw_span"] = span
                 candidates[0]["expected_text"] = override["expected_text"]
                 candidates[0]["mapping_status"] = "mapped"
@@ -279,6 +296,8 @@ class Converter:
                             " ", ""
                         )
                         word["hiragana"] = kana
+                        word["pronunciation"] = None
+                        word["reading_origin"] = "song"
 
         output, cursor = "", 0
         data = romaji.encode("utf-8")
@@ -290,16 +309,38 @@ class Converter:
             output += text
             cursor = end
         output += data[cursor:].decode()
-        hiragana, cursor = "", 0
+        hiragana, kata, cursor = "", "", 0
         data = output.encode("utf-8")
         for word in words:
             start, end = word["output_span"]
             hiragana += data[cursor:start].decode()
-            reading = word.pop("hiragana", None) or "？"
+            kata += katakana(data[cursor:start].decode())
+            written = word.pop("hiragana", None)
+            reading = written or "？"
             word["hiragana_span"] = [byte_length(hiragana), byte_length(hiragana + reading)]
             hiragana += reading
+            rendered_kata = katakana(reading)
+            word["katakana_span"] = [byte_length(kata), byte_length(kata + rendered_kata)]
+            kata += rendered_kata
+            source = word["expected_text"] or ""
+            spoken = word.pop("pronunciation", None)
+            origin = word.pop("reading_origin", "source")
+            if spoken and not re.fullmatch(r"[ぁ-ゖー]+(?: [ぁ-ゖー]+)*", spoken):
+                spoken = None
+            word["reading"] = {
+                "written": written,
+                "romaji": slice_bytes(output, word["output_span"]),
+                "alignment_text": "".join(
+                    c
+                    for c in (source if not written or "？" in written else written)
+                    if c.isalnum()
+                ),
+                "pronunciation": spoken if written else None,
+                "origin": origin if written else "unavailable",
+            }
             cursor = end
         hiragana += data[cursor:].decode()
+        kata += katakana(data[cursor:].decode())
         response = {
             "protocol_version": PROTOCOL,
             **{key: request[key] for key in IDENTITY},
@@ -307,6 +348,8 @@ class Converter:
             "normalized_line": normalized,
             "romaji": output,
             "hiragana": hiragana,
+            "katakana": kata,
+            "representation": REPRESENTATION,
             "words": words,
             "boundary_associations": boundaries,
             "applied_override_ids": applied,

@@ -19,7 +19,7 @@ pub const MODEL_SHA: &str = "6da6832cd2cb981aae1ccc2d9330f8f7c085ce7977d1eb13bff
 const MODEL_SIZE: u64 = 150_789_526;
 const MODEL_URL: &str = "https://github.com/openvpi/TIFA/releases/download/v1.0.0/TIFA-1.0-ST.zip";
 const ENGINE: &str = "TIFA/32a0a13-source-word-v2";
-const EXPERIMENTAL_ENGINE: &str = "TIFA+Demucs+Kim+MMS+RomajiASR+Whisper/sung-reading-v1+vowel-extension-v1+singing-word-recovery-v1";
+const EXPERIMENTAL_ENGINE: &str = "TIFA+Demucs+Kim+MMS+RomajiASR+Whisper/sung-reading-v1+vowel-extension-v1+singing-word-recovery-v1+source-reading-v1+spoken-pronunciation-v1";
 const ASSETS: &str = include_str!("../../refinement/refinement-model-files.json");
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Method {
@@ -432,19 +432,11 @@ fn word_targets(raw: &str, converted: &Response) -> Vec<Target> {
             if Some(source) != word.expected_text.as_deref() {
                 return None;
             }
-            let reading = word
-                .hiragana_span
-                .and_then(|range| span(&converted.hiragana, &range));
-            let text: String = reading
-                .filter(|text| !text.contains('？'))
-                .unwrap_or(source)
-                .chars()
-                .filter(|ch| ch.is_alphanumeric())
-                .collect();
+            let text = word.reading.alignment_text.clone();
             (!text.is_empty()).then_some(Target {
                 raw_span: range,
                 text,
-                romaji: span(&converted.romaji, &word.output_span)?.to_string(),
+                romaji: word.reading.romaji.clone(),
             })
         })
         .collect()
@@ -911,7 +903,7 @@ mod tests {
             .map(|line| {
                 helper
                     .convert(&ConversionRequest {
-                        protocol_version: 1,
+                        protocol_version: crate::study::conversion::PROTOCOL,
                         request_id: line.id as u64 + 1,
                         track_id: document.track_id.clone(),
                         snapshot_id: source.id.clone(),
@@ -1182,7 +1174,7 @@ mod tests {
         for line in &document.current().snapshot.occurrences {
             let output = helper
                 .convert(&ConversionRequest {
-                    protocol_version: 1,
+                    protocol_version: crate::study::conversion::PROTOCOL,
                     request_id: line.id as u64 + 1,
                     track_id: track.clone(),
                     snapshot_id: document.current().snapshot.id.clone(),
@@ -1216,6 +1208,12 @@ mod tests {
                 assert!(word.hiragana_span.is_some_and(|span| {
                     super::super::conversion::span(&output.hiragana, &span).is_some()
                 }));
+                assert!(word.katakana_span.is_some_and(|span| {
+                    super::super::conversion::span(&output.katakana, &span).is_some()
+                }));
+                let original_spans =
+                    output.display_spans(&line.raw_line, super::super::LyricMode::Japanese);
+                assert!(original_spans.iter().all(Option::is_some));
                 for interval in &timing.intervals {
                     assert!(timing.active(
                         interval.start_ms + document.delay_ms,
@@ -1269,7 +1267,7 @@ mod tests {
             .map(|line| {
                 helper
                     .convert(&ConversionRequest {
-                        protocol_version: 1,
+                        protocol_version: crate::study::conversion::PROTOCOL,
                         request_id: line.id as u64 + 1,
                         track_id: document.track_id.clone(),
                         snapshot_id: original.id.clone(),
@@ -1439,7 +1437,7 @@ mod tests {
         let track = "0000000000000000000000".to_string();
         let converted = helper
             .convert(&ConversionRequest {
-                protocol_version: 1,
+                protocol_version: crate::study::conversion::PROTOCOL,
                 request_id: 1,
                 track_id: track.clone(),
                 snapshot_id: source.id.clone(),
@@ -1654,7 +1652,7 @@ mod tests {
         let mut helper = Romanizer::start(&mut command).unwrap();
         let converted = helper
             .convert(&ConversionRequest {
-                protocol_version: 1,
+                protocol_version: crate::study::conversion::PROTOCOL,
                 request_id: 1,
                 track_id: "0000000000000000000000".into(),
                 snapshot_id: source.id,

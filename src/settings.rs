@@ -1492,7 +1492,16 @@ mod tests {
         use crate::study::LyricMode;
         let older: Settings = serde_json::from_str("{}").unwrap();
         assert_eq!(older.lyric_mode, LyricMode::Romaji);
-        for mode in [LyricMode::Romaji, LyricMode::Both, LyricMode::Hiragana] {
+        for (saved, mode) in [
+            ("Romaji", LyricMode::Romaji),
+            ("Both", LyricMode::Both),
+            ("Hiragana", LyricMode::Hiragana),
+        ] {
+            let restored: Settings =
+                serde_json::from_value(serde_json::json!({"lyric_mode":saved})).unwrap();
+            assert_eq!(restored.lyric_mode, mode);
+        }
+        for mode in LyricMode::ALL {
             let settings = Settings {
                 lyric_mode: mode,
                 ..Settings::default()

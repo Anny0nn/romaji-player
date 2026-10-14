@@ -61,7 +61,7 @@ def choose_candidate(candidates):
 
 
 def converter_signature(executable):
-    hello = {"protocol_version": 1, "request_id": 0, "command": "hello"}
+    hello = {"protocol_version": 2, "request_id": 0, "command": "hello"}
     value = json.loads(
         subprocess.run(
             [str(executable)],
@@ -72,7 +72,7 @@ def converter_signature(executable):
             timeout=30,
         ).stdout
     )
-    if value.get("protocol_version") != 1 or value.get("request_id") != 0:
+    if value.get("protocol_version") != 2 or value.get("request_id") != 0:
         raise ValueError("Invalid converter handshake.")
     return value["conversion_signature"]
 
@@ -174,7 +174,7 @@ def prepare_cases(recordings, executable):
             )
             requests.append(
                 {
-                    "protocol_version": 1,
+                    "protocol_version": 2,
                     "request_id": len(requests) + 1,
                     "track_id": document["track_id"],
                     "snapshot_id": source["id"],
@@ -416,7 +416,7 @@ def convert_variants(cases, whisper, qwen_results, executable):
             )
             requests.append(
                 {
-                    "protocol_version": 1,
+                    "protocol_version": 2,
                     "request_id": len(requests) + 1,
                     "track_id": "synthetic",
                     "snapshot_id": "ensemble",

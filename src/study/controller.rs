@@ -790,7 +790,7 @@ fn worker_with(
                     }
                     request_id += 1;
                     let request = Request {
-                        protocol_version: 1,
+                        protocol_version: crate::study::conversion::PROTOCOL,
                         request_id,
                         track_id: document.track_id.clone(),
                         snapshot_id: document.current().snapshot.id.clone(),
@@ -847,7 +847,7 @@ mod tests {
         let document = study.document.as_ref().unwrap();
         for line in &document.current().snapshot.occurrences {
             let request = Request {
-                protocol_version: 1,
+                protocol_version: crate::study::conversion::PROTOCOL,
                 request_id: line.id as u64 + 1,
                 track_id: document.track_id.clone(),
                 snapshot_id: document.current().snapshot.id.clone(),

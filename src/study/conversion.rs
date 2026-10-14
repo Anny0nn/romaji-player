@@ -10,6 +10,17 @@ use serde_json::{Value, json};
 
 const LIMIT: usize = 65_536;
 const TIMEOUT: Duration = Duration::from_secs(5);
+pub const PROTOCOL: u32 = 2;
+pub const REPRESENTATION: &str = "source-reading-v1";
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct Reading {
+    pub written: Option<String>,
+    pub romaji: String,
+    pub alignment_text: String,
+    pub pronunciation: Option<String>,
+    pub origin: String,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Override {
@@ -61,6 +72,8 @@ pub struct Word {
     pub output_span: [usize; 2],
     #[serde(default)]
     pub hiragana_span: Option<[usize; 2]>,
+    pub katakana_span: Option<[usize; 2]>,
+    pub reading: Reading,
     pub expected_text: Option<String>,
     pub constituent_nodes: Vec<[usize; 2]>,
     pub override_id: Option<String>,
@@ -85,6 +98,8 @@ pub struct Response {
     pub romaji: String,
     #[serde(default)]
     pub hiragana: String,
+    pub katakana: String,
+    pub representation: String,
     pub words: Vec<Word>,
     pub boundary_associations: Vec<[usize; 2]>,
     pub applied_override_ids: Vec<String>,
@@ -97,9 +112,53 @@ pub fn span<'a>(text: &'a str, range: &[usize; 2]) -> Option<&'a str> {
         .then(|| text.get(range[0]..range[1]))
         .flatten()
 }
+pub fn katakana(text: &str) -> String {
+    text.chars()
+        .map(|ch| {
+            if ('ぁ'..='ゖ').contains(&ch) || matches!(ch, 'ゝ' | 'ゞ') {
+                char::from_u32(ch as u32 + 0x60).unwrap()
+            } else {
+                ch
+            }
+        })
+        .collect()
+}
 impl Response {
+    pub fn display_text<'a>(&'a self, raw: &'a str, mode: super::LyricMode) -> &'a str {
+        match mode {
+            super::LyricMode::Romaji | super::LyricMode::Both => &self.romaji,
+            super::LyricMode::Hiragana => &self.hiragana,
+            super::LyricMode::Katakana => &self.katakana,
+            super::LyricMode::Japanese => raw,
+        }
+    }
+    pub fn display_spans(&self, raw: &str, mode: super::LyricMode) -> Vec<Option<[usize; 2]>> {
+        let mut end = 0;
+        let exact_original = self.words.iter().all(|word| {
+            let Some(range) = word.raw_span else {
+                return false;
+            };
+            let valid = word.expected_text.is_some()
+                && range[0] >= end
+                && span(raw, &range) == word.expected_text.as_deref();
+            end = range[1];
+            valid
+        });
+        self.words
+            .iter()
+            .map(|word| match mode {
+                super::LyricMode::Romaji | super::LyricMode::Both => Some(word.output_span),
+                super::LyricMode::Hiragana => word.hiragana_span,
+                super::LyricMode::Katakana => word.katakana_span,
+                super::LyricMode::Japanese => exact_original.then_some(word.raw_span).flatten(),
+            })
+            .collect()
+    }
     pub fn validate(&self, request: &Request) -> Result<()> {
-        if self.protocol_version != 1
+        if self.protocol_version != PROTOCOL
+            || request.protocol_version != PROTOCOL
+            || self.representation != REPRESENTATION
+            || self.katakana != katakana(&self.hiragana)
             || self.request_id != request.request_id
             || self.track_id != request.track_id
             || self.snapshot_id != request.snapshot_id
@@ -111,7 +170,35 @@ impl Response {
         }
         let mut previous_end = 0;
         let mut previous_hiragana_end = 0;
+        let mut previous_katakana_end = 0;
         for word in &self.words {
+            let kana = word
+                .hiragana_span
+                .and_then(|range| span(&self.hiragana, &range));
+            let kata = word
+                .katakana_span
+                .and_then(|range| span(&self.katakana, &range));
+            if kana.is_none()
+                || kata.is_none()
+                || word
+                    .katakana_span
+                    .is_some_and(|range| range[0] < previous_katakana_end)
+                || kata != kana.map(katakana).as_deref()
+                || kana != Some(word.reading.written.as_deref().unwrap_or("？"))
+                || !["dictionary", "saved", "song", "source", "unavailable"]
+                    .contains(&word.reading.origin.as_str())
+                || word
+                    .reading
+                    .pronunciation
+                    .as_ref()
+                    .is_some_and(|pronunciation| {
+                        word.reading.origin != "dictionary" || !valid_hiragana(pronunciation)
+                    })
+                || word.reading.written.is_none() != (word.reading.origin == "unavailable")
+            {
+                bail!("invalid selected reading or katakana span");
+            }
+            previous_katakana_end = word.katakana_span.unwrap()[1];
             if word.hiragana_span.is_some_and(|range| {
                 span(&self.hiragana, &range).is_none() || range[0] < previous_hiragana_end
             }) {
@@ -125,6 +212,21 @@ impl Response {
                 bail!("invalid romanizer output span");
             }
             previous_end = word.output_span[1];
+            let selected = word
+                .reading
+                .written
+                .as_deref()
+                .filter(|text| !text.contains('？'))
+                .unwrap_or(word.expected_text.as_deref().unwrap_or(""));
+            if span(&self.romaji, &word.output_span) != Some(word.reading.romaji.as_str())
+                || word.reading.alignment_text
+                    != selected
+                        .chars()
+                        .filter(|c| c.is_alphanumeric())
+                        .collect::<String>()
+            {
+                bail!("alignment target differs from selected reading");
+            }
             match word.raw_span {
                 Some(range)
                     if word.expected_text.is_some()
@@ -292,9 +394,9 @@ impl Romanizer {
             output,
             signature: String::new(),
         };
-        let hello =
-            helper.exchange(&json!({"protocol_version":1,"request_id":0,"command":"hello"}))?;
-        if hello.get("protocol_version") != Some(&json!(1))
+        let hello = helper
+            .exchange(&json!({"protocol_version":PROTOCOL,"request_id":0,"command":"hello"}))?;
+        if hello.get("protocol_version") != Some(&json!(PROTOCOL))
             || hello.get("request_id") != Some(&json!(0))
         {
             bail!("unsupported romanizer handshake");
@@ -367,7 +469,7 @@ mod tests {
     }
     fn fixture(helper: &Romanizer) -> Request {
         Request {
-            protocol_version: 1,
+            protocol_version: crate::study::conversion::PROTOCOL,
             request_id: 1,
             track_id: "synthetic".into(),
             snapshot_id: "fixture".into(),
@@ -482,6 +584,77 @@ mod tests {
             Some("new reading")
         );
         assert_eq!(response.words[2].raw_span, Some([17, 20]));
+    }
+    #[test]
+    fn original_script_preserves_spacing_and_a_spaced_correction_is_one_word() {
+        use crate::study::LyricMode;
+        let mut helper = helper();
+        let mut request = fixture(&helper);
+        request.raw_line = "  闇夜、行こう! ".into();
+        request.overrides.push(Override {
+            id: "sung".into(),
+            kind: "mapping_kana".into(),
+            raw_span: [2, 8],
+            expected_text: "闇夜".into(),
+            replacement: "yami yo".into(),
+            hiragana: Some("やみ よ".into()),
+        });
+        let response = helper.convert(&request).unwrap();
+        let japanese = response.display_spans(&request.raw_line, LyricMode::Japanese);
+        let index = response
+            .words
+            .iter()
+            .position(|word| word.override_id.as_deref() == Some("sung"))
+            .unwrap();
+        assert_eq!(
+            response.display_text(&request.raw_line, LyricMode::Japanese),
+            request.raw_line
+        );
+        assert_eq!(
+            span(&request.raw_line, &japanese[index].unwrap()),
+            Some("闇夜")
+        );
+        assert_eq!(
+            span(
+                &response.katakana,
+                &response.words[index].katakana_span.unwrap()
+            ),
+            Some("ヤミ ヨ")
+        );
+        assert!(response.words[index].reading.pronunciation.is_none());
+        let mut ambiguous = response.clone();
+        ambiguous.words[index + 1].raw_span = ambiguous.words[index].raw_span;
+        assert!(
+            ambiguous
+                .display_spans(&request.raw_line, LyricMode::Japanese)
+                .iter()
+                .all(Option::is_none)
+        );
+        assert!(
+            ambiguous
+                .display_spans(&request.raw_line, LyricMode::Romaji)
+                .iter()
+                .all(Option::is_some)
+        );
+    }
+    #[test]
+    fn inconsistent_reading_target_script_or_pronunciation_is_rejected() {
+        let mut helper = helper();
+        let request = fixture(&helper);
+        let original = helper.convert(&request).unwrap();
+        let mut response = original.clone();
+        response.words[0].reading.alignment_text = "さくら".into();
+        assert!(response.validate(&request).is_err());
+        response = original.clone();
+        response.words[0].katakana_span = Some([1, 3]);
+        assert!(response.validate(&request).is_err());
+        response = original.clone();
+        response.words[0].reading.origin = "saved".into();
+        response.words[0].reading.pronunciation = Some("とーきょー".into());
+        assert!(response.validate(&request).is_err());
+        response = original;
+        response.protocol_version = 1;
+        assert!(response.validate(&request).is_err());
     }
     #[test]
     fn missing_duplicated_or_misapplied_saved_overrides_are_rejected() {

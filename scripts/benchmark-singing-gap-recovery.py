@@ -34,6 +34,7 @@ def main():
     parser.add_argument("--pjs", type=Path, required=True)
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--pronunciations", type=Path)
     parser.add_argument(
         "--mask-frozen",
         action="store_true",
@@ -44,6 +45,9 @@ def main():
         parser.error("Private lyric and reference results stay outside the checkout.")
     recipe, recognition, _ = read_run(args.recognition, args.manifest)
     cases = json.loads(args.cases.read_text())["cases"]
+    pronunciations = (
+        json.loads(args.pronunciations.read_text()) if args.pronunciations else {}
+    )
     selected = [c for c in cases if c["recording"] in recognition]
     args.output.mkdir(parents=True, mode=0o700, exist_ok=False)
     os.umask(0o077)
@@ -58,7 +62,12 @@ def main():
         audio = recognition[name]["case"]
         samples = blind.load_samples(audio, args.manifest.parent, cache)
         targets = [
-            {"raw_span": w["raw_span"], "text": w["hiragana"], "romaji": w["romaji"]}
+            {
+                "raw_span": w["raw_span"],
+                "text": w["hiragana"],
+                "romaji": w["romaji"],
+                "pronunciation": pronunciations.get(name, {}).get(str(w["raw_span"])),
+            }
             for w in case["words"]
         ]
         path = args.recognition / recognition[name]["heads"]["romaji"]["posterior"]
@@ -145,6 +154,9 @@ def main():
             "recognition_receipt": digest(args.recognition / "complete.json"),
             "labels_archive": digest(args.pjs / "labels.zip"),
             "tifa_archive": digest(args.archive),
+            "pronunciations": digest(args.pronunciations)
+            if args.pronunciations
+            else None,
         },
     }
     (args.output / "references.json").write_text(json.dumps(rows))
