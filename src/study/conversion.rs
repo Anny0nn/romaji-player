@@ -8,7 +8,9 @@ use anyhow::{Result, anyhow, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-const LIMIT: usize = 65_536;
+const REQUEST_LIMIT: usize = 65_536;
+// Protocol-2 source groups expand a short transcript into rich word records.
+const REPLY_LIMIT: usize = 1024 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(5);
 pub const PROTOCOL: u32 = 2;
 pub const REPRESENTATION: &str = "source-reading-v1";
@@ -373,12 +375,12 @@ impl Romanizer {
                 let mut line = Vec::new();
                 let result = reader
                     .by_ref()
-                    .take((LIMIT + 1) as u64)
+                    .take((REPLY_LIMIT + 1) as u64)
                     .read_until(b'\n', &mut line);
                 if result.is_err() || line.is_empty() {
                     return;
                 }
-                let result = if line.len() > LIMIT {
+                let result = if line.len() > REPLY_LIMIT {
                     Err(anyhow!("romanizer response exceeds limit"))
                 } else {
                     serde_json::from_slice(&line).map_err(|_| anyhow!("invalid romanizer JSON"))
@@ -411,7 +413,7 @@ impl Romanizer {
     }
     fn exchange(&mut self, request: &impl Serialize) -> Result<Value> {
         let mut bytes = serde_json::to_vec(request)?;
-        if bytes.len() >= LIMIT {
+        if bytes.len() >= REQUEST_LIMIT {
             bail!("romanizer request exceeds limit");
         }
         bytes.push(b'\n');
@@ -491,6 +493,21 @@ mod tests {
         assert_eq!(response.words[1].constituent_nodes.len(), 2);
         assert_eq!(response.words[2].raw_span, Some([17, 20]));
         assert_eq!(helper.convert(&request).unwrap().romaji, response.romaji);
+    }
+
+    #[test]
+    fn expanded_word_records_fit_a_separate_reply_bound_without_losing_next_reply() {
+        let mut helper = helper();
+        let mut request = fixture(&helper);
+        request.raw_line = vec!["word"; 200].join(" ");
+        let value = helper.exchange(&request).unwrap();
+        assert!(serde_json::to_vec(&value).unwrap().len() > REQUEST_LIMIT);
+        let response: Response = serde_json::from_value(value).unwrap();
+        response.validate(&request).unwrap();
+        assert_eq!(response.words.len(), 200);
+        request.request_id += 1;
+        request.raw_line = "桜".into();
+        assert_eq!(helper.convert(&request).unwrap().romaji, "sakura");
     }
 
     #[test]

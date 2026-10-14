@@ -17,7 +17,10 @@ SINGING_FILES = {
     "model.safetensors": "f8c271f0149df02d7bdb70916f530633462d65ee2bbf0c0d9c59cc7ded12abc0",
     "phoneme_vocab.json": "4e96b35f058685aa1ac63b1c9e1cc386fa75d85ede5d55997fbbac6e7ec932bb",
 }
-LIMIT = 65536
+# Source-owned word records are much larger than their input transcript. Keep
+# requests bounded separately so valid protocol-2 replies do not abort a song.
+REQUEST_LIMIT = 65536
+REPLY_LIMIT = 1024 * 1024
 
 
 class ConversionRejected(ValueError):
@@ -103,12 +106,12 @@ class Converter:
 
     def exchange(self, request):
         data = json.dumps(request, ensure_ascii=False).encode() + b"\n"
-        if len(data) > LIMIT:
+        if len(data) > REQUEST_LIMIT:
             raise ValueError("Reading conversion request exceeds limit.")
         self.process.stdin.write(data)
         self.process.stdin.flush()
-        data = self.process.stdout.readline(LIMIT + 1)
-        if not data.endswith(b"\n") or len(data) > LIMIT:
+        data = self.process.stdout.readline(REPLY_LIMIT + 1)
+        if not data.endswith(b"\n") or len(data) > REPLY_LIMIT:
             raise ValueError("Reading converter exceeded reply limit.")
         response = json.loads(data)
         # Rejections deliberately omit lyric text and most identity fields. Only

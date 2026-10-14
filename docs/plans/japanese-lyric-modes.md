@@ -278,3 +278,11 @@ corrections, preserve protected edits and earlier versions, and compare unchange
 envelopes with their original denominators. New methods and their measured acceptance
 criteria will be added here after the baseline identifies representative failure cases;
 the original two-word pronunciation gain does not complete this extension.
+
+The initial sweep exposed three inference failures at the converter reply boundary.
+Protocol 2 adds source-owned word records, so a valid transcript response can exceed
+the old 64 KiB request limit. Give the Python and Rust clients a separate bounded
+1 MiB reply limit while retaining the 64 KiB request limit, identity/signature checks
+and explicit rejection of oversized or incomplete messages. Retry only failed inputs
+and record this transport correction in their runtime provenance; do not rerun or
+replace successful baseline receipts. This changes neither targets nor acoustic gates.
