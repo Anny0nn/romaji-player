@@ -130,6 +130,16 @@ model card's language claims. Its earlier six additions and zero direct RomajiAS
 additions must remain visible. A new trial changes phrase routing and verification,
 not just the model name. Do not bundle its research-only weights.
 
+The first new challenger is [HubertFA-combined](https://huggingface.co/Silasimo/HubertFA-combined/tree/f20e23ab12596d914b2adfcbeb8882180dd92fac),
+with [Apache-licensed inference source](https://github.com/wolfgitpr/HubertFA/tree/b3f086966946255a05b0ccb69c865c8e3e806e0a)
+and a pinned Chinese HuBERT encoder. It publishes a 39-phone ARPAbet inventory plus
+silence, configuration and a singing-trained boundary head. The upstream CLI also
+requires an unpublished nonlexical head: test the forced-alignment head alone, without
+pretending to detect breaths. Verify restricted checkpoint loading, complete state
+keys/shapes and the 44.1 kHz /10 ms output clock before running NUS development audio.
+Its conditional path confidence does not verify spelling. Keep weights research-only;
+measure CPU and MPS rather than assuming upstream supports Metal.
+
 [SingAlign](https://huggingface.co/pymaster/SingAlign) is a possible singing-trained
 English phoneme path only if its encoder/head/vocabulary/frame-clock contract can be
 recovered and pinned. Its linked source currently returns 404. Search official renamed
