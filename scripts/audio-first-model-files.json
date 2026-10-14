@@ -1,0 +1,14 @@
+{
+  "kana_checkpoint": {
+    "revision": "d30d246cd24a225821d03d183de7bb2e769e18df",
+    "sha256": "1c8d97f2c01560da21df4095cea800f0b6f12dd1269c8e2233e6db659b502e14",
+    "filename": "best-medium-ep5-inference.pt"
+  },
+  "backbone_config_sha256": "d629fa61c03867a32667073d781b6ef1cd3fb08afe667affdfa8fc92ed330792",
+  "source_revision": "f78b27ce0b897d2a5db217275c6730fc53b1fcaa",
+  "source_files": {
+    "src/asr/model.py": "b083be86373bc43a823dda67207919394f734b588250f3dbd6a13b9e952e8857",
+    "src/asr/kana_vocab.py": "5312d5d50c0761b1d241bd32220333efece2976bd0758f5fc0cdb3b8ca3b51fa",
+    "src/asr/phoneme_vocab.py": "6f1aa79b3534f9e02f01e2b64ee8659ad6fc96e12d004f068c29d3b4289e7e5d"
+  }
+}

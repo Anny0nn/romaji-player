@@ -202,14 +202,48 @@ class Aligner:
             ),
         }
 
-    def words(self, targets, *, expand_vowels=False):
-        from g2p.converters.base import G2PConversionError, G2PReading, G2PWord
+    def words(self, targets, *, expand_vowels=False, phonetic_aliases=None):
+        from g2p.converters.base import (
+            G2PConversionError,
+            G2PGroup,
+            G2PReading,
+            G2PWord,
+        )
         from g2p.encoding import G2PEncodingError, encode_paths
 
         words, target_indices = [], []
+        if phonetic_aliases is not None and any(
+            type(i) is not int or not 0 <= i < len(targets) for i in phonetic_aliases
+        ):
+            raise ValueError("Pronunciation aliases changed source-word ownership.")
         for index, target in enumerate(targets):
             text, language = pronunciation(target["text"], target["romaji"])
             if language is None:
+                continue
+            if phonetic_aliases and phonetic_aliases.get(index):
+                word = G2PWord(
+                    text=text,
+                    language="ja",
+                    readings=[
+                        G2PReading(
+                            paths=[
+                                [
+                                    G2PGroup(
+                                        script=text, phonemes=phonetic_aliases[index]
+                                    )
+                                ]
+                            ]
+                        )
+                    ],
+                )
+                try:
+                    encode_paths(
+                        [word], self.vocabulary, "raise", languages=["ja", "en"]
+                    )
+                except (ValueError, G2PEncodingError):
+                    continue
+                words.append(word)
+                target_indices.append(index)
                 continue
             try:
                 parts = self.converters[language].convert(text)
@@ -267,6 +301,7 @@ class Aligner:
         *,
         score_pronunciations=False,
         expand_vowels=False,
+        phonetic_aliases=None,
     ):
         import numpy as np
         import torch
@@ -291,7 +326,10 @@ class Aligner:
             )
         if not np.isfinite(samples).all() or np.sqrt(np.mean(samples**2)) < 0.0001:
             return units
-        words, target_indices = self.words(targets, expand_vowels=expand_vowels)
+        options = {"expand_vowels": expand_vowels}
+        if phonetic_aliases is not None:
+            options["phonetic_aliases"] = phonetic_aliases
+        words, target_indices = self.words(targets, **options)
         if not words:
             return units
         encoded, _, _ = encode_paths(

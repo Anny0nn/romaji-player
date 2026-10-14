@@ -132,6 +132,22 @@ def test_missing_kana_dictionary_entry_preserves_supported_source_words(tmp_path
     assert [g.phonemes for g in words[0].readings[0].paths[0]] == [["a"], ["a"]]
 
 
+def test_phonetic_alias_keeps_one_source_word_and_rejects_unknown_phone():
+    from lib.vocabulary import Vocabulary
+
+    aligner = Aligner.__new__(Aligner)
+    aligner.vocabulary = Vocabulary(symbol_to_id={"ja/a": 3, "ja/b": 4})
+    aligner.converters = {}
+    targets = [{"text": "word", "romaji": "word", "raw_span": [0, 4]}]
+    words, indices = aligner.words(targets, phonetic_aliases={0: ["b", "a"]})
+    assert indices == [0] and len(words) == 1
+    assert words[0].text == "word" and words[0].language == "ja"
+    assert [g.phonemes for g in words[0].readings[0].paths[0]] == [["b", "a"]]
+    assert aligner.words(targets, phonetic_aliases={0: ["unknown"]}) == ([], [])
+    with pytest.raises(ValueError, match="ownership"):
+        aligner.words(targets, phonetic_aliases={1: ["a"]})
+
+
 def test_vowel_fallback_never_rewrites_valid_digraphs_or_guesses_other_kana():
     assert (
         vowel_extensions("あぁぁ いぃ うぅ えぇ おぉ アァ")

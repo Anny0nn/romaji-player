@@ -8,7 +8,7 @@ pronunciation with Latin letters; showing hiragana above it helps you learn both
 - Large lyrics with the current line and timed word highlighted.
 - Separate **TIFA** and **Experimental** buttons for local automatic word alignment.
 - Saved timings and lyric versions per song, preserved across restarts.
-- Experimental sung-reading corrections checked against the audio, then re-aligned.
+- Experimental sung-reading corrections and missing word timings checked against the audio.
 - Compact **Options** controls for import, delay and saved versions.
 
 This is an early study build. Automatic alignment and reading repair can make mistakes;
@@ -26,17 +26,17 @@ missing intervals stay unmarked. There is no manual word-timing step.
 4. Supplied line timing works immediately. To add word highlighting, choose one of the
    two timing buttons below. Wait for the saved-result message, then sing along.
 
-| Action                        | What it does                                                                                                            | Model download on first use |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------: |
-| **Time words · TIFA**         | Times the currently selected lyrics using the original TIFA aligner.                                                    |                About 151 MB |
-| **Time words · Experimental** | Separates vocals, checks alternative sung readings and supported lyric corrections, then freshly times the new version. |    About 5.3 GB beyond TIFA |
+| Action                        | What it does                                                                                                             | Model download on first use |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------: |
+| **Time words · TIFA**         | Times the currently selected lyrics using the original TIFA aligner.                                                     |                About 151 MB |
+| **Time words · Experimental** | Separates vocals, checks sung readings and lyric corrections, then times the version and tries to recover missing words. |    About 5.3 GB beyond TIFA |
 
 Both actions prepare the selected recording for analysis without microphone recording.
 Models run locally and sequentially; the first run also needs internet for model downloads.
 Experimental takes several minutes per song on an M2 Pro with 16 GB unified memory.
 Its additional corrections are conservative: uncertain words keep their existing reading.
 Run **TIFA** for the simpler timing pass, or **Experimental** when the displayed reading
-differs from the singing. A word-count increase is useful coverage evidence, not proof
+differs from the singing or word highlighting has gaps. A word-count increase is useful coverage evidence, not proof
 that the new intervals or readings are correct.
 
 Timings and corrected versions are saved per song. Once completion is reported, you can
@@ -133,9 +133,11 @@ Experimental combines Cutlet/UniDic candidates, Demucs and Kim vocals, MMS acous
 checks, RomajiASR singing phonemes and blind full-song Whisper large-v3 transcription.
 It can repair supported readings and bounded kana text substitutions, while retaining
 prior versions. It does not freely rewrite ambiguous kanji from audio.
-Experimental also retries unsupported same-vowel small-kana spellings such as `あぁ`,
-with independent acoustic checks. Broader context, repeat and mixed-language approaches
-are being measured offline; a higher coverage count alone does not enable them in the app.
+Experimental also retries unsupported same-vowel small-kana spellings such as `あぁ`.
+Its missing-word pass checks fresh TIFA intervals against the singing model and tries
+Japanese pronunciation patterns for English words. It preserves existing timings and
+displayed readings, with no additional model download. Broader context and repeat
+approaches are still measured offline.
 
 Saved study data lives under
 `~/Library/Application Support/io.github.Anny0nn.RomajiPlayer/study/`; downloaded weights
@@ -145,17 +147,23 @@ download, but does not remove the saved study files. Account grants are held sep
 in macOS Keychain. Audio preparation and model inference are local; Spotify, lyric
 lookups and first-use model downloads still need network access.
 
-On fourteen recorded songs, the updated Experimental recipe retained 3,435/4,160 word
-timings (82.6%), compared with TIFA's 3,121/4,160 (75.0%). The pronunciation fallback
-adds one word, loses none and adjusts one neighboring interval. Median processing time
-was 169 seconds versus 7 seconds on an M2 Pro with 16 GB. Tabi no Tochuu reached
-153/153 with all six verified reading corrections; difficult songs still had substantial
-gaps. These are coverage and persistence results, not a listening-accuracy score. See the
-[evaluation and measured limits](docs/study-reading-evaluation.md) and
-[data/protocol design](docs/study.md).
+On fourteen recorded songs, Experimental retains **3,507/4,160 words (84.3%)**, compared
+with TIFA's **3,121/4,160 (75.0%)**. This update adds 72 timings to the previous
+Experimental result, preserving every existing interval and all fifteen reading corrections.
+Koino Uta improves from 223 to 252/307; Tabi no Tochuu stays at 153/153. All 28 timing
+results passed reopening and earlier-version restoration. Median cached-weight processing
+time was 200 seconds for Experimental and 7 seconds for TIFA on M2 Pro /16 GB.
+These are coverage and persistence results, not a listening-accuracy score; difficult
+songs still have substantial gaps. See the [completeness evaluation](docs/study-completeness-evaluation.md),
+[earlier reading evaluation](docs/study-reading-evaluation.md) and [data/protocol design](docs/study.md).
 The newer [accuracy experiments](docs/study-accuracy-evaluation.md) separate retained-word
 counts from human phone-boundary tests and document rejected approaches. They do not
 establish perfect lyric recognition or word timing on unfamiliar songs.
+The [audio-first reading pilot](docs/study-audio-first-evaluation.md) tests recognizing
+the sung pronunciation before choosing romaji. Its fallback recovers 19 additional
+controlled reading faults with fresh TIFA timing, but also adds two wrong repairs and
+has incomplete natural-song validation. These research tools run offline; this pilot
+does not change the app's Experimental button.
 
 ## Troubleshooting
 

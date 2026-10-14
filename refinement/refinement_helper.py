@@ -444,6 +444,23 @@ def run_readings(
                 result, trial, evidence, corrected, strict=True
             )
         ]
+    from singing_recovery import recover
+
+    aligner = Aligner(prepare_model(archive))
+    try:
+        result = recover(
+            stems[-1],
+            corrected,
+            aligner,
+            independent,
+            independent_vocabulary,
+            result,
+            counts,
+            lambda message: progress(progress_path, message),
+        )
+    finally:
+        del aligner
+        release()
     # Complete tentative version only. Rust independently checks identity, gates,
     # original spans and reconversion before admitting any correction or timing.
     identity = {
