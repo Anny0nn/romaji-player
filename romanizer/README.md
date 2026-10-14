@@ -3,9 +3,11 @@
 This is a persistent newline-delimited JSON helper, built on Cutlet/fugashi
 with unidic-lite. Rust owns lyric/timing storage and playback; this helper
 owns whole-line normalization, source mapping, conversion and atomic reading
-corrections. It supplies contextual hiragana and romaji with separate display
-spans on the same original word groups. Hiragana preserves particle spelling;
-unverified reverse readings show an explicit placeholder. Protocol version 1
+corrections. It supplies contextual hiragana, katakana and romaji with separate display
+spans on the same original word groups. A selected-reading record also supplies model
+targets and eligible inflected dictionary pronunciations, without overriding saved
+sung readings. Hiragana preserves particle spelling;
+unverified reverse readings show an explicit placeholder. Protocol version 2
 uses only UTF-8 byte ranges. The plan describes
 identity fields and units; `src/study/conversion.rs` validates returned ranges.
 

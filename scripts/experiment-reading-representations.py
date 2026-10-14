@@ -29,7 +29,11 @@ def main():
     parser.add_argument("--recognition", type=Path, required=True)
     parser.add_argument("--audio-manifest", type=Path, required=True)
     parser.add_argument("--archive", type=Path, required=True)
-    parser.add_argument("--policy", choices=("written", "spoken"), required=True)
+    parser.add_argument(
+        "--policy",
+        choices=("written", "canonical", "spoken", "canonical-spoken"),
+        required=True,
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if ROOT == args.output.resolve() or ROOT in args.output.resolve().parents:
@@ -73,17 +77,26 @@ def main():
                 raise ValueError("Selected reading differs from the frozen baseline.")
             spoken = (
                 reading["pronunciation"]
-                if args.policy == "spoken" and not word["protected_reading"]
+                if args.policy in ("spoken", "canonical-spoken")
+                and not word["protected_reading"]
                 else None
+            )
+            canonical = "".join(
+                c for c in reading["written"] if c.isalnum() or c == "ー"
+            )
+            text = spoken or (
+                canonical
+                if args.policy in ("canonical", "canonical-spoken")
+                else reading["alignment_text"]
             )
             targets.append(
                 {
                     "raw_span": word["raw_span"],
-                    "text": spoken or reading["alignment_text"],
+                    "text": text,
                     "romaji": reading["romaji"],
                 }
             )
-            changed.append(bool(spoken and spoken != reading["written"]))
+            changed.append(text != reading["alignment_text"])
         counts = totals[case["track"]]
         counts["words"] += len(words)
         counts["before"] += sum(u["start_ms"] >= 0 for u in baseline)

@@ -1,7 +1,9 @@
 # Study view and saved song data
 
 The study view follows the internal playback clock. Lyrics can display romaji,
-hiragana above romaji, or hiragana alone; the selected mode persists after reopening.
+hiragana above romaji, hiragana alone, katakana, or original Japanese with kanji and kana;
+the selected mode persists after reopening. Changing mode performs no inference and
+does not change a lyric version or saved timings.
 Line timing remains available when individual word timing is missing. Timed words use
 a distinct marker without changing font metrics or wrapping.
 
@@ -13,8 +15,20 @@ saved word timing. Multi-timestamp LRC lines expand into separate occurrences. R
 corrections apply to identical repeated text within the song, while each occurrence's
 timing stays independent.
 
-The Python romanizer returns normalization mappings, contextual hiragana/romaji and
-display spans tied to original Japanese text. Corrections are source-span edits; a
+The Python romanizer's version-2 protocol returns normalization mappings, contextual
+hiragana/romaji/katakana spans and a `source-reading-v1` record per source group. The
+record contains the selected written reading, rendered romaji, model target, optional
+inflected dictionary pronunciation and its origin. Rust validates the record against
+the source and display spans; Experimental validates targets before model use. Dictionary
+pronunciation is absent for saved and curated sung readings. It must not reintroduce
+the original kanji's dictionary reading after a correction.
+
+All offsets are UTF-8 byte ranges into their named string. Python owns normalization,
+correction application, grouping and display maps; Rust owns persistence and validates
+request/signature identity. Katakana changes script without another dictionary lookup.
+Original Japanese displays the selected snapshot's exact text and raw word spans. If
+ownership overlaps or is ambiguous, that view uses line highlighting while other views
+retain usable word timings. Corrections are source-span edits; a
 correction containing spaces remains one highlighted group. Reconversion preserves
 original-text anchors and flags ambiguous reattachment rather than silently moving taps
 or timings onto different text. Pinned snapshots protect edits from provider refreshes.
@@ -23,7 +37,7 @@ or timings onto different text. Pinned snapshots protect edits from provider ref
 
 ```mermaid
 flowchart TD
-    source[Selected Japanese lyrics and line cues] --> reading[Cutlet: source spans, hiragana and romaji]
+    source[Selected Japanese lyrics and line cues] --> reading[Cutlet: source groups and selected readings]
     reading --> tifa[TIFA: time the selected words]
     reading --> experimental[Experimental: check sung readings and lyric candidates]
     audio[The selected song recording] --> tifa
@@ -31,7 +45,7 @@ flowchart TD
     experimental --> fresh[Validate corrections, reconvert and freshly align]
     tifa --> saved[Save a complete per-song version]
     fresh --> saved
-    saved --> display[Playback clock drives the same word marker in all three modes]
+    saved --> display[Playback clock drives the same word marker in all five modes]
 ```
 
 **TIFA** runs the original local forced aligner against the current source snapshot.
@@ -39,7 +53,7 @@ flowchart TD
 It compares bounded dictionary alternatives with two MMS vocal views, rejects confident
 contradictions using a separate singing phoneme recognizer, and can propose missing
 readings from full-song blind Whisper transcription. Supported repairs store canonical
-hiragana and derive romaji from it; all three display modes share those same source
+hiragana and derive romaji from it; all five display modes share those same source
 anchors and newly aligned timing. The first recipe also supports bounded kana-only
 lyric substitutions corroborated by vocal and original-mix transcriptions. It withholds
 ambiguous changes and preserves explicit user corrections and earlier source versions.
@@ -74,6 +88,14 @@ every interval retained by the earlier Experimental stages and rejects overlaps;
 never trims, spreads or copies timestamps. Each repeated occurrence uses its own audio
 window. This timing-only addition leaves the sung-reading repair protocol unchanged.
 Its [evaluation](study-completeness-evaluation.md) separates coverage from correctness.
+
+The `spoken-pronunciation-v1` fallback follows those stages. For an eligible dictionary
+reading, it tries the inflected spoken kana on the same source group and obtains fresh
+TIFA intervals checked against the singing model. It uses the same confidence, endpoint,
+duration and phrase gates above, preserves existing intervals and changes no displayed
+reading. Corrected or unavailable readings do not receive a dictionary shadow. Model
+adapters stay separate: TIFA uses kana/phonetic targets, MMS uses supported Latin labels,
+and RomajiASR uses singing phones. Display mode never chooses model input.
 
 The [accuracy experiments](study-accuracy-evaluation.md) record why broader pronunciation
 scoring, neighboring context, repeat localization and an English speech verifier remain
