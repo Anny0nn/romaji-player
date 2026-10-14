@@ -168,6 +168,17 @@ class Converter:
                     crossing_spans.add(tuple(norm_span))
                 output_span = [byte_length(assembled), byte_length(assembled + token.surface)]
                 assembled += str(token)
+                parts = (
+                    self.dotted_kana_parts(node.surface, token.surface, norm_span, output_span)
+                    if node.is_unk and index not in crossing
+                    else []
+                )
+                if parts:
+                    for norm_part, output_part, kana in parts:
+                        positions.append((norm_part, output_part))
+                        readings[tuple(norm_part)] = kana
+                        pronunciations[tuple(norm_part)] = None
+                    continue
                 positions.append((norm_span, output_span))
                 reading = node.feature.kana if not node.is_unk else node.surface
                 if not reading:
@@ -369,6 +380,30 @@ class Converter:
         return " ".join(
             self.cut.romaji(part, capitalize=False).replace(" ", "") for part in kana.split()
         )
+
+    def dotted_kana_parts(self, surface, output, normalized, rendered):
+        """Prove an ordered subnode bijection; never guess from partial romanization."""
+        if not re.fullmatch(r"[ぁ-ゖァ-ヶー]+(?:・[ぁ-ゖァ-ヶー]+)+", surface):
+            return []
+        pieces = surface.split("・")
+        kana = [jaconv.kata2hira(piece) for piece in pieces]
+        romanized = [self.cut.map_kana(piece) for piece in kana]
+        if (
+            "/".join(romanized) != output
+            or any(not WORD.fullmatch(piece) for piece in romanized)
+            or normalized[1] - normalized[0] != byte_length(surface)
+            or rendered[1] - rendered[0] != byte_length(output)
+        ):
+            return []
+        result = []
+        source_at, output_at = normalized[0], rendered[0]
+        for piece, reading, romaji in zip(pieces, kana, romanized, strict=True):
+            source_end = source_at + byte_length(piece)
+            output_end = output_at + byte_length(romaji)
+            result.append(([source_at, source_end], [output_at, output_end], reading))
+            source_at = source_end + byte_length("・")
+            output_at = output_end + byte_length("/")
+        return result
 
     def reading_candidates(self, raw, normalized, words):
         """Bounded alternatives; never select one without independent singing evidence."""

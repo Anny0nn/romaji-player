@@ -99,3 +99,62 @@ def test_sung_correction_never_inherits_the_wrong_dictionary_pronunciation(conve
 def test_old_wire_protocol_is_explicitly_rejected(converter):
     with pytest.raises(ValueError, match="unsupported_protocol"):
         converter.convert({"protocol_version": 1, "command": "hello", "request_id": 1})
+
+
+@pytest.mark.parametrize(
+    "raw,pieces",
+    [
+        ("ゲ・ン・カ・イ", ["ゲ", "ン", "カ", "イ"]),
+        ("ゲ・ン・カ・イまで", ["ゲ", "ン", "カ", "イ", "まで"]),
+        ("ゲ・ﾝ・ｶ・ｲ", ["ゲ", "ﾝ", "ｶ", "ｲ"]),
+    ],
+)
+def test_unknown_dotted_kana_keeps_words_and_maps_each_exact_source_piece(converter, raw, pieces):
+    result = convert(converter, raw)
+    assert result["romaji"].startswith("ge/n/ka/i")
+    assert result["hiragana"].startswith("げ/ん/か/い")
+    assert result["katakana"].startswith("ゲ/ン/カ/イ")
+    assert len(result["words"]) == len(pieces)
+    assert [w["expected_text"] for w in result["words"]] == pieces
+    for word, piece in zip(result["words"], pieces, strict=True):
+        assert slice_bytes(raw, word["raw_span"]) == piece
+        assert word["mapping_status"] == "mapped"
+        assert word["reading"]["written"]
+
+
+@pytest.mark.parametrize(
+    "surface,output",
+    [
+        ("ゲ・ン", "ge/m"),
+        ("ゲ・・ン", "ge/n"),
+        ("限・界", "gen/kai"),
+        ("ゲ・A", "ge/A"),
+        ("ゲ・ン", "gen"),
+    ],
+)
+def test_subnode_mapping_withholds_non_kana_or_inexact_reconstruction(converter, surface, output):
+    assert (
+        converter.dotted_kana_parts(
+            surface, output, [0, len(surface.encode())], [0, len(output.encode())]
+        )
+        == []
+    )
+
+
+def test_subnode_reading_edit_keeps_other_words_and_reattaches(converter):
+    raw = "ゲ・ン・カ・イ"
+    edit = {
+        "id": "saved",
+        "kind": "reading_kana",
+        "raw_span": [12, 15],
+        "expected_text": "カ",
+        "hiragana": "かあ",
+        "replacement": "kaa",
+    }
+    for _ in range(2):
+        result = convert(converter, raw, [edit])
+        assert result["pending_overrides"] == []
+        assert result["romaji"] == "ge/n/kaa/i"
+        assert result["hiragana"] == "げ/ん/かあ/い"
+        assert len(result["words"]) == 4
+        assert [w["raw_span"] for w in result["words"]] == [[0, 3], [6, 9], [12, 15], [18, 21]]
