@@ -6,33 +6,34 @@ uses the already downloaded singing model to check fresh TIFA intervals, includi
 bounded phonetic hypotheses for English words sung with Japanese pronunciation.
 The original TIFA action and current reading-repair policy remain separate.
 
-## Fourteen-song stage replay
+## Fourteen-song coverage
 
 The runtime stage ran on all 671 saved lyric windows, with the current fifteen
 automatic reading occurrences applied to its targets. Inputs retain original source
 byte spans, Rust-exported sample bounds, zero-delay recording clocks and the native
 baseline denominator. The stage adds **72 words**, taking retained coverage from
 **3,435/4,160 (82.6%) to 3,507/4,160 (84.3%)**. All existing intervals are identical.
-This is an integrated-stage replay; full native job validation is recorded separately
-below. Coverage means a stored interval, not a listening-verified correct highlight.
+All fourteen full native jobs subsequently produced exactly the same counts, independently
+repeating separation, transcription, reading selection and alignment with the standalone
+runtime. Coverage means a stored interval, not a listening-verified correct highlight.
 
-| Recording            | Previous Experimental |    Stage replay |  Added |
-| -------------------- | --------------------: | --------------: | -----: |
-| SAKURA               |               265/265 |         265/265 |      0 |
-| うれしくて           |               363/423 |         363/423 |      0 |
-| departure!           |               209/221 |         209/221 |      0 |
-| spiral               |               238/245 |         238/245 |      0 |
-| Koino Uta            |               223/307 |         252/307 |     29 |
-| Tabi no Tochuu       |               153/153 |         153/153 |      0 |
-| NEVER SAY GOODBYE    |               367/430 |         369/430 |      2 |
-| Just Awake           |               183/306 |         183/306 |      0 |
-| the WORLD            |               135/153 |         135/153 |      0 |
-| 色彩                 |               270/291 |         271/291 |      1 |
-| 君のせい             |               259/270 |         259/270 |      0 |
-| 今世大革命           |               188/246 |         197/246 |      9 |
-| Bling-Bang-Bang-Born |               335/473 |         348/473 |     13 |
-| 天天天国地獄国       |               247/377 |         265/377 |     18 |
-| **Total**            |       **3,435/4,160** | **3,507/4,160** | **72** |
+| Recording            | Previous Experimental | New Experimental |  Added |
+| -------------------- | --------------------: | ---------------: | -----: |
+| SAKURA               |               265/265 |          265/265 |      0 |
+| うれしくて           |               363/423 |          363/423 |      0 |
+| departure!           |               209/221 |          209/221 |      0 |
+| spiral               |               238/245 |          238/245 |      0 |
+| Koino Uta            |               223/307 |          252/307 |     29 |
+| Tabi no Tochuu       |               153/153 |          153/153 |      0 |
+| NEVER SAY GOODBYE    |               367/430 |          369/430 |      2 |
+| Just Awake           |               183/306 |          183/306 |      0 |
+| the WORLD            |               135/153 |          135/153 |      0 |
+| 色彩                 |               270/291 |          271/291 |      1 |
+| 君のせい             |               259/270 |          259/270 |      0 |
+| 今世大革命           |               188/246 |          197/246 |      9 |
+| Bling-Bang-Bang-Born |               335/473 |          348/473 |     13 |
+| 天天天国地獄国       |               247/377 |          265/377 |     18 |
+| **Total**            |       **3,435/4,160** |  **3,507/4,160** | **72** |
 
 The stage took **21.9 seconds for the complete suite** on M2 Pro /16 GiB with cached
 singing posteriors and fresh TIFA inference. This excludes vocal separation, transcription,
@@ -87,9 +88,39 @@ corpus, with no fresh holdout claim.
 
 ## Native app validation
 
-Full native replay, saved-version/reopening checks and standalone package verification
-are in progress. Until those finish, the stage-replay table above is not a claim that
-every full packaged job produced those counts. No test changes the user's app data.
+Both standalone timing runtimes ran through the native pipeline on all fourteen cached
+recordings. Original TIFA remains **3,121/4,160**, with every interval identical to the
+previous release. Experimental reaches **3,507/4,160**, with **72 additions, zero losses
+and zero moved existing intervals**. Source snapshots, recording fingerprints, original
+denominators and all fifteen saved automatic reading occurrences match the baseline.
+No lyric-text substitutions are added. The six verified Tabi corrections remain intact.
+
+All **28 saved action results** passed native reopening, reconversion and earlier-version
+restoration checks, including valid word spans in hiragana and romaji. Existing offline
+fixtures cover nonzero delay, protected edits, changed grouping, cancelled/stale jobs and
+the three persisted display modes. Tests write isolated result directories and never
+change the user's app data.
+
+Cached-weight native jobs took a median **199.6 seconds Experimental** (range 149.6–314.9)
+and **7.1 seconds TIFA** (range 5.9–11.4). Largest recorded command/child maximum RSS
+was **3.16 GB Experimental** and **2.68 GB TIFA**. Two-second process-tree sampling
+covered 25 jobs, starting during the second song, and peaked at **2.86 GB summed RSS**.
+RSS can count shared pages twice and excludes accelerator allocations; these values are
+not a complete unified-memory peak. System swap used fell from 10,990 to 6,546 MiB,
+and system free-memory percentage rose from 29% to 65%. This shared-machine observation
+includes background compilation and packaging, so neither swap changes nor the latency
+difference from the prior 169-second run is attributed solely to this stage. All jobs
+completed on M2 Pro /16 GiB without an out-of-memory failure. MPS/MLX allocation peaks
+and first-download latency were not remeasured.
+
+The configured ARM64 app and distribution ZIP were rebuilt using the new Experimental
+runtime and verified existing helpers. Packaging kept the inference directories stable
+while native jobs ran. Signature verification, relocation to a path with spaces, clean
+environment conversion, bundled helper checks, notices, library paths and the registered
+Spotify callback all passed. No model weights, secrets or private instruction files are
+bundled. The inference implementation is `1f330c1`; experiment tools are `c191bfc`.
+The full mandatory repository gate passes with 51 romanizer tests, 119 research boundary
+tests, 92 TIFA/refinement tests, Rust tests, formatting, lints and export checks.
 
 ## Reproduction
 

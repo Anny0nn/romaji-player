@@ -147,17 +147,15 @@ download, but does not remove the saved study files. Account grants are held sep
 in macOS Keychain. Audio preparation and model inference are local; Spotify, lyric
 lookups and first-use model downloads still need network access.
 
-Before the singing-gap update, fourteen recorded songs retained 3,435/4,160 word
-timings (82.6%), compared with TIFA's 3,121/4,160 (75.0%). The pronunciation fallback
-adds one word, loses none and adjusts one neighboring interval. Median processing time
-was 169 seconds versus 7 seconds on an M2 Pro with 16 GB. Tabi no Tochuu reached
-153/153 with all six verified reading corrections; difficult songs still had substantial
-gaps. These are coverage and persistence results, not a listening-accuracy score. See the
-[evaluation and measured limits](docs/study-reading-evaluation.md) and
-[data/protocol design](docs/study.md).
-The new missing-word stage adds 72 timings in the fourteen-song replay, reaching
-3,507/4,160 (84.3%) without changing existing intervals. Full native validation is
-recorded in the [completeness evaluation](docs/study-completeness-evaluation.md).
+On fourteen recorded songs, Experimental retains **3,507/4,160 words (84.3%)**, compared
+with TIFA's **3,121/4,160 (75.0%)**. This update adds 72 timings to the previous
+Experimental result, preserving every existing interval and all fifteen reading corrections.
+Koino Uta improves from 223 to 252/307; Tabi no Tochuu stays at 153/153. All 28 timing
+results passed reopening and earlier-version restoration. Median cached-weight processing
+time was 200 seconds for Experimental and 7 seconds for TIFA on M2 Pro /16 GB.
+These are coverage and persistence results, not a listening-accuracy score; difficult
+songs still have substantial gaps. See the [completeness evaluation](docs/study-completeness-evaluation.md),
+[earlier reading evaluation](docs/study-reading-evaluation.md) and [data/protocol design](docs/study.md).
 The newer [accuracy experiments](docs/study-accuracy-evaluation.md) separate retained-word
 counts from human phone-boundary tests and document rejected approaches. They do not
 establish perfect lyric recognition or word timing on unfamiliar songs.

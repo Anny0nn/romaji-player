@@ -1,11 +1,15 @@
 # Recover sung readings before choosing romaji
 
-Status: Approved (2026-10-13; Mac completeness extension; offline pilot complete)
+Status: Implemented (2026-10-13; offline reading pilot and Mac timing extension)
 
 Results and adoption decision: [audio-first evaluation](../study-audio-first-evaluation.md).
 The fixed fallback gains 19 phone-correct controlled repairs across thirteen songs, with
 fresh TIFA timing and unchanged controls. It adds two wrong repairs; full native/natural-song
-validation and complete memory profiling remain unestablished, so step 5 is not activated.
+validation and complete memory profiling remain unestablished for that reading challenger,
+so reading step 5 is not activated. The separate timing-only extension below is implemented:
+it adds 72 real-song timings without changing existing intervals or reading corrections.
+See the [complete Mac evaluation](../study-completeness-evaluation.md), including fourteen
+native song replays, 28 saved/reopened action results and the standalone app checks.
 
 ## Approved Mac completeness extension
 
@@ -293,9 +297,9 @@ kana reading if its envelope is unique. There is no kana → kanji → canonical
 ## Out of scope
 
 No manual timing editor, user labelling assignment, cloud inference, model training, new
-default TIFA behavior, automatic kanji rewriting or inferred timestamps. English-only spans
-need a separate language-capable path: the earlier ledger found Latin letters in 404/726
-missing spans, so this Japanese-reading pilot cannot credibly promise full suite coverage.
-That historic denominator precedes the one-word merged fix. A separate English recognizer,
-Haqumei import, note-constrained decoding and MOSS port are follow-ups driven by this pilot's
-failure analysis, rather than additional unbounded experiments in the first deliverable.
+default TIFA behavior, automatic kanji rewriting or inferred timestamps. The original
+Japanese-reading pilot does not promise complete English coverage: the earlier ledger
+found Latin letters in 404/726 missing spans, before the one-word merged fix. The approved
+Mac extension tests English Whisper and ships independently checked pronunciation aliases
+using the existing singing model. A new English recognizer, Haqumei import, note-constrained
+decoding and MOSS port remain follow-ups; none is added to the app in this PR.
