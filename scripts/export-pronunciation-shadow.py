@@ -16,11 +16,9 @@ sys.path.insert(0, str(ROOT / "romanizer"))
 
 
 def shadow(converter, text, number):
-    import jaconv
-
     response = converter.convert(
         {
-            "protocol_version": 1,
+            "protocol_version": 2,
             "request_id": number,
             "track_id": "dictionary-shadow",
             "snapshot_id": "research",
@@ -31,13 +29,6 @@ def shadow(converter, text, number):
             "overrides": [],
         }
     )
-    nodes, cursor = {}, 0
-    for node in converter.cut.tagger(response["normalized_line"]):
-        cursor += node.rlength
-        span = (cursor - node.length, cursor)
-        # pron is the inflected form; pronBase would incorrectly use the lemma.
-        pronunciation = None if node.is_unk else node.feature.pron
-        nodes[span] = jaconv.kata2hira(pronunciation) if pronunciation else None
     words = []
     for word in response["words"]:
         if word["raw_span"] is None or word["hiragana_span"] is None:
@@ -46,8 +37,7 @@ def shadow(converter, text, number):
         written = response["hiragana"].encode()[a:b].decode()
         a, b = word["output_span"]
         roman = response["romaji"].encode()[a:b].decode()
-        pieces = [nodes.get(tuple(span)) for span in word["constituent_nodes"]]
-        spoken = "".join(pieces) if pieces and all(pieces) else None
+        spoken = word["reading"]["pronunciation"]
         exported = {
             "raw_span": word["raw_span"],
             "expected_text": word["expected_text"],

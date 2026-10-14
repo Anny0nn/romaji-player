@@ -33,25 +33,12 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, fullscreen: bool) {
     let previous_mode = app.settings.lyric_mode;
     ui.horizontal_wrapped(|ui| {
         use crate::study::LyricMode;
-        let selected = match app.settings.lyric_mode {
-            LyricMode::Romaji => "Romaji",
-            LyricMode::Both => "Hiragana + romaji",
-            LyricMode::Hiragana => "Hiragana",
-        };
         egui::ComboBox::from_id_salt(("lyric-mode", fullscreen))
-            .selected_text(selected)
+            .selected_text(app.settings.lyric_mode.label())
             .show_ui(ui, |ui| {
-                ui.selectable_value(&mut app.settings.lyric_mode, LyricMode::Romaji, "Romaji");
-                ui.selectable_value(
-                    &mut app.settings.lyric_mode,
-                    LyricMode::Both,
-                    "Hiragana + romaji",
-                );
-                ui.selectable_value(
-                    &mut app.settings.lyric_mode,
-                    LyricMode::Hiragana,
-                    "Hiragana",
-                );
+                for mode in LyricMode::ALL {
+                    ui.selectable_value(&mut app.settings.lyric_mode, mode, mode.label());
+                }
             });
         if ui.button("Follow").clicked() {
             app.lyrics_following = true;
@@ -274,30 +261,19 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, fullscreen: bool) {
                     quiet
                 };
                 let timed_count = timings.iter().flatten().count();
-                let scripts: &[bool] = match app.settings.lyric_mode {
-                    crate::study::LyricMode::Romaji => &[false],
-                    crate::study::LyricMode::Both => &[true, false],
-                    crate::study::LyricMode::Hiragana => &[true],
-                };
+                let scripts = app.settings.lyric_mode.scripts();
                 let mut line_rect = None;
-                for &hiragana in scripts {
+                for &script in scripts {
                     let font = theme::regular(size);
                     let mut job = LayoutJob::default();
                     job.wrap.max_width = ui.available_width();
 
                     if let Some(output) = &output {
-                        let text = if hiragana {
-                            &output.hiragana
-                        } else {
-                            &output.romaji
-                        };
+                        let text = output.display_text(&line.raw_line, script);
+                        let spans = output.display_spans(&line.raw_line, script);
                         let mut cursor = 0;
                         for (index, word) in output.words.iter().enumerate() {
-                            let Some(range) = (if hiragana {
-                                word.hiragana_span
-                            } else {
-                                Some(word.output_span)
-                            }) else {
+                            let Some(range) = spans[index] else {
                                 continue;
                             };
                             job.append(
@@ -360,7 +336,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, fullscreen: bool) {
                                 if output.romaji.is_empty() {
                                     "♪"
                                 } else {
-                                    "Hiragana unavailable"
+                                    "Reading unavailable"
                                 },
                                 0.0,
                                 TextFormat {
@@ -394,22 +370,14 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, fullscreen: bool) {
                         && let Some(pointer) = response.interact_pointer_pos()
                     {
                         let character = galley.cursor_from_pos(pointer - rect.min).index;
-                        let text = if hiragana {
-                            &output.hiragana
-                        } else {
-                            &output.romaji
-                        };
+                        let text = output.display_text(&line.raw_line, script);
+                        let spans = output.display_spans(&line.raw_line, script);
                         let byte = text
                             .char_indices()
                             .nth(character.into())
                             .map_or(text.len(), |(offset, _)| offset);
-                        if let Some(word) = output.words.iter().position(|word| {
-                            (if hiragana {
-                                word.hiragana_span
-                            } else {
-                                Some(word.output_span)
-                            })
-                            .is_some_and(|range| range[0] <= byte && byte < range[1])
+                        if let Some(word) = spans.iter().position(|range| {
+                            range.is_some_and(|range| range[0] <= byte && byte < range[1])
                         }) {
                             let result = app.study.select(occurrence, word);
                             report(app, result);
@@ -426,7 +394,9 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, fullscreen: bool) {
                     line_rect =
                         Some(line_rect.map_or(rect, |previous: egui::Rect| previous.union(rect)));
                 }
-                if app.study.show_original {
+                if app.study.show_original
+                    && app.settings.lyric_mode != crate::study::LyricMode::Japanese
+                {
                     ui.label(&line.raw_line);
                 }
                 if let Some(output) = &output

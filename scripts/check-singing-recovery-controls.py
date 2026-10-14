@@ -23,10 +23,14 @@ def main():
     parser.add_argument("--models", type=Path, required=True)
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--pronunciations", type=Path)
     args = parser.parse_args()
     if ROOT in args.output.resolve().parents:
         parser.error("Private inputs/results stay outside git.")
     cases = json.loads(args.cases.read_text())
+    pronunciations = (
+        json.loads(args.pronunciations.read_text()) if args.pronunciations else {}
+    )
     if not cases or any(not c["id"].startswith("control:") for c in cases):
         raise ValueError("Use a control-only case manifest.")
     args.output.mkdir(parents=True, mode=0o700, exist_ok=False)
@@ -67,6 +71,9 @@ def main():
                 "raw_span": w["raw_span"],
                 "text": "".join(c for c in w["hiragana"] if c.isalnum()),
                 "romaji": w["romaji"],
+                "pronunciation": pronunciations.get(case["id"], {}).get(
+                    str(w["raw_span"])
+                ),
             }
             for w in case["words"]
         ]
@@ -101,6 +108,9 @@ def main():
         "admitted": sum(r["admitted"] for r in rows),
         "cases_sha256": digest(args.cases),
         "model": meta,
+        "pronunciations_sha256": digest(args.pronunciations)
+        if args.pronunciations
+        else None,
     }
     (args.output / "summary.json").write_text(json.dumps(summary))
     print(json.dumps({k: summary[k] for k in ("cases", "words", "admitted")}))

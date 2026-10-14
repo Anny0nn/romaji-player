@@ -5,6 +5,7 @@ import gc
 import hashlib
 import json
 import os
+import re
 import subprocess
 import zipfile
 
@@ -16,7 +17,10 @@ SINGING_FILES = {
     "model.safetensors": "f8c271f0149df02d7bdb70916f530633462d65ee2bbf0c0d9c59cc7ded12abc0",
     "phoneme_vocab.json": "4e96b35f058685aa1ac63b1c9e1cc386fa75d85ede5d55997fbbac6e7ec932bb",
 }
-LIMIT = 65536
+# Source-owned word records are much larger than their input transcript. Keep
+# requests bounded separately so valid protocol-2 replies do not abort a song.
+REQUEST_LIMIT = 65536
+REPLY_LIMIT = 1024 * 1024
 
 
 class ConversionRejected(ValueError):
@@ -28,6 +32,48 @@ def source_text(text, span):
     if type(a) is not int or type(b) is not int or not 0 <= a < b <= len(text.encode()):
         raise ValueError("Invalid reading source boundary.")
     return text.encode()[a:b].decode()
+
+
+def alignment_target(raw_line, converted, word):
+    """Validate one source-owned selected reading before it reaches an acoustic model."""
+    if not word["raw_span"]:
+        return None
+    raw = source_text(raw_line, word["raw_span"])
+    reading = word["reading"]
+    written = reading["written"]
+    if (
+        raw != word["expected_text"]
+        or source_text(converted["hiragana"], word["hiragana_span"])
+        != (written or "？")
+        or source_text(converted["romaji"], word["output_span"]) != reading["romaji"]
+        or reading["alignment_text"]
+        != "".join(
+            c
+            for c in (raw if not written or "？" in written else written)
+            if c.isalnum()
+        )
+        or reading["origin"]
+        not in ("dictionary", "saved", "song", "source", "unavailable")
+        or (
+            reading["pronunciation"]
+            and (
+                reading["origin"] != "dictionary"
+                or word["override_id"]
+                or not re.fullmatch(
+                    r"[ぁ-ゖー]+(?: [ぁ-ゖー]+)*", reading["pronunciation"]
+                )
+            )
+        )
+    ):
+        raise ValueError("Inconsistent source-anchored reading target.")
+    if not reading["alignment_text"]:
+        return None
+    return {
+        "raw_span": word["raw_span"],
+        "text": reading["alignment_text"],
+        "romaji": reading["romaji"],
+        "pronunciation": reading["pronunciation"],
+    }
 
 
 class Converter:
@@ -43,7 +89,7 @@ class Converter:
         )
         try:
             self.signature = self.exchange(
-                {"protocol_version": 1, "command": "hello", "request_id": 0}
+                {"protocol_version": 2, "command": "hello", "request_id": 0}
             )["conversion_signature"]
         except Exception:
             self.close()
@@ -60,18 +106,18 @@ class Converter:
 
     def exchange(self, request):
         data = json.dumps(request, ensure_ascii=False).encode() + b"\n"
-        if len(data) > LIMIT:
+        if len(data) > REQUEST_LIMIT:
             raise ValueError("Reading conversion request exceeds limit.")
         self.process.stdin.write(data)
         self.process.stdin.flush()
-        data = self.process.stdout.readline(LIMIT + 1)
-        if not data.endswith(b"\n") or len(data) > LIMIT:
+        data = self.process.stdout.readline(REPLY_LIMIT + 1)
+        if not data.endswith(b"\n") or len(data) > REPLY_LIMIT:
             raise ValueError("Reading converter exceeded reply limit.")
         response = json.loads(data)
         # Rejections deliberately omit lyric text and most identity fields. Only
         # a matching protocol/request ID can classify one as an input rejection.
         if response.get("error") == "invalid_request":
-            if response.get("protocol_version") != 1 or response.get(
+            if response.get("protocol_version") != 2 or response.get(
                 "request_id"
             ) != request.get("request_id"):
                 raise ValueError("Unmatched reading conversion rejection.")
@@ -85,7 +131,7 @@ class Converter:
         ):
             if key in request and response.get(key) != request[key]:
                 raise ValueError("Stale reading conversion.")
-        if response.get("error") or response.get("protocol_version") != 1:
+        if response.get("error") or response.get("protocol_version") != 2:
             raise ValueError("Reading converter failed.")
         if response.get("conversion_signature") != request.get(
             "expected_conversion_signature", response.get("conversion_signature")
@@ -648,27 +694,11 @@ def corrected_crops(inputs, crops, converter, readings, text_repairs):
         converted = converter.convert(request)
         if converted["pending_overrides"]:
             raise ValueError("A verified correction could not be grouped.")
-        targets = []
-        for word in converted["words"]:
-            if not word["raw_span"]:
-                continue
-            raw = source_text(request["raw_line"], word["raw_span"])
-            reading = (
-                source_text(converted["hiragana"], word["hiragana_span"])
-                if word["hiragana_span"]
-                else raw
-            )
-            text = "".join(
-                c for c in (raw if "？" in reading else reading) if c.isalnum()
-            )
-            if text:
-                targets.append(
-                    {
-                        "raw_span": word["raw_span"],
-                        "text": text,
-                        "romaji": source_text(converted["romaji"], word["output_span"]),
-                    }
-                )
+        targets = [
+            target
+            for word in converted["words"]
+            if (target := alignment_target(request["raw_line"], converted, word))
+        ]
         result.append((occurrence, first, last, targets))
         counts[str(occurrence)] = len(converted["words"])
     return result, counts

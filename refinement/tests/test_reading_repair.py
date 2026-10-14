@@ -125,7 +125,8 @@ def test_unconvertible_optional_reading_does_not_discard_other_valid_candidates(
 
 
 @pytest.mark.parametrize(
-    "reply_id,protocol,typed", [(1, 1, True), (2, 1, False), (1, 9, False)]
+    "reply_id,protocol,typed",
+    [(1, 2, True), (2, 2, False), (1, 1, False), (1, 9, False)],
 )
 def test_compact_rejections_require_matching_protocol_and_request_identity(
     reply_id, protocol, typed
@@ -142,12 +143,92 @@ def test_compact_rejections_require_matching_protocol_and_request_identity(
         stdin=io.BytesIO(), stdout=io.BytesIO(json.dumps(response).encode() + b"\n")
     )
     with pytest.raises(ValueError) as raised:
-        converter.exchange({"protocol_version": 1, "request_id": 1})
+        converter.exchange({"protocol_version": 2, "request_id": 1})
     assert isinstance(raised.value, ConversionRejected) == typed
+
+
+def test_large_valid_reply_keeps_identity_checks_and_the_following_reply():
+    from reading_repair import REQUEST_LIMIT, Converter
+
+    response = {
+        "protocol_version": 2,
+        "request_id": 1,
+        "snapshot_id": "frozen",
+        "conversion_signature": "a" * 64,
+        "words": [{"synthetic_word_record": "x" * 460} for _ in range(200)],
+    }
+    raw = json.dumps(response).encode() + b"\n"
+    assert len(raw) > REQUEST_LIMIT
+    second = {**response, "request_id": 2, "words": []}
+    converter = Converter.__new__(Converter)
+    converter.process = SimpleNamespace(
+        stdin=io.BytesIO(),
+        stdout=io.BytesIO(raw + json.dumps(second).encode() + b"\n"),
+    )
+    request = {
+        "protocol_version": 2,
+        "request_id": 1,
+        "snapshot_id": "frozen",
+        "expected_conversion_signature": "a" * 64,
+    }
+    assert converter.exchange(request) == response
+    assert converter.exchange({**request, "request_id": 2}) == second
+    converter.process.stdout = io.BytesIO(raw)
+    with pytest.raises(ValueError, match="Stale"):
+        converter.exchange({**request, "snapshot_id": "different"})
+    converter.process.stdout = io.BytesIO(raw)
+    with pytest.raises(ValueError, match="changed"):
+        converter.exchange({**request, "expected_conversion_signature": "b" * 64})
+
+
+def test_request_and_reply_limits_still_reject_oversize_or_truncated_messages():
+    from reading_repair import REPLY_LIMIT, REQUEST_LIMIT, Converter
+
+    converter = Converter.__new__(Converter)
+    converter.process = SimpleNamespace(stdin=io.BytesIO(), stdout=io.BytesIO())
+    with pytest.raises(ValueError, match="request exceeds"):
+        converter.exchange({"raw_line": "x" * REQUEST_LIMIT})
+    assert converter.process.stdin.getvalue() == b""
+    for reply in (b" " * REPLY_LIMIT + b"\n", b"{}"):
+        converter.process.stdout = io.BytesIO(reply)
+        with pytest.raises(ValueError, match="reply limit"):
+            converter.exchange({"request_id": 1})
 
 
 def words(*values):
     return [{"text": t, "romaji": r} for t, r in values]
+
+
+def test_model_target_rejects_changed_reading_and_dictionary_shadow_on_a_saved_edit():
+    import copy
+
+    from reading_repair import alignment_target
+
+    converted = {"hiragana": "ゆこう", "romaji": "yukou"}
+    word = {
+        "raw_span": [0, 9],
+        "expected_text": "行こう",
+        "hiragana_span": [0, 9],
+        "output_span": [0, 5],
+        "override_id": "saved",
+        "reading": {
+            "written": "ゆこう",
+            "romaji": "yukou",
+            "alignment_text": "ゆこう",
+            "pronunciation": None,
+            "origin": "saved",
+        },
+    }
+    assert alignment_target("行こう", converted, word)["text"] == "ゆこう"
+    for change in [
+        {"alignment_text": "いこう"},
+        {"pronunciation": "いこー"},
+        {"romaji": "ikou"},
+    ]:
+        damaged = copy.deepcopy(word)
+        damaged["reading"].update(change)
+        with pytest.raises(ValueError, match="Inconsistent"):
+            alignment_target("行こう", converted, damaged)
 
 
 def test_transcript_mapping_groups_split_tokens_through_stable_neighbors():

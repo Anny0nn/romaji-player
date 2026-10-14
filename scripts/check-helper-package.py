@@ -35,10 +35,10 @@ def main():
                 cwd=scratch,
             )
 
-        hello = {"protocol_version": 1, "request_id": 0, "command": "hello"}
+        hello = {"protocol_version": 2, "request_id": 0, "command": "hello"}
         signature = json.loads(run([hello]).stdout)["conversion_signature"]
         request = {
-            "protocol_version": 1,
+            "protocol_version": 2,
             "request_id": 1,
             "track_id": "synthetic",
             "snapshot_id": "fixture",
@@ -75,6 +75,9 @@ def main():
         assert not process.stderr and len(responses) == 7
         assert responses[1]["romaji"] == "ga tabeta o"
         assert responses[1]["hiragana"] == "が たべた を"
+        assert responses[1]["katakana"] == "ガ タベタ ヲ"
+        assert responses[1]["representation"] == "source-reading-v1"
+        assert responses[1]["words"][1]["reading"]["alignment_text"] == "たべた"
         assert [word["raw_span"] for word in responses[1]["words"]] == [
             [0, 6],
             [7, 16],

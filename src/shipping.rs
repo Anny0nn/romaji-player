@@ -118,10 +118,14 @@ pub fn experimental_command() -> Result<Command> {
 }
 
 pub fn check_romaji() -> Result<serde_json::Value> {
-    use crate::study::conversion::{Request, Romanizer};
-    let mut helper = Romanizer::start(&mut helper_command()?)?;
+    check_romaji_with(&mut helper_command()?)
+}
+
+fn check_romaji_with(command: &mut Command) -> Result<serde_json::Value> {
+    use crate::study::conversion::{PROTOCOL, Request, Romanizer};
+    let mut helper = Romanizer::start(command)?;
     let request = Request {
-        protocol_version: 1,
+        protocol_version: PROTOCOL,
         request_id: 1,
         track_id: "synthetic".into(),
         snapshot_id: "package-check".into(),
@@ -133,13 +137,27 @@ pub fn check_romaji() -> Result<serde_json::Value> {
     };
     let response = helper.convert(&request)?;
     Ok(
-        serde_json::json!({"romaji":response.romaji,"hiragana":response.hiragana,"raw_spans":response.words.iter().map(|word|word.raw_span).collect::<Vec<_>>() }),
+        serde_json::json!({"romaji":response.romaji,"hiragana":response.hiragana,"katakana":response.katakana,"raw_spans":response.words.iter().map(|word|word.raw_span).collect::<Vec<_>>() }),
     )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn package_smoke_uses_the_current_converter_protocol_and_all_script_spans() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut command = Command::new(root.join(".venv/bin/python"));
+        command.arg(root.join("romanizer/romanizer.py"));
+        let result = check_romaji_with(&mut command).unwrap();
+        assert_eq!(result["romaji"], "ga tabeta o");
+        assert_eq!(result["hiragana"], "が たべた を");
+        assert_eq!(result["katakana"], "ガ タベタ ヲ");
+        assert_eq!(
+            result["raw_spans"],
+            serde_json::json!([[0, 6], [7, 16], [17, 20]])
+        );
+    }
     #[test]
     fn packaging_requires_explicit_public_identity_and_the_actual_callback() {
         let client = "00000000000000000000000000000000";

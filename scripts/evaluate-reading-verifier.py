@@ -98,7 +98,7 @@ def main():
             name, index = case["recording"], case["word"]
             if name not in source_cache:
                 template = {
-                    "protocol_version": 1,
+                    "protocol_version": 2,
                     "request_id": number,
                     "track_id": "pjs-source",
                     "snapshot_id": recognition[name]["case"]["sha256"],

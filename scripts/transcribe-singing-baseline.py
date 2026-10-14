@@ -111,7 +111,7 @@ def main():
             blind.write(output / f"{stem}-transcript.json", {"text": value["text"]})
             response = converter.convert(
                 {
-                    "protocol_version": 1,
+                    "protocol_version": 2,
                     "command": "convert",
                     "request_id": number,
                     "track_id": "blind-transcript",

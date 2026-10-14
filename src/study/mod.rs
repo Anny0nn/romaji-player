@@ -14,6 +14,36 @@ pub enum LyricMode {
     Romaji,
     Both,
     Hiragana,
+    Katakana,
+    Japanese,
+}
+
+impl LyricMode {
+    pub const ALL: [Self; 5] = [
+        Self::Romaji,
+        Self::Both,
+        Self::Hiragana,
+        Self::Katakana,
+        Self::Japanese,
+    ];
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Romaji => "Romaji",
+            Self::Both => "Hiragana + romaji",
+            Self::Hiragana => "Hiragana",
+            Self::Katakana => "Katakana",
+            Self::Japanese => "Japanese",
+        }
+    }
+    pub fn scripts(self) -> &'static [Self] {
+        match self {
+            Self::Romaji => &[Self::Romaji],
+            Self::Both => &[Self::Hiragana, Self::Romaji],
+            Self::Hiragana => &[Self::Hiragana],
+            Self::Katakana => &[Self::Katakana],
+            Self::Japanese => &[Self::Japanese],
+        }
+    }
 }
 
 #[cfg(test)]

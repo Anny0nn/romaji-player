@@ -17029,7 +17029,7 @@ mod tests {
         let mut helper = Romanizer::start(&mut command).unwrap();
         for line in &source.occurrences {
             let request = Request {
-                protocol_version: 1,
+                protocol_version: crate::study::conversion::PROTOCOL,
                 request_id: line.id as u64 + 1,
                 track_id: TRACK.into(),
                 snapshot_id: source.id.clone(),
@@ -17045,20 +17045,16 @@ mod tests {
         }
         let ctx = egui::Context::default();
         app.attach(&ctx);
-        for mode in [
-            crate::study::LyricMode::Romaji,
-            crate::study::LyricMode::Both,
-            crate::study::LyricMode::Hiragana,
-        ] {
+        for mode in crate::study::LyricMode::ALL {
             app.settings.lyric_mode = mode;
             for fullscreen in [false, true] {
                 app.lyrics_fullscreen = fullscreen.then_some(false);
                 app.lyrics_following = false;
                 let mut metrics = std::collections::BTreeMap::<String, Vec<egui::Vec2>>::new();
-                for (position, romaji, hiragana) in [
-                    (1500, "sakura", "さくら"),
-                    (2500, "tabeta", "たべた"),
-                    (4500, "", ""),
+                for (position, romaji, hiragana, katakana, japanese) in [
+                    (1500, "sakura", "さくら", "サクラ", "桜"),
+                    (2500, "tabeta", "たべた", "タベタ", "食べた"),
+                    (4500, "", "", "", ""),
                 ] {
                     app.remote.as_mut().unwrap().state.progress_ms = Some(position);
                     let mut painted = Vec::new();
@@ -17081,7 +17077,10 @@ mod tests {
                                 egui::Shape::Text(text)
                                     if matches!(
                                         text.galley.job.text.as_str(),
-                                        "sakura tabeta o" | "さくら たべた を"
+                                        "sakura tabeta o"
+                                            | "さくら たべた を"
+                                            | "サクラ タベタ ヲ"
+                                            | "桜 食べた を"
                                     ) =>
                                 {
                                     Some((text.pos.y, text.galley.clone()))
@@ -17119,10 +17118,12 @@ mod tests {
                             .collect();
                         assert_eq!(
                             highlighted,
-                            if galley.job.text == "sakura tabeta o" {
-                                romaji
-                            } else {
-                                hiragana
+                            match galley.job.text.as_str() {
+                                "sakura tabeta o" => romaji,
+                                "さくら たべた を" => hiragana,
+                                "サクラ タベタ ヲ" => katakana,
+                                "桜 食べた を" => japanese,
+                                _ => unreachable!(),
                             }
                         );
                         metrics

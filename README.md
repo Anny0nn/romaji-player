@@ -8,6 +8,7 @@ pronunciation with Latin letters; showing hiragana above it helps you learn both
 - Large lyrics with the current line and timed word highlighted.
 - Separate **TIFA** and **Experimental** buttons for local automatic word alignment.
 - Saved timings and lyric versions per song, preserved across restarts.
+- Five lyric views: romaji, hiragana with romaji, hiragana, katakana and original Japanese.
 - Experimental sung-reading corrections and missing word timings checked against the audio.
 - Compact **Options** controls for import, delay and saved versions.
 
@@ -21,8 +22,10 @@ missing intervals stay unmarked. There is no manual word-timing step.
 2. Play a Japanese song from search or your library. Open **Lyrics** using the player
    bar button, or press **L**. You can also paste a Spotify track link under **Options**
    and choose **Play**.
-3. Select **Romaji**, **Hiragana + romaji**, or **Hiragana**. This display preference
-   persists across restarts. The expand button gives the lyrics more space.
+3. Select **Romaji**, **Hiragana + romaji**, **Hiragana**, **Katakana**, or **Japanese**.
+   Japanese keeps the original kanji and kana. All views share the saved word timings;
+   switching views needs no model run. This preference persists across restarts.
+   The expand button gives the lyrics more space.
 4. Supplied line timing works immediately. To add word highlighting, choose one of the
    two timing buttons below. Wait for the saved-result message, then sing along.
 
@@ -139,6 +142,13 @@ Japanese pronunciation patterns for English words. It preserves existing timings
 displayed readings, with no additional model download. Broader context and repeat
 approaches are still measured offline.
 
+The converter keeps one selected reading tied to each original Japanese word group.
+Hiragana, katakana and romaji use that reading; the original Japanese view highlights
+the same source span. Experimental can also check a dictionary's spoken pronunciation,
+such as `とーきょー` for written `とうきょう`, to recover missing timings. It keeps the
+written lyric and protects saved sung-reading corrections. Changing display script alone
+does not fix a wrong reading, and unknown or ambiguous source groups stay unmarked.
+
 Saved study data lives under
 `~/Library/Application Support/io.github.Anny0nn.RomajiPlayer/study/`; downloaded weights
 are in the adjacent `models/` directory. Back up `study/` to retain your per-song versions.
@@ -147,18 +157,23 @@ download, but does not remove the saved study files. Account grants are held sep
 in macOS Keychain. Audio preparation and model inference are local; Spotify, lyric
 lookups and first-use model downloads still need network access.
 
-On fourteen recorded songs, Experimental retains **3,507/4,160 words (84.3%)**, compared
-with TIFA's **3,121/4,160 (75.0%)**. This update adds 72 timings to the previous
-Experimental result, preserving every existing interval and all fifteen reading corrections.
-Koino Uta improves from 223 to 252/307; Tabi no Tochuu stays at 153/153. All 28 timing
-results passed reopening and earlier-version restoration. Median cached-weight processing
-time was 200 seconds for Experimental and 7 seconds for TIFA on M2 Pro /16 GB.
+On fourteen recorded songs, Experimental retains **3,509/4,160 words (84.4%)**, compared
+with TIFA's **3,121/4,160 (75.0%)**. The spoken-pronunciation fallback adds two timings
+in 今世大革命 (197 to 199/246), preserving every existing interval, all fifteen reading
+corrections and the earlier recovery stage's 72 additions. Tabi no Tochuu stays at
+153/153. All 28 timing results passed reopening, reconversion and earlier-version
+restoration. Median cached-weight processing time was 168 seconds for Experimental
+and 6.5 seconds for TIFA on M2 Pro /16 GB.
 These are coverage and persistence results, not a listening-accuracy score; difficult
-songs still have substantial gaps. See the [completeness evaluation](docs/study-completeness-evaluation.md),
+songs still have substantial gaps. See the [representation evaluation](docs/study-representation-evaluation.md),
+[completeness evaluation](docs/study-completeness-evaluation.md),
 [earlier reading evaluation](docs/study-reading-evaluation.md) and [data/protocol design](docs/study.md).
 The newer [accuracy experiments](docs/study-accuracy-evaluation.md) separate retained-word
 counts from human phone-boundary tests and document rejected approaches. They do not
 establish perfect lyric recognition or word timing on unfamiliar songs.
+The expanded [61-recording catalog](docs/study-song-catalog.md) records the initial
+measurements and a frozen ten-song trial set: seven lowest-coverage songs and three
+highest-coverage songs below 100%. Fully covered songs stay in regression fixtures.
 The [audio-first reading pilot](docs/study-audio-first-evaluation.md) tests recognizing
 the sung pronunciation before choosing romaji. Its fallback recovers 19 additional
 controlled reading faults with fresh TIFA timing, but also adds two wrong repairs and

@@ -101,7 +101,7 @@ def eligible_words(readings, reference):
 def source_words(converter, text, number, snapshot):
     response = converter.convert(
         {
-            "protocol_version": 1,
+            "protocol_version": 2,
             "request_id": number,
             "track_id": "pjs-source",
             "snapshot_id": snapshot,

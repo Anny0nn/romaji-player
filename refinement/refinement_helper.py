@@ -502,7 +502,7 @@ def main():
         converter = Converter(Path(sys.argv[2]))
         try:
             request = {
-                "protocol_version": 1,
+                "protocol_version": 2,
                 "request_id": 1,
                 "track_id": "synthetic",
                 "snapshot_id": "check",

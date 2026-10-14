@@ -176,7 +176,7 @@ class EvidenceTests(unittest.TestCase):
 class ConverterTests(unittest.TestCase):
     def setUp(self):
         self.request = {
-            "protocol_version": 1,
+            "protocol_version": 2,
             "request_id": 1,
             "track_id": "synthetic",
             "snapshot_id": "experiment",

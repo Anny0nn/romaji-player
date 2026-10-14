@@ -14,7 +14,7 @@ def converter():
 
 def request(converter, raw, overrides=None):
     return {
-        "protocol_version": 1,
+        "protocol_version": 2,
         "request_id": "fixture",
         "track_id": "synthetic",
         "snapshot_id": "fixture",
