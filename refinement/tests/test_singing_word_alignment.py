@@ -65,3 +65,27 @@ class SingingWordAlignment(unittest.TestCase):
         self.assertTrue(all(u["start_ms"] == -1 for u in units))
         with self.assertRaises(ValueError):
             word_alignment(np.array([[0, np.nan]]), 0, self.words("あ"), {"a": 1})
+
+    def test_explicit_phone_hypothesis_keeps_english_source_word_ownership(self):
+        words = self.words("English", "English")
+        vocabulary = {"_": 0, "k": 1, "a": 2, "ka": 3}
+        units = word_alignment(
+            self.posterior([0, 3, 3, 0, 2, 2, 0], 4),
+            0,
+            words,
+            vocabulary,
+            word_phones=[["k", "a"], ["a"]],
+        )
+        self.assertEqual([u["raw_span"] for u in units], [w["raw_span"] for w in words])
+        self.assertEqual(
+            [(u["start_ms"], u["end_ms"]) for u in units], [(20, 65), (80, 125)]
+        )
+        self.assertTrue(all(w["text"] == "English" for w in words))
+        with self.assertRaises(ValueError):
+            word_alignment(
+                self.posterior([1], 4), 0, words, vocabulary, word_phones=[["a"]]
+            )
+        missing = word_alignment(
+            self.posterior([1], 4), 0, words, vocabulary, word_phones=[[], ["a"]]
+        )
+        self.assertTrue(all(u["start_ms"] == -1 for u in missing))
