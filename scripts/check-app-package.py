@@ -150,6 +150,7 @@ def main():
         assert conversion == {
             "romaji": "ga tabeta o",
             "hiragana": "が たべた を",
+            "katakana": "ガ タベタ ヲ",
             "raw_spans": [[0, 6], [7, 16], [17, 20]],
         }
         notices = contents / "Resources/Notices"
