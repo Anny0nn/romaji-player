@@ -1,6 +1,10 @@
 # Japanese lyric modes and consistent sung readings
 
-Status: Implemented (2026-10-14)
+Status: Approved (2026-10-14, sung-reading extension)
+
+The five-mode deliverable is implemented at `5483d28`. The maintainer has reopened
+this same draft PR for substantial sung-reading improvements. Existing functionality
+and measurements remain intact; the additional work below is pending.
 
 ## Goal
 
@@ -234,3 +238,43 @@ highlighting, translation into English, additional paired display combinations,
 mobile ports, re-recording the test suite, and publishing audio, full lyrics, model
 weights or personal development files. Do not replace Cutlet or the shipped recovery
 stages without measured evidence and an update to this plan.
+
+## Sung-reading extension: initial measurements and a capped test set
+
+The expanded catalog combines fourteen measured songs with 53 submitted Spotify links.
+Six links are already in the measured suite, leaving **61 unique recordings** and
+**47 new recordings** requiring their first measurement. Deduplicate by Spotify track
+ID, preserving distinct recording IDs even when their song titles match.
+
+First run the current Experimental recipe once on every unmeasured recording. Reuse
+authenticated existing measurements for the original fourteen songs. Keep the same
+recipe, converter, model revisions and source-owned coverage definition across the
+initial sweep. Capture silently with the immutable authorized helper, without rebuilding
+its Keychain identity. Audio, full lyrics, source snapshots and per-word observations
+remain outside Git. Capture and inference each checkpoint completed inputs/results so
+interrupted work resumes without recording or measuring successful songs again.
+
+Publish per-song retained/total counts, coverage percentage, recipe identity and processing
+time. Capture failures, unavailable lyrics, zero-word sources and inference failures are
+explicit statuses, never invented zero-percent scores. A failed or unmeasured recording
+cannot enter a completeness ranking until it has a valid measurement. Baseline timings
+remain coverage observations rather than verified sung-reading accuracy.
+
+Subsequent expensive candidate trials have a default **ten-song cap**: select the seven
+lowest-coverage eligible recordings and the three highest-coverage eligible recordings
+remaining below 100%. Exclude fully covered recordings and prevent selection overlap.
+Use exact retained/total ratios, deterministic track-ID tie breaking, and freeze the
+selection and source snapshots before candidate tuning. Do not rerank after each gain;
+an intentional replacement starts a documented new comparison. If the cap is changed,
+allocate 70% to the low group using nearest-integer rounding and the remainder to the
+high group. Report insufficient eligible songs rather than exceeding the cap or filling
+it with failed measurements or fully covered songs.
+
+The complete catalog receives this initial measurement; it is not replayed for every
+candidate. Retain synthetic known-reading, source-span, persistence, negative-control
+and human timing fixtures even when their original songs are excluded from expensive
+tuning. Target lyric/reading changes supported by the singing, freshly align accepted
+corrections, preserve protected edits and earlier versions, and compare unchanged source
+envelopes with their original denominators. New methods and their measured acceptance
+criteria will be added here after the baseline identifies representative failure cases;
+the original two-word pronunciation gain does not complete this extension.
