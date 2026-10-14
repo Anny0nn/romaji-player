@@ -207,6 +207,18 @@ rejected, not a baseline to rescue by opening held-out data.
   without model inference/network. Packaged/helper and `check-app-package.py` smoke tests
   verify signatures, source/protocol compatibility and relocation before a merge request.
 
+## Progress (2026-10-14)
+
+- Exact dotted-kana mapping is implemented with nine additional source/edit fixtures.
+- Pinned HubertFA inference and development benchmark tools run on CPU and MPS.
+  The supplied-phone test gives 32/37 correct word envelopes; no verifier-qualified
+  words or app recipe are promoted.
+- The reviewed romaji parser and bounded region probe ran 29 fresh local trials on
+  嘘, producing zero additions beyond the earlier one-word full-window proposal.
+- The substantial multi-song target remains unmet. Continue the lexical verification,
+  sung-reading and anchor work on this same draft PR. Results and reproduction are
+  recorded in [the evaluation](../study-source-accuracy-evaluation.md).
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,

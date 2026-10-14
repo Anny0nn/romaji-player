@@ -180,6 +180,11 @@ controlled reading faults with fresh TIFA timing, but also adds two wrong repair
 has incomplete natural-song validation. These research tools run offline; this pilot
 does not change the app's Experimental button.
 
+The [source-aware accuracy work](docs/study-source-accuracy-evaluation.md) now tests
+exact source-word ownership, bounded local realignment and a singing-trained English
+boundary model. It records reproducible results and rejected trials while the next
+app recipe remains under development.
+
 ## Troubleshooting
 
 - **Sign-in or playback denied:** check Premium, the configured Client ID, exact callback
