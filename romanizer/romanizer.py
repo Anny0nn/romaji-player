@@ -159,6 +159,7 @@ class Converter:
                     else:
                         crossing.update((index - 1, index))
             crossing_spans = set()
+            source_readings = set()
             assembled, positions, readings, pronunciations = "", [], {}, {}
             cursor = 0
             for index, (node, token) in enumerate(zip(nodes, tokens, strict=True)):
@@ -177,6 +178,7 @@ class Converter:
                     for norm_part, output_part, kana in parts:
                         positions.append((norm_part, output_part))
                         readings[tuple(norm_part)] = kana
+                        source_readings.add(tuple(norm_part))
                         pronunciations[tuple(norm_part)] = None
                     continue
                 positions.append((norm_span, output_span))
@@ -215,7 +217,11 @@ class Converter:
                 )
                 spoken = [pronunciations[tuple(n)] for n, _ in constituents]
                 word["pronunciation"] = "".join(spoken) if complete and all(spoken) else None
-                word["reading_origin"] = "dictionary"
+                word["reading_origin"] = (
+                    "source"
+                    if all(tuple(n) in source_readings for n, _ in constituents)
+                    else "dictionary"
+                )
                 if crossed:
                     word["mapping_reason"] = "cross_word_gemination"
                 words.append(word)

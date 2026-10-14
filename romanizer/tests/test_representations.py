@@ -116,6 +116,7 @@ def test_unknown_dotted_kana_keeps_words_and_maps_each_exact_source_piece(conver
     assert result["katakana"].startswith("ゲ/ン/カ/イ")
     assert len(result["words"]) == len(pieces)
     assert [w["expected_text"] for w in result["words"]] == pieces
+    assert all(w["reading"]["origin"] == "source" for w in result["words"][:4])
     for word, piece in zip(result["words"], pieces, strict=True):
         assert slice_bytes(raw, word["raw_span"]) == piece
         assert word["mapping_status"] == "mapped"
