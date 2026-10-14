@@ -157,14 +157,16 @@ download, but does not remove the saved study files. Account grants are held sep
 in macOS Keychain. Audio preparation and model inference are local; Spotify, lyric
 lookups and first-use model downloads still need network access.
 
-On fourteen recorded songs, Experimental retains **3,507/4,160 words (84.3%)**, compared
-with TIFA's **3,121/4,160 (75.0%)**. This update adds 72 timings to the previous
-Experimental result, preserving every existing interval and all fifteen reading corrections.
-Koino Uta improves from 223 to 252/307; Tabi no Tochuu stays at 153/153. All 28 timing
-results passed reopening and earlier-version restoration. Median cached-weight processing
-time was 200 seconds for Experimental and 7 seconds for TIFA on M2 Pro /16 GB.
+On fourteen recorded songs, Experimental retains **3,509/4,160 words (84.4%)**, compared
+with TIFA's **3,121/4,160 (75.0%)**. The spoken-pronunciation fallback adds two timings
+in 今世大革命 (197 to 199/246), preserving every existing interval, all fifteen reading
+corrections and the earlier recovery stage's 72 additions. Tabi no Tochuu stays at
+153/153. All 28 timing results passed reopening, reconversion and earlier-version
+restoration. Median cached-weight processing time was 168 seconds for Experimental
+and 6.5 seconds for TIFA on M2 Pro /16 GB.
 These are coverage and persistence results, not a listening-accuracy score; difficult
-songs still have substantial gaps. See the [completeness evaluation](docs/study-completeness-evaluation.md),
+songs still have substantial gaps. See the [representation evaluation](docs/study-representation-evaluation.md),
+[completeness evaluation](docs/study-completeness-evaluation.md),
 [earlier reading evaluation](docs/study-reading-evaluation.md) and [data/protocol design](docs/study.md).
 The newer [accuracy experiments](docs/study-accuracy-evaluation.md) separate retained-word
 counts from human phone-boundary tests and document rejected approaches. They do not

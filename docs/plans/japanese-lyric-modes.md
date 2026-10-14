@@ -1,6 +1,6 @@
 # Japanese lyric modes and consistent sung readings
 
-Status: Approved (2026-10-13)
+Status: Implemented (2026-10-14)
 
 ## Goal
 

@@ -95,7 +95,9 @@ TIFA intervals checked against the singing model. It uses the same confidence, e
 duration and phrase gates above, preserves existing intervals and changes no displayed
 reading. Corrected or unavailable readings do not receive a dictionary shadow. Model
 adapters stay separate: TIFA uses kana/phonetic targets, MMS uses supported Latin labels,
-and RomajiASR uses singing phones. Display mode never chooses model input.
+and RomajiASR uses singing phones. Display mode never chooses model input. The
+[representation evaluation](study-representation-evaluation.md) records compatibility,
+paired pronunciation trials and native replay results.
 
 The [accuracy experiments](study-accuracy-evaluation.md) record why broader pronunciation
 scoring, neighboring context, repeat localization and an English speech verifier remain
@@ -105,7 +107,7 @@ Rust sends the frozen source/edit revision, delay, recording/model identities an
 spans. Python returns provisional patches and fresh alignment; Rust validates the patches,
 reconverts them and verifies exact timing targets before saving a complete result. No
 partially corrected version is applied. Completed results cannot overwrite a later edit,
-and reopening restores both scripts and timing without running models again.
+and reopening restores all five views and timing without running models again.
 
 Models run sequentially. TIFA downloads about 151 MB; Experimental downloads about
 5.3 GB of additional pinned weights once, including Whisper large-v3 and the singing
