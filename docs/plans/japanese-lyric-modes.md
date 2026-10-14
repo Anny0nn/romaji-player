@@ -1,10 +1,13 @@
 # Japanese lyric modes and consistent sung readings
 
-Status: Approved (2026-10-14, sung-reading extension)
+Status: Implemented (2026-10-14; further accuracy work moved to a follow-up PR)
 
-The five-mode deliverable is implemented at `5483d28`. The maintainer has reopened
-this same draft PR for substantial sung-reading improvements. Existing functionality
-and measurements remain intact; the additional work below is pending.
+The five-mode deliverable is implemented at `5483d28`, and the expanded 61-recording
+baseline, frozen ten-song trial set and reliability fixes are complete at `3f479e8`.
+On 2026-10-14 the maintainer requested merging this completed scope and starting a
+new PR for substantial accuracy improvements. The further experiments described below
+transfer to that successor; the preliminary pronunciation probes are not promoted.
+Existing functionality, measurements and saved versions remain intact.
 
 ## Goal
 
@@ -295,7 +298,7 @@ lines correctly require the approved original-script line fallback. The check mu
 verify this explicit fallback without dropping the retained-count, other-script span,
 playback/delay or earlier-version assertions; a synthetic fixture covers it.
 
-The next trial must distinguish English from Japanese already written as romaji:
+The follow-up PR's trials must distinguish English from Japanese already written as romaji:
 嘘's provider source is pre-romanized Japanese, but Latin targets currently take the
 English pronunciation route. Test a bounded Japanese-romaji pronunciation hypothesis
 on the frozen set, preserving source groups, displayed text and existing intervals.
