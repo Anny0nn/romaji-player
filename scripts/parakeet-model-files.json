@@ -1,0 +1,31 @@
+{
+  "repo": "mlx-community/parakeet-tdt-0.6b-v2",
+  "revision": "b8e276dc1b4645dc90ddb6d7b22fa82e9773f685",
+  "runtime_repo": "Blaizzy/mlx-audio",
+  "runtime_commit": "70f4add32911bab6f869b824864ad9f1e24dcb97",
+  "runtime_archive_sha256": "db40905affdb20c003380e151d4a750251f2b458ba2d6b86c368de751f0522af",
+  "files": {
+    "config.json": {
+      "sha256": "9bd323e60afe2615c983a5d9fc3a2c0470df2a03edf90c0f861bd59509d07264",
+      "size": 36176
+    },
+    "model.safetensors": {
+      "sha256": "b958c37a6baa6874a279108755c8f2818e27bf647d72d54800a234a421341dfe",
+      "size": 2471559904
+    },
+    "tokenizer.model": {
+      "sha256": "5a3a82c48998709f9bc9f5db2924d99a899d20bf82550ca52272da7c7557b0a0",
+      "size": 251396
+    }
+  },
+  "dependencies": {
+    "miniaudio": "1.71",
+    "sentencepiece": "0.2.2",
+    "zstandard": "0.25.0"
+  },
+  "wheel_sha256": {
+    "sentencepiece-0.2.2-cp314-cp314-macosx_11_0_arm64.whl": "79bac5a251f23a7341e28fda9ce0d5319edf45328239ce037c0682936f137906",
+    "zstandard-0.25.0-cp314-cp314-macosx_11_0_arm64.whl": "05df5136bc5a011f33cd25bc9f506e7426c0c9b3f9954f056831ce68f3b6689f",
+    "miniaudio-1.71-cp314-cp314-macosx_11_0_arm64.whl": "84139a10ef172acd762ccf120142877b037a1aaf71def99d2c75f66329f89d8b"
+  }
+}
