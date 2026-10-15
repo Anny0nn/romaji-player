@@ -1082,8 +1082,82 @@ three kana-only cues, pronunciation-normalized text edit distance changes from
 73/94 to 74/94; the fourth mixed cue is empty in both conditions. A net extra short
 word is offset by losses elsewhere, with no recovered multiword content block.
 Cutlet-derived text phones are diagnostic references, not acoustic gold. All
-transformed timestamps are unusable. The next bounded factor changes F0 contour
-variance while preserving median register; it does not repeat the failed shift.
+transformed timestamps are unusable. A separate F0-contour compression preserves
+median register and halves log-F0 variation. It increases short-word matches from
+two to five, all particles, but worsens normalized edit distance from 73/94 to
+93/94 and recovers no multiword content block. The four new Whisper runs take
+**5.3 seconds**. Neither pitch transformation warrants expansion.
+
+## Corrected English source ownership
+
+An audit finds a private replay bug: matching ran only when an English source
+window contained an unsupported word. Entirely supported English windows were
+skipped. `ctc_lexical.py` now matches every window, retains unsupported words as
+barriers and requires a unique complete multiword correspondence. Regression
+tests cover wholly supported English, incomplete observed tokens and repeated
+phrases. The corrected matcher reproduces all 214 cached views against the
+unconditionally enabled earlier implementation.
+
+A separate representation experiment stops encoding supplied Japanese/English
+lyrics with the English recognizer's tokenizer. `ctc_source_words.py` uses the
+original UTF-8 lyric spans and spelling to identify supported English words;
+Japanese groups remain barriers in their original positions. Recognized audio
+still requires complete observed-token ownership and the same confidence checks.
+Unowned source letters, partial source words and repeated occurrences cannot be
+silently removed or reassigned.
+
+| Closed replay stage                                          | Corrected tokenizer-based source | Original-span source |
+| ------------------------------------------------------------ | -------------------------------: | -------------------: |
+| Confidence-qualified word/view matches                       |                              518 |                  578 |
+| Matches localized inside a paired TIFA interval              |                              287 |                  304 |
+| Primary-context CTC recipe eligible groups                   |                               62 |                   68 |
+| Total proposed missing groups, including the earlier sixteen |                               18 |                   18 |
+
+The six newly eligible source groups already have saved timings and dual-Qwen
+support. Two unlocalized raw matches are correctly withheld when restored source
+words expose a repeated phrase. No saved interval is lost or moved. The eighteen
+proposals remain a projection, **not** an increase in app coverage. Source
+representation fixes the research measurement but does not by itself fill a gap.
+
+The corrected negative replay has four qualified word/view hits across two
+literal common source groups. None has valid paired physical clocks: the actual
+wrong-audio audit still admits **0/143**, with 105 structurally unsupported
+Japanese targets and 38 English/mixed targets reported separately. A claim of
+zero raw lexical matches would be wrong; zero final admissions is the measured
+result. No new inference or recordings are needed for these replays.
+
+## Contextual readings and independent checks
+
+Localizing kana evidence does not yet validate new reading edits. Masking the
+target and its surroundings independently reproduces the three known Whisper
+reading preferences. An independent Qwen run reproduces only two complete known
+pairs; the remaining example crosses a token boundary, and an unknown proposed
+reading disagrees with Whisper. Scores normalized by token count can reverse a
+preference, so the scoring scale is not changed after observing the result. No
+reading or timing is saved from these comparisons.
+
+Published furigana provides a different candidate source, not acoustic truth.
+Across eighteen existing Japanese cues, **75 of 83** targets map exactly to the
+published source, and Cutlet agrees literally on **71/75**. Four differences
+include a personal-name interpretation, compound voicing and alternate kanji
+readings. Swapping dictionaries is insufficient: Sudachi matches 70/75; OpenJTalk
+maps 70 targets and matches 64 of those. Both miss the already verified special
+sung-reading fixtures. Written-kana and phonetic differences remain separate.
+
+The next frozen pilot asks a local text model for kana alternatives from the
+original Japanese context and source-group IDs only. Current readings, published
+annotations, artist metadata and acoustic transcripts are absent from the
+prompts. Candidates must retain exact original word ownership and pass subsequent
+audio checks; generating a plausible alternative is not a verified correction.
+The pinned Qwen3-4B model and all lyric-bearing inputs and outputs remain private.
+
+Two further acoustic alternatives fail their small pilots. Granite Speech CTC
+makes 45 reference-word edit errors across the same 96 English development words,
+versus Qwen's twelve, and supplies no dual-view witness for the selected hard
+gaps. Japanese MFA with explicit kana alternatives selects **0/3** known sung
+readings correctly. Neither is expanded unchanged. Only nine of 717 gap groups
+have otherwise valid TIFA intervals below 80 ms, and none has corroborating
+independent clocks; reducing the duration floor is not a supported solution.
 
 ## Remaining work
 

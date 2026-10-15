@@ -407,6 +407,25 @@ waveform normalization and no token-expansion discrepancy; those unchanged paths
 do not warrant another recognizer sweep. A correctly mapped English HFA CTC contrast
 retains only one of 96 development words and is rejected before further inference.
 
+## Latest experiment adjustment
+
+Correct the private English replay's fully supported-source skip before judging
+its evidence. Export its source-owned lexical matcher and regressions, then test
+original UTF-8 source groups directly rather than encoding supplied lyrics with
+an English-only tokenizer. Both changes improve measurement but add no gaps
+beyond the same eighteen unpromoted proposals; do not count extra witnesses as
+coverage gains.
+
+Dictionary replacement and the independent acoustic pilots still miss the
+substantive target. Test context-aware kana candidate generation as a distinct
+reading-selection approach: freeze source-only prompts and model identity before
+inference, keep labels and current readings outside that process, and reject
+changed IDs or incomplete responses. Reattach candidate readings to original
+spans, preserve surrounding words, and evaluate them against real audio and
+controls before considering any saved edit. Published furigana may nominate
+alternatives but cannot certify how the singer pronounces them. This remains
+research in this PR and changes neither the app recipe nor its saved timings.
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,
