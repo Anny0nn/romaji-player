@@ -14,7 +14,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "refinement"))
 from singing_phonemes import token_phones
 
 
-def contrastive_score(logp, blank, phones, vocabulary, *, observe=False):
+def contrastive_score(
+    logp, blank, phones, vocabulary, *, observe=False, token_expansions=None
+):
     """Exact CTC sums for target / one-substitution union / all-blank path.
 
     Only independently representable single-phone labels form the substitution
@@ -43,11 +45,23 @@ def contrastive_score(logp, blank, phones, vocabulary, *, observe=False):
         type(i) is not int or not 0 <= i < logp.shape[1] for i in vocabulary.values()
     ):
         raise ValueError("Invalid or aliased CTC vocabulary.")
-    tokens = [
-        (i, token_phones(token))
-        for token, i in vocabulary.items()
-        if i != blank and token_phones(token)
-    ]
+    if token_expansions is None:
+        tokens = [
+            (i, token_phones(token))
+            for token, i in vocabulary.items()
+            if i != blank and token_phones(token)
+        ]
+    else:
+        if set(token_expansions) != set(vocabulary.values()) - {blank} or any(
+            not isinstance(expansion, list)
+            or not expansion
+            or any(not isinstance(p, str) or not p for p in expansion)
+            for expansion in token_expansions.values()
+        ):
+            raise ValueError(
+                "Explicit phone expansions must cover each nonblank label."
+            )
+        tokens = list(token_expansions.items())
     inventory = sorted({p[0] for _, p in tokens if len(p) == 1})
     if not inventory:
         raise ValueError("No atomic substitution labels.")

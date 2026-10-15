@@ -1,6 +1,7 @@
 """Exhaustive label-path checks of local contrastive singing evidence."""
 
 import itertools
+import math
 import runpy
 import sys
 from pathlib import Path
@@ -70,6 +71,23 @@ def test_atomic_inventory_does_not_invent_standalone_consonants_from_mora():
     assert result["substitution_union_logp"] == pytest.approx(
         enumerate_hypotheses(logp, ["ky", "a"], vocabulary)[1]
     )
+
+
+def test_english_phone_labels_remain_atomic_instead_of_becoming_japanese_tokens():
+    vocabulary = {"<blank>": 0, "aa": 1, "ng": 2}
+    logp = np.log(np.array([[0.1, 0.8, 0.1], [0.8, 0.1, 0.1]]))
+    result = contrastive_score(
+        logp, 0, ["aa"], vocabulary, token_expansions={1: ["aa"], 2: ["ng"]}
+    )
+    # All ways of collapsing to one 'aa': [blank,aa], [aa,blank], [aa,aa].
+    assert result["target_logp"] == pytest.approx(math.log(0.01 + 0.64 + 0.08))
+    assert result["substitution_union_logp"] == pytest.approx(
+        math.log(0.01 + 0.08 + 0.01)
+    )
+    assert result["substitution_inventory"] == ["aa", "ng"]
+    for expansions in ({1: ["aa"]}, {1: ["aa"], 2: []}, {1: ["aa"], 2: [None]}):
+        with pytest.raises(ValueError, match="expansions"):
+            contrastive_score(logp, 0, ["aa"], vocabulary, token_expansions=expansions)
 
 
 def test_phonetic_contrast_changes_sign_for_an_actual_confounder():
