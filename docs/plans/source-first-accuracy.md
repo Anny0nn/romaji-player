@@ -332,6 +332,30 @@ pins and benchmark in the evaluation; do not integrate its transcript or emissio
 times as verified lyric/timing corrections. The substantial integration target
 remains open.
 
+Test local pronunciation contrast on closed singing CTC posteriors next. Compare
+each complete original group's phones against the union of representable one-phone
+substitutions and the blank path on identical frames. This is a likelihood ratio,
+not a calibrated word probability. Keep the existing observed-frame duration,
+independent boundary, context and preservation checks. The fixed first comparison
+rejects all 390 wrong-reading variants but pairs only 79 original development words
+with TIFA, of which 78 are correct; its eighteen-cue commercial replay leaves one
+proposal. It does not satisfy promotion. Investigate the observed boundary failures
+and a duration-aware singing model rather than expanding that unchanged recipe.
+
+A numerical MOSS frontend check on one earlier crop matches the official-equivalent
+Whisper features closely. It supplies no corrected runtime that warrants repeating
+the recognizer sweep. Keep this one-crop diagnostic separate from model accuracy.
+
+The closed CTC audit measures a median 170 ms early ending against human sung
+boundaries; padding is not the main cause. Test a separate duration model rather
+than extending emission peaks. A private pinned PySHIRO v2 full-phrase comparison
+checks 264 development groups with 263 correct TIFA clocks, but its commercial
+overlay adds zero. At-most-four-group Japanese regions remove mixed-language
+blocking but reduce development boundary accuracy and leave only one commercial
+proposal. The adapter's silent unknown-mora dropping is fixed with a regression.
+These are measured rejected recipes, not a promoted change: keep model weights
+private, disclose unknown PJS training overlap, and preserve the substantive target.
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,

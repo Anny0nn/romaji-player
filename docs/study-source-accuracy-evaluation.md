@@ -614,6 +614,122 @@ existing Apple toolchain, verify the model bytes against the manifest, then run:
 # Repeat on the identical files with --decoding beam and fresh output paths.
 ```
 
+## Local pronunciation contrast (2026-10-15)
+
+`contrastive_phones.py` evaluates complete source-owned pronunciations against a
+different local competitor: the exact CTC union of every representable same-length
+one-phone substitution, including mixed mora/phone tokenizations and ordinary
+repeat/blank rules. Substitutions use the model's actual standalone-phone inventory;
+consonants appearing only inside mora labels are not invented as standalone labels.
+This is an unweighted union, so beating it is stricter than beating each alternative
+separately. The margin and blank contrast are likelihood ratios, not probabilities
+or proof of kanji spelling. Exhaustive short label-path tests check the forward sums.
+
+The fixed trial uses original TIFA clocks with 120 ms padding, positive union/blank
+margins and at least 0.45 mean probability on actual nonblank emission frames. Its
+best complete CTC path supplies observed frame endpoints, with the existing 80 ms
+minimum and 150 ms TIFA agreement. Paths touching the search edge are withheld;
+a narrow emission is never extended to match a word's expected duration. Candidate
+scores close before the already opened development reference clocks are read.
+
+On **390 original PJS groups /62 recordings**, 331 pass the lexical check and
+79 pass the boundary pair. **78/79 TIFA clocks are joint-correct** (98.7%; descriptive
+Wilson 93.2–99.8%). All 390 same-length one-phone wrong-reading variants are rejected.
+The cached comparison takes 7.7 seconds. Fresh TIFA observations on the existing
+143 mismatch-control words admit zero paired timings: 105 Japanese-phone targets
+are representable, while 32/38 English targets are structurally unsupported and
+must not be counted as evidence of an English verifier. One Japanese mismatch
+passes the lexical check alone, confirming that it cannot replace boundary/context
+verification. Seventy-five control groups have a qualifying TIFA search interval
+for local scoring; the others already abstain. These legacy posteriors have frozen
+actual hashes but lack
+the complete newer recognition receipt; that provenance limitation remains explicit.
+
+The identical policy reuses the eighteen earlier native-source commercial cues:
+150 original groups /71 baseline gaps. It yields four paired missing candidates
+and **one** context/interval-preserving proposal, on Wild Side; zero old intervals
+are lost or moved. This is an alternative research proposal against the original
+baseline, not an incremental shipped gain. No app timings or readings change.
+
+```sh
+.venv-experimental/bin/python scripts/benchmark-contrastive-phones.py "$PJS_AUDIO" \
+  --recognition "$CLOSED_PHONE_CACHE" --cases "$FROZEN_ORIGINAL_GROUPS" \
+  --baseline "$ORIGINAL_TIFA_OBSERVATIONS" --pjs "$PRIVATE_PJS" \
+  --output "$FRESH_PRIVATE_OUTPUT"
+```
+
+A separate runtime audit compares the pinned MLX MOSS frontend with the checkpoint's
+official-equivalent Whisper extraction on one unchanged 22.01-second crop. Both
+return 128×2,201 features. Before BF16, maximum/mean absolute errors are
+`4.97e-5` /`2.09e-7`, with correlation above `0.99999999999`; after BF16 the mean
+error is `1.41e-7`. This checks feature conversion on that crop, not singing accuracy,
+and identifies no material frontend mismatch justifying another unchanged MOSS run.
+The diagnostic loads no model weights and uses no transcription output.
+
+## Duration-aware boundary comparison (2026-10-15)
+
+The closed local observations expose a clock-semantics problem. Against the opened
+human PJS labels, the CTC word's first emission is a median 38 ms late, while its
+last emission is **170 ms early**; its emitted envelope is a median 0.4× the sung
+word duration on lexical passes. Only one lexical-pass path touches a padded cut
+edge. The earlier free decoder has essentially the same early-ending pattern.
+These token-emission peaks are not full phonetic duration boundaries. This diagnoses
+the restriction; it does not authorize shifting, extending or interpolating clocks.
+
+The next measured challenger uses the cached
+[PySHIRO v2 source/checkpoint](https://github.com/wavtechyukky/pyshiro/tree/49851cd4701d300eaf310b274f7c3b3e594d3824),
+with exact sizes/hashes and preprocessing in `scripts/pyshiro-singing-files.json`.
+Its HMM bootstrap and duration-aware HSMM refinement emit 5 ms phone boundaries.
+Original word envelopes come from their actual first/last phone intervals. Model
+likelihood is not lexical confidence; the fixed CTC contrast remains the separate
+presence check, and both HSMM/TIFA endpoints must still agree within 150 ms.
+
+The existing adapter had a mapping defect: kana-range input could be reported as
+supported even when upstream warned and skipped an unknown mora. The adapter now
+proves complete table coverage, rejects unsupported small kana/voiced kana and
+leading/invalid length marks, and preserves complete groups. A regression covers
+those failures, digraphs, nasal/geminate phones and long vowels. Nothing is dropped
+to improve the denominator.
+
+One closed run evaluates the same 62 development recordings and eighteen commercial
+cues: 80 inputs in **74.5 seconds**, with peak process RSS **324 MB**. On the original
+390 development groups, raw HSMM clocks place 380, of which 329 are joint-correct.
+The accepted clock remains TIFA; the comparison below changes the checking role only.
+Five deterministic recording-disjoint reporting folds fit no parameters; all use
+already opened development data, not a fresh holdout.
+
+| Boundary check plus unchanged CTC lexical gate | Retained original groups | Joint-correct TIFA clocks |
+| ---------------------------------------------- | -----------------------: | ------------------------: |
+| CTC emission envelope                          |                       79 |                        78 |
+| Full-phrase HSMM phone boundaries              |                      264 |                       263 |
+| HSMM regions of at most four original groups   |                      183 |                       182 |
+
+The region variant prevents an unsupported English word from withholding every
+Japanese word in a mixed phrase. It uses 300 ms padding around observed TIFA search
+regions; boundaries are measured afresh, and cut edges remain withheld. The closed
+338-region run takes **20.0 seconds**, with peak RSS **262 MB**, including 260 PJS,
+41 commercial and 37 mismatch-control regions. Its raw clocks are only 226/390
+correct, so smaller context is not a general boundary improvement. No fitted duration
+offset or padded timestamp is saved.
+
+On the eighteen commercial cues /71 gaps, the full-phrase combination has two
+paired missing candidates and zero final additions. The region combination has five
+and leaves only **one** final Wild Side proposal. Both lose/move zero old intervals.
+The regional check admits zero of 143 mismatch-control groups, with the same 32
+unsupported English groups disclosed above. Neither variant meets the substantive
+integration target. The checkpoint's v2 training recordings and separate weight terms
+are not disclosed: PJS cannot certify unseen accuracy, and weights remain private.
+This trial does not reverse the earlier deferral of shipping PySHIRO.
+
+For a bounded private reproduction, first verify an external checkout and model
+against the pin file, then use the existing source-owned case schema:
+
+```sh
+PYTHONPATH="$PINNED_PRIVATE_PYSHIRO" .venv-experimental/bin/python \
+  scripts/experiment-phonetic-alignment.py hsmm "$AUTHENTICATED_CASES" \
+  "$FRESH_PRIVATE_OBSERVATIONS" --model "$PINNED_PRIVATE_PYSHIRO"
+```
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue
