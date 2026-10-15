@@ -14,6 +14,17 @@ spec.loader.exec_module(module)
 
 
 class PhoneticTests(unittest.TestCase):
+    def test_shiro_refuses_unmapped_kana_instead_of_silently_dropping_source_pieces(
+        self,
+    ):
+        table = {"き": ["k", "i"], "きゃ": ["ky", "a"], "ん": ["N"], "っ": ["cl"]}
+        self.assertEqual(
+            module.shiro_phones("きゃーんっ", table), ["ky", "a", "A", "N", "cl"]
+        )
+        for spelling in ("", "ぁき", "きゔ", "きx", "ーき", "んー", "き き"):
+            self.assertIsNone(module.shiro_phones(spelling, table))
+        self.assertIsNone(module.shiro_phones("き", {"き": []}))
+
     def test_isolated_coincidences_do_not_authorize_repairs_to_a_wrong_line(self):
         candidates = self.units([(i * 100, i * 100 + 80) for i in range(6)])
         evidence = [{**unit, "mean_probability": 0.1} for unit in candidates]
