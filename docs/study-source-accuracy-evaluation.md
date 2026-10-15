@@ -236,6 +236,99 @@ merits another bounded pilot. Local loading success does not establish singing a
   --output /private/tmp/romaji-moss-pilot
 ```
 
+## Other recognition frontends
+
+A source-blind [Parakeet TDT v2](https://huggingface.co/mlx-community/parakeet-tdt-0.6b-v2/tree/b8e276dc1b4645dc90ddb6d7b22fa82e9773f685)
+pilot reuses the same four contexts and strict pinned MLX runtime. Its CC BY 4.0
+checkpoint is 2.47 GB; there is no prompt or exposed token confidence. The first
+BF16 run and a separate float32 frontend run produce little matching text for
+Just Awake, and empty output on both Wild Side views. Float32 loading takes 5.1
+seconds; inference takes 0.25–0.80 seconds per context, with 3.61 GB MLX peak.
+This rejects that recipe; fast inference is not singing accuracy. Predicted TDT
+durations remain unused. `fetch-singing-research.py --engine parakeet` and
+`transcribe-parakeet-crops.py` reproduce the private pilot.
+
+`prepare-asr-transforms.py` tests pitch-preserving 0.75× tempo and four-semitone
+pitch reduction on the two original Just Awake contexts, using an installed FFmpeg
+only for research. Source-blind Whisper's longest exact text blocks increase to
+five/six tokens on these views. That is a text-matching diagnostic, not an admitted
+word or correction. Every transformed result is marked text-only: verification
+must return to original samples, and transformed timestamps cannot enter app data.
+
+## Source-conditioned acoustic evidence
+
+A new experiment uses the already pinned Whisper large-v3 weights and original
+Japanese/English spelling rather than comparing only dictionary-selected romaji.
+The decoder receives exact source text. Full-vocabulary token log probabilities,
+including EOS alternatives, remain separate from conditional attention confidence.
+Exact UTF-8/BPE ownership withholds a token or attention word that spans multiple
+original groups; complete pieces may merge, and no timing is split or interpolated.
+
+`observe-source-evidence.py` compares the same candidate on original audio, silence
+and another verse. Optional ablation zeros a model-observed word interval, then
+compares its word-score drop with disjoint masks of identical length elsewhere.
+Human reference clocks are never used to choose masks. These are conditional
+observations, not independent recognition or an accepted app recipe. Acoustic
+contrast and boundary correctness must be measured together, including negative
+controls; a plausible forced sentence is insufficient.
+
+The first smoke test distinguishes one Kyouran Japanese line from silence and a
+wrong verse: mean token log probability is −0.72 on original audio, versus −4.14
+and −3.82. The difficult Just Awake line gives −9.02, −9.24 and −9.33 respectively,
+so it has little contrast. Neither example changes saved coverage.
+
+For English development, [JamendoLyrics](https://github.com/f90/jamendolyrics)
+provides manual word starts/ends tied to normalized word text, which NUS lacks.
+The [pinned dataset](https://huggingface.co/datasets/jamendolyrics/jamendolyrics/tree/4e7acfcbd1440e68eda7ee8933ef221e5f970501)
+contains two chosen tracks marked CC BY: [Cortez — Feel (Stripped)](https://www.jamendo.com/track/1481500/feel-stripped)
+and [Rxbyn — Bad Side](https://www.jamendo.com/track/1556580/bad-side).
+The metadata does not specify a CC version; none is invented. Artifact hashes,
+source URLs and attribution are pinned in `scripts/jamendo-reference-files.json`;
+MP3s, lyric text, annotations and per-word results stay private. The first eight
+eligible lines per song give **96 reference words across 16 lines**, all development.
+This is neither original orthographic transcription nor a representative fast-rock
+holdout. The existing NUS JLEE reserve remains unopened.
+
+On those 96 words, forced Whisper attention supplies 96 intervals but only **17**
+meet the onset/offset tolerances. Localized contrast retains 21, of which six meet
+the timing tolerances. The attention clock is unsuitable for this recipe. Fresh
+TIFA/HubertFA instead supplies 56 paired intervals, **53** joint-correct. Using
+those observed intervals for the masks retains **34**, with **33** joint-correct
+(97.1%; descriptive Wilson 85.1–99.5%). This remains below the accuracy gate and
+does not establish general English singing correctness.
+
+The existing 143 negative words contain 17 groups in four whole-Latin cues that
+pass the prototype's script filter; 126 are excluded. Six eligible groups have paired
+clock candidates, and all 17 are rejected even without the extra wrong-verse
+contrast requirement. This weaker negative check cannot certify mixed-language or
+Japanese-romaji routing.
+
+A preselected two-cue-per-song cap pilot runs 24 mix/vocal views across twelve cues
+and seven low songs. Ten missing groups pass both localized acoustic checks, but
+context/interval preservation leaves one timing proposal on 嘘, whose source is
+Japanese romaji. There are **zero admissible English additions**, zero lost or moved
+intervals, and no app writes. English script is insufficient language evidence;
+the 嘘 proposal is kept separate. The pilot takes 205 seconds including loading,
+with 3.95 GB MLX peak and 1.45 GB lifetime process RSS, reported separately.
+`prepare-cap-source-evidence.py`
+and `evaluate-source-cap.py` bind the original Rust crops/results and protect existing
+fragment identities even when their crop-relative start is negative.
+
+`prepare-paired-reference.py` supplies the fresh two-model boundary fixture;
+`evaluate-source-evidence.py` evaluates closed observations against human clocks.
+The all-word denominators remain unchanged. Neither repeated-source timestamps nor
+ASR-derived clocks are used to fill gaps.
+
+```sh
+.venv-experimental/bin/python scripts/prepare-jamendo-reference.py \
+  --assets /private/tmp/romaji-jamendo-assets --download \
+  --output /private/tmp/romaji-jamendo-development
+.venv-experimental/bin/python scripts/observe-source-evidence.py \
+  /private/tmp/romaji-jamendo-development/manifest.json \
+  --models "$ROMAJI_REFINEMENT_MODEL_DIR" --ablations \
+  --output /private/tmp/romaji-source-evidence
+```
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue

@@ -250,6 +250,27 @@ rejected, not a baseline to rescue by opening held-out data.
 - The phone-recognition gate adds zero groups across 189 commercial cues. MOSS
   fits the M2 memory target but repeats. Keep those failures visible and pursue
   a changed recognition/verification approach instead of relaxing the gates.
+- A source-blind Parakeet pilot also fails on the difficult mix/vocal contexts.
+  Tempo and pitch transformations are restricted to text proposals: their clocks
+  cannot supply saved timing. Do not sweep the cap until a bounded pilot retains
+  actual original groups.
+- Test a different verification surface with the already pinned Whisper model:
+  score the exact original Japanese/English source against the original waveform,
+  silence and a different verse. Mask each model-observed word interval and compare
+  the score change with equal-size masks elsewhere. This tests local acoustic support
+  without requiring greedy transcription to spell our selected romaji. Forced text,
+  attention clocks and conditional confidence alone never verify a word. Calibrate
+  the combined decision on labelled development audio and existing negatives before
+  considering integration; preserve the existing boundary and saved-edit gates.
+- Add two pinned CC BY JamendoLyrics development songs with human word clocks and
+  exact normalized word text. They address NUS's missing orthographic transcript;
+  they are a small English development sample, not a new Japanese/pop holdout.
+  Store all lyrics/audio/results outside Git, retain attribution, and do not mix
+  corpus accuracy with commercial retained coverage. JLEE remains reserved.
+- The localized source-contrast pilot does not improve English retention. Forced
+  Whisper clocks fail the labelled comparison; TIFA/HubertFA masks retain 34
+  development words, 33 joint-correct. Continue with independently decoded singing
+  text and explicit language routing; do not promote this conditional-only recipe.
 - The substantial multi-song target remains unmet. Continue the lexical verification,
   sung-reading and anchor work on this same draft PR. Results and reproduction are
   recorded in [the evaluation](../study-source-accuracy-evaluation.md).

@@ -1,0 +1,111 @@
+{
+  "revision": "4e7acfcbd1440e68eda7ee8933ef221e5f970501",
+  "files": [
+    {
+      "path": "LICENSE",
+      "url": "https://huggingface.co/datasets/jamendolyrics/jamendolyrics/resolve/4e7acfcbd1440e68eda7ee8933ef221e5f970501/LICENSE",
+      "sha256": "813dce6d4ec5987ec6aa8ff9548f18a6b6f43b1c7c362cbb4252e757123faa89",
+      "size": 1337,
+      "git_blob": "b3f43476db681f82d8647c7b05470642fa16421e"
+    },
+    {
+      "path": "README.md",
+      "url": "https://huggingface.co/datasets/jamendolyrics/jamendolyrics/resolve/4e7acfcbd1440e68eda7ee8933ef221e5f970501/README.md",
+      "sha256": "fa426e4f3edf3624cc32762b0593275472d0d2d85078b8ced797acac9ec72229",
+      "size": 3715,
+      "git_blob": "efd674cbe67f46449aa00f3f18c13171fbd265be"
+    },
+    {
+      "path": "annotations/lines/Cortez_-_Feel__Stripped_.csv",
+      "url": "https://huggingface.co/datasets/jamendolyrics/jamendolyrics/resolve/4e7acfcbd1440e68eda7ee8933ef221e5f970501/annotations/lines/Cortez_-_Feel__Stripped_.csv",
+      "sha256": "bfd0eceed60b1529022d6777f3bafd0dbdc28e309266b296844ba1644449df41",
+      "size": 2782,
+      "git_blob": "88b5a8e841c9ff2cf4c6b6391ed24a72293ce854"
+    },
+    {
+      "path": "annotations/lines/Rxbyn_-_Bad_Side.csv",
+      "url": "https://huggingface.co/datasets/jamendolyrics/jamendolyrics/resolve/4e7acfcbd1440e68eda7ee8933ef221e5f970501/annotations/lines/Rxbyn_-_Bad_Side.csv",
+      "sha256": "00714245b1f67ee62641e814eade6f133a9d32511980ce60e09cc6f47c02bcf7",
+      "size": 3951,
+      "git_blob": "fb0605489c079d64025f1abe3b270cb0e6c311fb"
+    },
+    {
+      "path": "annotations/words/Cortez_-_Feel__Stripped_.csv",
+      "url": "https://huggingface.co/datasets/jamendolyrics/jamendolyrics/resolve/4e7acfcbd1440e68eda7ee8933ef221e5f970501/annotations/words/Cortez_-_Feel__Stripped_.csv",
+      "sha256": "5f8f43dd1443b0fe53962491e9a268f13ee3a1b277a9e92d4b962c3a2d9863e4",
+      "size": 11996,
+      "git_blob": "04b7760d0bbc96a868522d888c67c7b719754a3b"
+    },
+    {
+      "path": "annotations/words/Rxbyn_-_Bad_Side.csv",
+      "url": "https://huggingface.co/datasets/jamendolyrics/jamendolyrics/resolve/4e7acfcbd1440e68eda7ee8933ef221e5f970501/annotations/words/Rxbyn_-_Bad_Side.csv",
+      "sha256": "040bb6c15c870b2a0ce39ee8f302bf74848ec4788305daf71b5094d1a3deb3b5",
+      "size": 15116,
+      "git_blob": "65b0a5663e2f99dd25be9620ecf480b3af0fe82a"
+    },
+    {
+      "path": "lyrics/Cortez_-_Feel__Stripped_.txt",
+      "url": "https://huggingface.co/datasets/jamendolyrics/jamendolyrics/resolve/4e7acfcbd1440e68eda7ee8933ef221e5f970501/lyrics/Cortez_-_Feel__Stripped_.txt",
+      "sha256": "e065dd05dcdafc080d0d17d8a312b13036fcc62577b3699a959f3d5baf16cf4a",
+      "size": 1577,
+      "git_blob": "dddd10e8e0a265ce5e27d69f6e59a1eb6c6b5443"
+    },
+    {
+      "path": "lyrics/Cortez_-_Feel__Stripped_.words.txt",
+      "url": "https://huggingface.co/datasets/jamendolyrics/jamendolyrics/resolve/4e7acfcbd1440e68eda7ee8933ef221e5f970501/lyrics/Cortez_-_Feel__Stripped_.words.txt",
+      "sha256": "558091d2eff3db13e0167a9e72774c627cbc20ac80419a54b31536d9a64192ec",
+      "size": 1569,
+      "git_blob": "de3d727fcaddd1368f39fdce3e8ee1534069172c"
+    },
+    {
+      "path": "lyrics/Rxbyn_-_Bad_Side.txt",
+      "url": "https://huggingface.co/datasets/jamendolyrics/jamendolyrics/resolve/4e7acfcbd1440e68eda7ee8933ef221e5f970501/lyrics/Rxbyn_-_Bad_Side.txt",
+      "sha256": "69842b6268608a66e4a12c0a6594f441629a35e7966c4d5dd359462536459273",
+      "size": 1908,
+      "git_blob": "4bb52ac0183211f4c38cf3a167534a9cf06b39a7"
+    },
+    {
+      "path": "lyrics/Rxbyn_-_Bad_Side.words.txt",
+      "url": "https://huggingface.co/datasets/jamendolyrics/jamendolyrics/resolve/4e7acfcbd1440e68eda7ee8933ef221e5f970501/lyrics/Rxbyn_-_Bad_Side.words.txt",
+      "sha256": "1a03b21b3ab66050987de7c68cc86cd597f03d5f4785d3fe13774218d6182d33",
+      "size": 1902,
+      "git_blob": "35c57d9d85a7ab74cd78d9037767ca9b2929a453"
+    },
+    {
+      "path": "mp3/Cortez_-_Feel__Stripped_.mp3",
+      "url": "https://huggingface.co/datasets/jamendolyrics/jamendolyrics/resolve/4e7acfcbd1440e68eda7ee8933ef221e5f970501/mp3/Cortez_-_Feel__Stripped_.mp3",
+      "sha256": "beefa48e4520bb290e739faa7c0a91e4e7296fb239577966b2129934ccf86b31",
+      "size": 5947904,
+      "git_blob": "f0e39652cf1cab59a2bee737755a19f3eb0fb273"
+    },
+    {
+      "path": "mp3/Rxbyn_-_Bad_Side.mp3",
+      "url": "https://huggingface.co/datasets/jamendolyrics/jamendolyrics/resolve/4e7acfcbd1440e68eda7ee8933ef221e5f970501/mp3/Rxbyn_-_Bad_Side.mp3",
+      "sha256": "24090af9ca4886bb0551f7c1896c249af3311cce1c585092054ed5c428834d44",
+      "size": 5672448,
+      "git_blob": "99b6cba93f42eaa6cf67860f72b51579ffc2d957"
+    },
+    {
+      "path": "JamendoLyrics.csv",
+      "url": "https://huggingface.co/datasets/jamendolyrics/jamendolyrics/resolve/4e7acfcbd1440e68eda7ee8933ef221e5f970501/JamendoLyrics.csv",
+      "sha256": "a4649131242fa5f0750df547a5ceaaaa7c04329c249dd5287799e6d8ac69ed68",
+      "size": 12775,
+      "git_blob": "72b095e02cd352e71b4fd7687bfc7dd11491c942"
+    }
+  ],
+  "dataset": "jamendolyrics/jamendolyrics",
+  "attribution": [
+    {
+      "artist": "Cortez",
+      "title": "Feel (Stripped)",
+      "url": "https://www.jamendo.com/track/1481500/feel-stripped",
+      "license": "CC BY, version not specified in pinned metadata"
+    },
+    {
+      "artist": "Rxbyn",
+      "title": "Bad Side",
+      "url": "https://www.jamendo.com/track/1556580/bad-side",
+      "license": "CC BY, version not specified in pinned metadata"
+    }
+  ]
+}
