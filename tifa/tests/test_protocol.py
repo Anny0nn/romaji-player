@@ -173,6 +173,22 @@ def test_explicit_english_phone_hypothesis_keeps_language_inventory_and_source_o
             aligner.words(targets, phonetic_aliases={0: alias})
 
 
+def test_explicit_pronunciation_can_cover_macron_source_without_rewriting_it():
+    from lib.vocabulary import Vocabulary
+
+    aligner = Aligner.__new__(Aligner)
+    aligner.vocabulary = Vocabulary(symbol_to_id={"ja/y": 3, "ja/o": 4})
+    aligner.converters = {}
+    targets = [{"text": "yō", "romaji": "yō", "raw_span": [5, 8]}]
+    assert aligner.words(targets) == ([], [])
+    words, indices = aligner.words(targets, phonetic_aliases={0: ["y", "o", "o"]})
+    assert indices == [0] and len(words) == 1
+    assert words[0].text == "yō" and words[0].language == "ja"
+    assert [g.phonemes for g in words[0].readings[0].paths[0]] == [["y", "o", "o"]]
+    assert targets == [{"text": "yō", "romaji": "yō", "raw_span": [5, 8]}]
+    assert aligner.words(targets, phonetic_aliases={0: ["unknown"]}) == ([], [])
+
+
 def test_vowel_fallback_never_rewrites_valid_digraphs_or_guesses_other_kana():
     assert (
         vowel_extensions("あぁぁ いぃ うぅ えぇ おぉ アァ")

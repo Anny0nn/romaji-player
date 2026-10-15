@@ -218,8 +218,6 @@ class Aligner:
             raise ValueError("Pronunciation aliases changed source-word ownership.")
         for index, target in enumerate(targets):
             text, language = pronunciation(target["text"], target["romaji"])
-            if language is None:
-                continue
             if phonetic_aliases and phonetic_aliases.get(index):
                 alias = phonetic_aliases[index]
                 alias_language, phones = (
@@ -250,6 +248,8 @@ class Aligner:
                     continue
                 words.append(word)
                 target_indices.append(index)
+                continue
+            if language is None:
                 continue
             try:
                 parts = self.converters[language].convert(text)
