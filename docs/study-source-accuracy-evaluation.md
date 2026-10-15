@@ -851,6 +851,112 @@ config; its 157 token-expansion entries all match the app's parser exactly. Ther
 is no supported normalization or expansion fix to justify rerunning recognition.
 The four unmapped vocabulary entries are structural specials, not sung phones.
 
+## Changed vocal evidence and English clocks (2026-10-15)
+
+A pinned BS-RoFormer ViperX checkpoint supplies a genuinely different vocal
+estimate. Four preselected English-heavy source contexts are followed by the next
+two contexts per song, ranked before inference by paired gaps without dual-view
+recognition. All twelve use original stereo recordings, complete Rust context
+bounds, strict model loading and position-preserving overlap-add. Qwen receives
+only the resulting audio. Recognition matches the entire original source context
+before assigning words to occurrences; the original TIFA/HFA clock is unchanged.
+
+`evaluate-vocal-contexts.py` authenticates these closed runs and compares two versus
+three fixed waveforms, requiring two qualifying witnesses for each word. It checks
+original recording/source identities, separator completeness, derived sample count,
+recognition receipts and reproduction of the original two-view result. Regression
+fixtures cover changed occurrences/recordings, translated context bounds, forced or
+weak confidence, invalid clocks and protected negative crop-relative intervals.
+It also authenticates the exact original mix/vocal window bytes, rejects a third
+waveform identical to either original, and checks mono/16 kHz separator metadata
+before projecting it into the audio-only recognition manifest.
+These are correlated waveform views, not independent recognizer votes.
+
+| Frozen original comparison  | Timing proposals | Additional proposals | Old intervals lost/moved |
+| --------------------------- | ---------------: | -------------------: | -----------------------: |
+| Original mix + Kim          |               16 |                    — |                     0 /0 |
+| Add ViperX, twelve contexts |               20 |                    4 |                     0 /0 |
+
+The four extra proposals are one Wild Side word and three TEENAGE CITY RIOT words.
+The expanded eight-context batch adds none beyond the first four-context pilot.
+The replay retains the full **2,927-group** denominator; it checks 189 paired cues
+containing 453 gaps, of which 41 cues receive the new selected-context waveform.
+Other groups remain unchanged. These proposals are not independently labelled
+commercial accuracy, are not cumulative with other alternative recipes, and do not
+change the saved **2,210/2,927** app result. The exact new stage has not passed the
+full mismatch-control/promotion gate.
+
+Separation takes **237.8 seconds** across both serial batches, excluding 1.1 seconds
+of model loading; peak MLX allocation is **3.10 GB**, maximum process RSS **1.54 GB**.
+The two Qwen runs total **56.0 seconds** including loading, with about **4.62 GB**
+driver allocation at closure; that last value is not a measured peak. The checkpoint
+SHA-256 is `5b84f37e8d444c8cb30c79d77f613a41c05868ff9c9ac6c7049c00aefae115aa`.
+It and the pinned MLX separator runtime remain private research inputs.
+
+To replay already closed private batches without running models:
+
+```sh
+.venv-experimental/bin/python scripts/evaluate-vocal-contexts.py \
+  --suite "$FROZEN_SUITE" --contexts "$CONTEXT_CACHE" \
+  --baseline "$ORIGINAL_QWEN_REPLAY" --model-directory "$QWEN_ASSETS" \
+  --separation "$CLOSED_SEPARATOR_BATCH" --recognition "$CLOSED_QWEN_BATCH" \
+  --output "$FRESH_PRIVATE_REPLAY"
+```
+
+Repeat the paired `--separation`/`--recognition` arguments for disjoint context
+batches; duplicate extra estimates for the same context are refused. The replay
+record SHA-256 for the twelve-context comparison is recorded in its private identity.
+
+A second, two-stage separation trial feeds the four original ViperX vocal contexts
+through [Becruily's lead/backing-vocal model](https://huggingface.co/becruily/mel-band-roformer-karaoke/tree/0c149975cfaa261c7d87baf54330a9da85bcf888).
+The pinned legacy training graph loads every learned tensor strictly. Its cached
+44.1 kHz stereo intermediate is planar; reconstructing the earlier mono vocal
+outputs from that intermediate is byte-identical before the new stage runs. Native
+11-second chunks and eight-way overlap preserve the original context clock. The
+extra stage takes **119.9 seconds** after loading, with **3.88 GB** peak MLX allocation
+and **2.76 GB** process RSS; Qwen takes **20.6 seconds** including loading. Used as an
+alternative third waveform, it produces the **same twenty proposals and same four
+incremental groups** as the first ViperX pilot, with zero losses or moved intervals.
+Lead-vocal isolation therefore adds no further gain in this comparison and is not
+expanded unchanged.
+
+The independently labelled English comparison still uses the same sixteen Jamendo
+clips and 96 original groups. A new [MFA English GMM-HMM model](https://huggingface.co/MontrealCorpusTools/english_us_arpa/tree/ca321816421fef0dcb6666ae480a2abe922144fb)
+uses 16 kHz MFCCs and a 10 ms frame step. Its CC BY 4.0 weights are distinct from
+TIFA and HFA. The native arm64 runtime is MFA 3.4.3 /Kalpy 0.10.5 /Kaldi 5.5.1172
+on Python 3.12. All sixteen source-only alignments close before reference scoring;
+every output maps uniquely to its original word group.
+
+| Fixed Qwen lexical check and TIFA/other-clock agreement | Admitted TIFA clocks | Human-correct clocks |
+| ------------------------------------------------------- | -------------------: | -------------------: |
+| Previous HFA                                            |                   52 |                   49 |
+| Speaker-independent MFA                                 |                   45 |                   44 |
+| MFA with per-speaker fMLLR                              |                   52 |                   50 |
+
+The adapted run groups clips by the two actual singers, uses the model's default
+feature adaptation and takes **25.0 seconds**. It introduces seven correct and one
+incorrect admissions compared with the old set; it also withholds old candidates,
+so this is a net gain of only one correct clock at unchanged coverage. Keeping the
+TIFA interval outperforms replacing it with the MFA interval. Adaptation improves
+standalone MFA clocks but does not establish the required new recipe. Peak RSS was
+unavailable in this private runtime; no total-memory estimate is substituted.
+
+Other changed verification pilots also remain unpromoted. A source-conditioned TIFA
+phone-masking test accepts 16/96 targets and zero of 96 fixed phone faults, but only
+14 accepted clocks meet the human endpoint tolerance. Masking the entire word accepts
+six, all correct; that is too small to establish general accuracy. Same-family
+mix/vocal TIFA agreement retains more correct pairs but also accepts 47/96 wrong-song
+targets before lexical verification, demonstrating that stability alone is insufficient.
+The new native-kana WavLM path adds zero groups on the eighteen Japanese-gap cues;
+union with the previous verifier also adds zero. No reference reserve is opened.
+
+An official eight-bit MOSS comparison uses the exact earlier 22.01-second audio and
+prompt, with a fixed 128-token budget. Strict model loading takes 9.2 seconds; the
+test is stopped at about five minutes without a completed first transcript. Load-time
+MLX allocation is **10.23 GB**, but inference peak memory was not sampled. This is a
+latency ceiling, not evidence of inaccurate recognition, an out-of-memory failure or
+paging. No words or timings are inferred from that incomplete test.
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue

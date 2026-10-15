@@ -180,8 +180,22 @@ def context_matches(crops, words):
 
 def recover_recognized_pairs(baseline, clocks, views, length_ms, source_words):
     """Typed free-word recognition plus prevalidated pair clocks, without ASR times."""
+    if len(views) != 2:
+        raise ValueError("Expected two original recognition views.")
+    return recover_recognized_views(baseline, clocks, views, length_ms, source_words)
+
+
+def recover_recognized_views(baseline, clocks, views, length_ms, source_words):
+    """Research ablation with two or three fixed, separately decoded waveforms.
+
+    Two qualifying views must witness each word. A third vocal estimate can
+    recover words masked in one earlier waveform; these correlated observations
+    are not independent recognizers. The caller authenticates distinct audio
+    views and full-context occurrence ownership before this word-level check.
+    Physical clocks, adjacency and the old-interval overlay remain unchanged.
+    """
     if (
-        len(views) != 2
+        len(views) not in (2, 3)
         or any(len(v) != len(baseline) for v in views)
         or [u["raw_span"] for u in clocks] != [u["raw_span"] for u in baseline]
         or any(
@@ -191,7 +205,7 @@ def recover_recognized_pairs(baseline, clocks, views, length_ms, source_words):
     ):
         raise ValueError("Recognition changed original source group ownership.")
     eligible = set()
-    for index, (clock, a, b) in enumerate(zip(clocks, *views, strict=True)):
+    for index, (clock, *witnesses) in enumerate(zip(clocks, *views, strict=True)):
         if (
             not all(
                 isinstance(clock.get(k), (int, float))
@@ -203,16 +217,19 @@ def recover_recognized_pairs(baseline, clocks, views, length_ms, source_words):
             or clock["end_ms"] - clock["start_ms"] < 80
         ):
             continue
-        if all(
-            u["confidence_kind"] == "qwen-free-decoder-geometric-mean"
-            and u.get("source_conditioned") is False
-            and u["source_match"]
-            and u["matched_words"] >= 2
-            and isinstance(u["probability"], (int, float))
-            and not isinstance(u["probability"], bool)
-            and math.isfinite(u["probability"])
-            and 0.7 <= u["probability"] <= 1
-            for u in (a, b)
+        if (
+            sum(
+                u["confidence_kind"] == "qwen-free-decoder-geometric-mean"
+                and u.get("source_conditioned") is False
+                and u["source_match"]
+                and u["matched_words"] >= 2
+                and isinstance(u["probability"], (int, float))
+                and not isinstance(u["probability"], bool)
+                and math.isfinite(u["probability"])
+                and 0.7 <= u["probability"] <= 1
+                for u in witnesses
+            )
+            >= 2
         ):
             eligible.add(index)
     return overlay_original_groups(baseline, clocks, eligible, source_words)

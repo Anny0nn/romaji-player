@@ -12,6 +12,7 @@ from qwen_lexical import (
     exact_matches,
     recognition_words,
     recover_recognized_pairs,
+    recover_recognized_views,
 )
 
 
@@ -230,3 +231,84 @@ class QwenLexical(unittest.TestCase):
         changed = [{**u, "raw_span": [100, 101]} for u in clocks]
         with self.assertRaises(ValueError):
             recover_recognized_pairs(baseline, changed, [view, view], 1000, 4)
+
+    def test_third_waveform_still_requires_two_typed_witnesses_per_word(self):
+        baseline = [
+            {"raw_span": [i, i + 1], "start_ms": -1, "end_ms": -1} for i in range(3)
+        ]
+        clocks = [
+            {**u, "start_ms": 10 + i * 200, "end_ms": 160 + i * 200}
+            for i, u in enumerate(baseline)
+        ]
+        full = [
+            {
+                "raw_span": u["raw_span"],
+                "source_match": True,
+                "probability": 0.9,
+                "confidence_kind": "qwen-free-decoder-geometric-mean",
+                "source_conditioned": False,
+                "matched_words": 3,
+            }
+            for u in baseline
+        ]
+        absent = [{**u, "source_match": False} for u in full]
+        self.assertEqual(
+            recover_recognized_pairs(baseline, clocks, [full, absent], 1000, 3),
+            baseline,
+        )
+        result = recover_recognized_views(
+            baseline, clocks, [full, absent, full], 1000, 3
+        )
+        self.assertEqual(result, clocks)
+        for invalid in (
+            {"source_conditioned": True},
+            {"confidence_kind": "forced"},
+            {"probability": 0.69},
+            {"probability": math.nan},
+            {"matched_words": 1},
+        ):
+            third = [{**u, **invalid} for u in full]
+            self.assertEqual(
+                recover_recognized_views(
+                    baseline, clocks, [full, absent, third], 1000, 3
+                ),
+                baseline,
+            )
+        for views in ([full], [full] * 4):
+            with self.assertRaises(ValueError):
+                recover_recognized_views(baseline, clocks, views, 1000, 3)
+        with self.assertRaises(ValueError):
+            recover_recognized_pairs(baseline, clocks, [full] * 3, 1000, 3)
+
+    def test_third_waveform_never_substitutes_a_clock_or_bypasses_protection(self):
+        baseline = [
+            {"raw_span": [i, i + 1], "start_ms": -1, "end_ms": -1} for i in range(3)
+        ]
+        baseline[0].update(start_ms=-50, end_ms=150, protected=True)
+        clocks = [
+            {**u, "start_ms": 10 + i * 200, "end_ms": 160 + i * 200}
+            for i, u in enumerate(baseline)
+        ]
+        view = [
+            {
+                "raw_span": u["raw_span"],
+                "source_match": True,
+                "probability": 0.9,
+                "confidence_kind": "qwen-free-decoder-geometric-mean",
+                "source_conditioned": False,
+                "matched_words": 3,
+                "start_ms": 9999,
+                "end_ms": 99999,
+            }
+            for u in baseline
+        ]
+        result = recover_recognized_views(baseline, clocks, [view] * 3, 1000, 3)
+        self.assertEqual(result, [baseline[0], *clocks[1:]])
+        clocks[1].update(start_ms=-1, end_ms=-1)
+        self.assertEqual(
+            recover_recognized_views(baseline, clocks, [view] * 3, 1000, 3),
+            baseline,
+        )
+        changed = [{**u, "raw_span": [100, 101]} for u in view]
+        with self.assertRaises(ValueError):
+            recover_recognized_views(baseline, clocks, [view, view, changed], 1000, 3)

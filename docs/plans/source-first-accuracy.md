@@ -168,6 +168,16 @@ their token limits. Reject that path unless a reproducible inference change fixe
 it; larger precision is not itself a fix. A bounded speech-ASR challenger may still
 test fast English recognition, without assuming singing accuracy from speech scores.
 
+The next comparisons change the acoustic path: a second vocal separator before
+source-blind recognition, English GMM-HMM clocks with and without per-speaker
+feature adaptation, and complete Parakeet CTC paths from cached audio-only emissions.
+Keep these separate from text/reading corrections. A third fixed waveform requires
+two scored, unique-context word witnesses; it supplies no word clocks. Same-model
+waveforms remain correlated. Test lead/backing-vocal separation separately from
+ordinary all-vocal extraction. The MOSS port's validated 8-bit configuration may
+receive one controlled comparison against the unvalidated 4-bit result, within a
+measured memory limit; it must demonstrate a change rather than presume one.
+
 [SingAlign](https://huggingface.co/pymaster/SingAlign) is a possible singing-trained
 English phoneme path only if its encoder/head/vocabulary/frame-clock contract can be
 recovered and pinned. Its linked source currently returns 404. Search official renamed
