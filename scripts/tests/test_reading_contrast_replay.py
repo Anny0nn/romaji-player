@@ -95,6 +95,18 @@ class ClosedReadingReplay(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "another word"):
             self.run_replay()
 
+    def test_cue_unit_preserves_source_checks_without_assigning_a_word_score(self):
+        for row in self.rows.values():
+            for observation in row["observations"].values():
+                observation["source_token_indices"] = [None]
+        self.assertEqual(self.run_replay()["counts"], {"unowned_competitor": 1})
+        result = replay.replay({"cases": self.cases}, self.rows, unit="cue")
+        self.assertEqual(result["counts"], {"whole_cue_hypothesis": 1})
+        self.assertEqual(result["verification_unit"], "cue")
+        self.cases[1]["text"] = "あまが"
+        with self.assertRaisesRegex(ValueError, "another word"):
+            replay.replay({"cases": self.cases}, self.rows, unit="cue")
+
     def test_wrong_verse_is_identical_for_every_competing_reading(self):
         self.cases[1]["wrong_audio"] = {
             "first_sample": 32000,

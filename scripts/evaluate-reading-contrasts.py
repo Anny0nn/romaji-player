@@ -10,6 +10,7 @@ import json
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from cue_reading_contrast import nominate_cue_reading
 from hubertfa_research import ROOT, digest, private_path
 from kana_reading_contrast import nominate_reading
 
@@ -67,7 +68,16 @@ def source_group(case, jobs):
     return (signature, case["source_occurrence"], first, last)
 
 
-def replay(manifest, observations, supplement_cases=None, supplement=None):
+def replay(
+    manifest,
+    observations,
+    supplement_cases=None,
+    supplement=None,
+    *,
+    unit="word-and-cue",
+):
+    if unit not in ("word-and-cue", "cue"):
+        raise ValueError("Unknown reading verification unit.")
     cases = manifest["cases"]
     if len({c["id"] for c in cases}) != len(cases) or set(observations) != {
         c["id"] for c in cases
@@ -128,13 +138,15 @@ def replay(manifest, observations, supplement_cases=None, supplement=None):
                 "observations": observed,
             }
         )
+    nominate = nominate_reading if unit == "word-and-cue" else nominate_cue_reading
     decisions = [
-        {"source_group": list(key), **nominate_reading(candidates)}
+        {"source_group": list(key), **nominate(candidates)}
         for key, candidates in grouped.items()
     ]
     return {
         "groups": len(grouped),
         "hypotheses": len(cases),
+        "verification_unit": unit,
         "counts": dict(Counter(d["reason"] for d in decisions)),
         "decisions": decisions,
         "role": "conditional research nominations; not recognition, accuracy or timing",
@@ -148,6 +160,9 @@ def main():
     parser.add_argument("observations", type=Path)
     parser.add_argument("--supplement-manifest", type=Path)
     parser.add_argument("--supplement-observations", type=Path)
+    parser.add_argument(
+        "--unit", choices=("word-and-cue", "cue"), default="word-and-cue"
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     manifest_path, folder, output = map(
@@ -196,13 +211,18 @@ def main():
                 for p in (supplement_path, supplement_folder / "complete.json")
             }
         )
-    report = replay(manifest, observations, extra_cases, extra_rows)
+    report = replay(manifest, observations, extra_cases, extra_rows, unit=args.unit)
     output.mkdir(mode=0o700, parents=True, exist_ok=False)
     recipe = {
         "artifacts": artifacts,
+        "verification_unit": args.unit,
         "code": {
             name: digest(ROOT / "scripts" / name)
-            for name in ("evaluate-reading-contrasts.py", "kana_reading_contrast.py")
+            for name in (
+                "evaluate-reading-contrasts.py",
+                "kana_reading_contrast.py",
+                "cue_reading_contrast.py",
+            )
         },
         "reference_labels_read": False,
         "model_inference_run": False,

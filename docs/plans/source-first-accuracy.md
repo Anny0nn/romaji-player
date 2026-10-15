@@ -426,6 +426,60 @@ controls before considering any saved edit. Published furigana may nominate
 alternatives but cannot certify how the singer pronounces them. This remains
 research in this PR and changes neither the app recipe nor its saved timings.
 
+Keep a separate whole-cue minimal-pair unit where a recognizer's BPE token spans
+more than one source word. Score the complete unchanged-neighbor cue against the
+same controls, without dividing a token score between words. Preserve the original
+word-and-cue gate and report both units. Three cross-family sequence nominations
+justify fresh current-versus-candidate clock probes; they do not authorize edits.
+Also test current-reading winners as possible timing evidence and a small English
+CMU-confusable-word pilot. These tests ask whether discriminative source checking
+can recover useful evidence when free transcription fails. Freeze competitors and
+controls before inference, score wrong-current queries symmetrically, and require
+physical/reference checks before any integration.
+
+The full English cue may include another language or incorrect neighboring lyrics.
+Test a separate immediate-source-neighbor window on all twelve reference words,
+twelve hard gaps and twelve independent negatives, rather than selecting only
+favorable failures. Keep the same competitors, controls and decision margins.
+Changing text context is a new verification unit, not permission to discard a
+failed full-cue decision from the record.
+
+Challenge canonical English pronunciation as well. A bounded Japanese-English
+phone lattice can represent documented consonant substitutions while preserving
+the original source word. Start with unambiguous, contextual rules from
+[Ando et al.](https://www.isca-archive.org/interspeech_2021/ando21_interspeech.pdf),
+with a fixed variant cap and deterministic gap selection across low-set songs.
+The speech evidence is a hypothesis for singing. Do not invent epenthetic vowels
+where the source does not define a usable rule. Alternative forced paths nominate
+boundaries, not verified lyric spelling; compare them against canonical paths,
+independent lexical evidence, physical clocks and wrong-audio controls.
+
+A corrected reading can restore a paired target while the old automatic neighbors
+still overlap it. Test a separate bounded automatic-region solver using only
+observed endpoints belonging to the same original word and waveform. An old
+endpoint may be retained when both fresh models endorse it; another endpoint of
+that word may come from a fresh observation. Such an interval has explicit
+composite provenance and must not be described as one model's complete output.
+Never manufacture, average, trim, snap or transfer an endpoint from another word.
+Protect user, provider and unknown-origin data, retain the earlier strict solver's
+results, and validate this new recipe independently before any app migration.
+
+Test direct source-blind kana decoding as a separate acoustic representation:
+ordinary Japanese transcripts can hide a sung pronunciation behind kanji. A
+UTF-8 token-state constraint may emit kana without supplying the target lyrics;
+retain split-byte tokens, permit end-of-text only after complete UTF-8, and save
+the chosen tokens' original full-vocabulary scores separately from the masked
+distribution. Constrained output is a hypothesis, not calibrated lexical
+confidence. Start with the three opened reading examples before expanding.
+
+Exact repeated source lines offer another bounded experiment. The frozen cap
+contains at most 44 missing groups with a compatible already-timed occurrence.
+Test whether independent acoustic sequences can locate boundaries on the target's
+observed frames, using wrong-verse controls and protected-neighbor checks. Never
+copy a source timestamp or linearly stretch it onto the target; a source-only
+repeat count is not recovered coverage. Record this ceiling before collecting
+the small additional acoustic observations the existing caches lack.
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,

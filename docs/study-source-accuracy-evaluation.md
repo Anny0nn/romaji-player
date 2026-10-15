@@ -1151,6 +1151,56 @@ prompts. Candidates must retain exact original word ownership and pass subsequen
 audio checks; generating a plausible alternative is not a verified correction.
 The pinned Qwen3-4B model and all lyric-bearing inputs and outputs remain private.
 
+That pilot is now closed. A first response fails the strict schema. A second,
+separately frozen prompt uses an unrelated example and retains every invalid
+response as an abstention: **16/19** prompts and **66/84** target readings are
+structurally valid. On the 57 valid published-furigana targets, primary readings
+match literally on **44/57**, versus Cutlet's **54/57** on that same subset
+(44/75 and 71/75 respectively when reporting the full proxy pool). The model
+recovers 2/6 verified Tabi fixture readings and 1/3 separate known sung examples.
+It takes **48.7 seconds** after a **1.1-second** load, with **3.04 GB** peak MLX
+allocation and **1.81 GB** process RSS. Its two novel untimed-word proposals fail
+the subsequent acoustic competition. Generic text generation is rejected as a
+replacement for the current readings.
+
+A broader strict comparison retains all **404 low-set cues /2,183 groups /714
+gaps**. Six cached published pages match 250 complete cues and provide 573 readable
+groups, including 89 untimed groups. Eight untimed groups have different supported
+phone paths; sixty agree and 21 have unsupported paths. This is a detected
+opportunity under exact matching, not a ceiling on errors in unmatched lyrics.
+Two published alternatives are absent from the bundled candidate lists. Adding
+them to every existing competitor still yields weak acoustic contrasts. Five
+other source owners already have the alternatives available; testing their 36
+competitors takes **16.9 seconds** for 108 Whisper conditions.
+
+Three of those five alternatives agree across independent Whisper and Qwen
+**whole-cue** contrasts. Qwen BPE tokens cross source-word boundaries for two
+of them, so the original word-and-cue rule correctly withholds its word statistic.
+A separate sequence experiment compares complete unchanged-neighbor cues against
+both controls, without allocating a shared token's probability to a word.
+`cue_reading_contrast.py` reproduces the private five-competition decisions and
+exact margins. The replay exposes this explicit research unit:
+
+```sh
+.venv/bin/python scripts/evaluate-reading-contrasts.py \
+  "$PRIVATE_READING_MANIFEST" "$CLOSED_READING_OBSERVATIONS" \
+  --unit cue --output "$FRESH_PRIVATE_CUE_REPLAY"
+```
+
+The default remains `--unit word-and-cue`; source, crop, neighbor, control and model
+authentication are identical. A sequence nomination is not word confidence or a
+saved correction. One other Qwen winner differs by a voiced consonant from the
+published reading and the other model's preference. Without a listening label,
+that is a disagreement, not a measured false prediction. Localized evidence and
+fresh physical word clocks remain necessary.
+
+Current-reading winners matter too: of 29 current winners in the original 72-group
+trial, seven are original timing gaps. A fully extended competitor set withholds
+one. Twelve of all 29 have fresh TIFA/HFA clock agreement, but ten already have
+saved timings. The two remaining groups are isolated under the earlier overlay's
+adjacency rule and add zero through that unchanged rule. These are opportunities
+for testing a different contextual verifier, not impossible words or counted gains.
+
 Two further acoustic alternatives fail their small pilots. Granite Speech CTC
 makes 45 reference-word edit errors across the same 96 English development words,
 versus Qwen's twelve, and supplies no dual-view witness for the selected hard
@@ -1158,6 +1208,117 @@ gaps. Japanese MFA with explicit kana alternatives selects **0/3** known sung
 readings correctly. Neither is expanded unchanged. Only nine of 717 gap groups
 have otherwise valid TIFA intervals below 80 ms, and none has corroborating
 independent clocks; reducing the duration floor is not a supported solution.
+
+## Direct audio-to-kana and acoustic repeats
+
+The pinned third-party [Kotoba v2.0 MLX conversion](https://huggingface.co/kaiinui/kotoba-whisper-v2.0-mlx/tree/b2c725b0a8d131447cdb0bc41762df970b0a2482)
+has a 32-layer encoder and two-layer decoder. Complete key/shape loading verifies
+its 1.51 GB checkpoint; conversion is not bitwise audited against the official
+source. Ordinary source-blind Japanese transcription on eighteen existing vocal
+crops and three known examples takes **11.2 seconds**, with **2.38 GB** peak MLX
+allocation and **1.10 GB** process RSS. Most output uses kanji, so converting it
+back through Cutlet does not independently establish the sung reading.
+
+A new UTF-8 state constraint emits kana without supplying target lyrics. It retains
+valid partial-byte BPE tokens, rejects kanji/Latin text, allows the long-vowel mark
+and permits end-of-text only after complete UTF-8. Chosen-token scores are captured
+from the original full vocabulary before masking, separately from the constrained
+distribution. No masked score becomes a word-confidence statistic.
+
+On the same eighteen cues, the constrained model has **12/98** exact unique
+three-word contexts, versus **1/98** for ordinary output's dictionary proxy.
+However, overall normalized text error worsens and zero of eighteen full cues is
+exact. Twelve centers represent twenty complete source owners; seventeen already
+have baseline timings. Only one untimed owner is incremental over the ordinary
+proxy, and it is a neighboring particle rather than a recovered target reading.
+The known-reading comparison has **2/3** exact target-centered contexts and zero
+of six matched wrong-verse/silence controls; these are tiny development counts.
+Full Whisper large-v3 does not solve the constraint: one known cue is unrelated
+and another adds a vowel, so its unchanged recipe is not expanded.
+
+A separate repeat experiment starts from **44** source-compatible untimed groups.
+Nine source-blind clips cover three target/source/control sets and seven gaps.
+Two independently trained acoustic surfaces, HuBERT latents and singing CTC,
+provide complete observed-frame paths before source clocks are opened. The frozen
+two-family DTW rule leaves **one of seven** proposals; six fail control, crop-edge
+or protected-neighbor checks. Its proposed endpoints are actual target frame-cell
+edges, with the second family as verifier. An earlier averaged endpoint is retired;
+no averaged or copied timestamp reaches an app result. Without a target reference,
+this remains an unverified proposal and adds no saved coverage.
+
+One reference-opportunity audit reads the two complete Jamendo annotation files
+(795 rows) beyond the intended 96-row development pool. The exposure is recorded
+privately and the broad audit excluded; those additional rows cannot be called an
+unopened reserve. Subsequent diagnostics use only the original 96 selected rows.
+An onset-only diagnostic admits 73 using lexical evidence and model agreement
+before reference scoring; 67/73 TIFA onsets are within 150 ms, below the earlier
+49/52 full-check accuracy. It supplies no support for changing the product gate or
+claiming unknown word endings as timed words.
+
+## Conditional English evidence and automatic-neighbor repair
+
+A source-conditioned English pilot compares each word with four fixed CMU
+one-phone competitors, retaining complete-cue and owned-word decisions separately.
+All twelve words come from two already opened cues by one singer; this is a small
+development test. Whisper nominates the source for seven words under both units,
+Qwen for ten, and both families for six. Neither selects a competing spelling.
+Changing which candidate is marked current leaves the acoustic decisions unchanged.
+
+The endpoint join is performed after both observation sets close. Four words have
+cross-family lexical support and paired physical clocks; all four TIFA envelopes
+meet the opened reference's 150 ms endpoint tolerance. Qwen alone admits one
+incorrect envelope that the Whisper cue check rejects. These counts are too small
+to establish accuracy, and the exact incremental overlap with the earlier benchmark
+is unresolved. They justify a separate twelve-gap test across three difficult songs
+and independent wrong-audio controls, rather than a new app policy.
+
+That follow-up is closed: the twelve paired gaps all fail the old four-way
+free-transcription witnesses. Whisper nominates one source word under word-and-cue,
+Qwen three, and their intersection is empty. No full-policy proposal survives the
+unchanged timing overlay. On twelve independent wrong-audio queries, both full
+word-and-cue rules and their intersection nominate zero. Qwen's isolated word
+unit makes two false source nominations and its isolated cue unit one false rival
+nomination; all count as errors rather than being hidden by the current-candidate
+flag. The full policy adds zero words and is not promoted from this small pilot.
+
+Fresh Japanese clock probes compare current and nominated readings on three cues.
+Changing one reading increases TIFA retention from seven to nine of nine groups,
+but its target endpoints disagree with Whisper. Another changes eight to nine of
+ten and has target agreement within 90 ms at the start and 80 ms at the end.
+The strict overlay still adds zero because saved automatic neighbors overlap it.
+
+A separate frozen endpoint-selection recipe tests that overlap explicitly. It
+uses only same-word, same-role timestamps actually observed on the same waveform.
+Existing automatic endpoints may survive if both fresh models endorse them within
+150 ms. User, provider and unknown-origin clocks remain protected. An interval
+assembled from different observations retains endpoint-level composite provenance;
+it is never described as one model's whole interval.
+
+The primary profile keeps the recovered target's complete TIFA interval. On the
+ten-word cue it moves four endpoints across three automatic neighbors and retains
+all ten original groups, versus nine before repair. No endpoint is averaged,
+trimmed or copied from another word. The other five current/candidate probes lack
+paired targets and remain infeasible. Twenty-five private regressions include
+structured boundary negatives and ownership/protection checks. This establishes
+feasibility, not acoustic accuracy or an increase in saved app coverage. Reference
+validation and localized reading evidence remain prerequisites for integration.
+
+A subsequent cached calibration freezes proposals for all 96 opened reference
+words before scoring them. HFA supplies a measured baseline proxy, with TIFA and
+Whisper as the fresh pair; this is not the app's actual saved baseline. The primary
+profile is feasible for three targets, fixes zero wrong preexisting word intervals
+and makes one previously correct interval wrong. That case includes a fresh
+Whisper onset at the crop edge. The solver's permissive zero-bound rule therefore
+also violates the plan's existing cut-edge restriction. The unchanged conditional
+Whisper check retains only one safe, already-correct target. A separate dropped-word
+diagnostic recovers three gaps with two correct intervals and one incorrect.
+Neither model agreement nor endpoint feasibility is sufficient for promotion.
+
+An independent SOFA Japanese duration probe uses three audio posteriors to decode
+the six unchanged/current-versus-candidate sequences. It does not corroborate the
+two difficult corrected-reading targets: one collapses below the duration floor,
+and the other disagrees with the TIFA/Whisper envelope. These conditional forced
+paths supply no new lexical evidence or saved words.
 
 ## Remaining work
 
