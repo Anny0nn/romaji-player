@@ -730,6 +730,127 @@ PYTHONPATH="$PINNED_PRIVATE_PYSHIRO" .venv-experimental/bin/python \
   "$FRESH_PRIVATE_OBSERVATIONS" --model "$PINNED_PRIVATE_PYSHIRO"
 ```
 
+## Complete duration paths against an acoustic background (2026-10-15)
+
+`scripts/duration_spotting.py` tests a different boundary model on the same cached
+recordings. Every target state consumes observed frames; a semi-Markov forward sum
+and Viterbi path use normalized discrete duration PMFs. An exact prior-only pass
+conditions the complete chain on fitting inside the finite search window, so a
+shorter pronunciation/window does not win merely by discarding more prior mass.
+Forward/backward boundary marginals expose ambiguous placements without averaging
+their clocks. Exhaustive small examples verify sums, measured paths, normalization
+and repeated-occurrence uncertainty.
+
+The private pinned PySHIRO adapter compares two backgrounds in identical TIFA
+±300 ms windows: an equal mixture over all 123 distinct GMM state outputs and an
+equal mixture over the three pause outputs. It verifies normalized component
+weights and unit stream weights. This iid acoustic mixture is source-independent;
+it is not a phonotactic phone-loop model, recognition probability or spelling proof.
+Complete phones remain mandatory. Both observed endpoints must agree with TIFA
+within 150 ms, duration must reach 80 ms, and neither endpoint may touch a cut edge.
+The new checks require positive conditional acoustic contrast and start/end 90%
+posterior widths no larger than 300 ms. The CTC lexical gate remains unchanged in
+this first comparison. Accepted clocks would remain TIFA's actual observations.
+
+| Background, same 390 PJS groups | Raw duration-model clocks correct | TIFA/physical boundary pairs | Pairs after acoustic and CTC checks | Correct retained TIFA clocks |
+| ------------------------------- | --------------------------------: | ---------------------------: | ----------------------------------: | ---------------------------: |
+| All distinct acoustic outputs   |                               296 |                          283 |                                 171 |                          171 |
+| Pause outputs                   |                                68 |                           61 |                                  56 |                           56 |
+
+Both models place all 390 groups. The all-output result has 199 pairs after acoustic
+contrast/concentration and 171 after the separate CTC gate. Its five deterministic
+recording-disjoint reporting folds retain 50, 16, 46, 31 and 28 correct groups, with
+no fitting. This is already opened development data; unknown PJS overlap in the
+checkpoint training still prevents an unseen-accuracy claim. The 62-recording run
+takes **60.8 seconds**, with peak process RSS **354 MB**. Its closed-observation
+SHA-256 is `84c1d256f4d6d578a9fa1f9c50678c7e579c1658846e43335fc16b4ab0b55fc8`.
+
+The commercial comparison has 41 cues /296 original groups /122 gaps: the eighteen
+native-source cues and 23 affected 嘘 cues. A fresh explicit-Japanese-phone TIFA
+trial on 嘘 retains 135/146 candidates in 3.2 seconds after loading. That trial
+exposes a real routing bug: ordinary text routing rejected macron-bearing words
+before their explicit phones could be applied. The helper now validates those
+phones first, retaining the exact original text and source span; a regression checks
+both a valid long vowel and an unknown-phone rejection. Candidate TIFA paths are
+not automatically accepted timings.
+
+After both acoustic checks and the existing CTC lexical gate, the all-output model
+has fifteen qualified missing candidates: two Just Awake, one Kyouran Hey Kids!!
+and twelve 嘘. Adjacent support and immutable-interval checks leave **one 嘘 proposal**;
+the pause ablation leaves zero. Neither loses or moves any old interval. Both admit
+zero of the 143 mismatch-control groups, with the same unsupported-English limit.
+This 63-input commercial/control run takes **70.3 seconds**, peak RSS **521 MB**;
+observation SHA-256 is
+`74cd7e2aab6e3bff121401eb7785b2b239726e099c6a3b315b74ac707bab6123`.
+嘘/control recognition caches have frozen actual hashes but predate complete modern
+recognition receipts. No app data, engine identity, bundle or shipped coverage changes.
+
+A separate source/result audit confirms one conflicting Kyouran neighbor was created
+by the earlier automatic engine, rather than supplied or hand edited. Its new physical
+checks agree, but its CTC evidence and fresh outer anchors fail the region policy.
+That provenance finding alone does not authorize moving it. It also explains why
+simply allowing more candidates would not establish a safe regional repair.
+
+The next closed pilot tests a different pronunciation-checking surface with those
+same duration densities. `contrast_pronunciation` shares exact target prefixes and
+suffixes when summing all complete one-phone replacements. Each sequence has its
+own finite-window prior normalizer; the gate compares the target with an unweighted
+sum of these conditional likelihoods. This deliberately strict sum grows with the
+number of competitors, and is neither a calibrated Bayes factor nor the probability
+of a disjoint union. Equal-density/unequal-duration and exhaustive-placement fixtures
+check that the normalizers and reverse suffix pass behave correctly.
+
+The inventory uses 41 canonical acoustic/duration paths, excluding explicit aliases
+and deduplicating identical paths; pause and nonlexical paths remain disclosed
+competitors. Windows over 320 frames (1.6 seconds) abstain without truncating source
+phones or duration priors. Scoring occurs only after the unchanged physical boundary
+checks pass. This first pilot freezes twelve eligible PJS groups by sorted identity,
+then all eligible words in the same 41 commercial and 22 mismatch cases. It does not
+open additional reference songs or change thresholds after inspecting their outcome.
+
+It scores **12 PJS, 57 commercial and seven mismatch words** in **70.5 seconds**,
+peak process RSS **229 MB**. None of the twelve PJS targets beats even its single
+best phone replacement: the median best-alternative margin is −85.1 nats. Thus the
+failure is not explained by summing many competitors. Their fixed wrong-phone
+variants also have zero passes; two commercial words pass, both already timed.
+The combined physical/pronunciation/overlay policy adds **zero** commercial words,
+moves/loses zero old intervals and admits zero of the 143 mismatch groups. Most
+control words abstain before this lexical stage; eight pass physical checks, seven
+also fit its bounded window. The rest of the 390-word PJS comparison is not expanded
+after this failed positive pilot. Observation SHA-256 is
+`e45f84212f68e32027f2159ba3602a294258a0c2d7ae2682adeee75cd32f5967`.
+This model remains a rejected pronunciation checker; good forced boundaries alone
+do not make its densities a reliable word recognizer.
+
+## English contrast and recognizer-contract checks (2026-10-15)
+
+The CTC scorer now accepts an explicit token-expansion contract. HFA's 39 ARPAbet
+labels are atomic phones: `aa` and `ng` must not pass through the Japanese mora
+parser. A numerical regression checks exact target/competitor sums and requires a
+complete explicit map. Its released CTC head is distinct from its dense alignment
+head, but shares the encoder; those heads are not independent acoustic votes.
+The Japanese default-path replay remains byte-identical to the earlier closed
+390-group observations (SHA-256
+`1c8458d666cb1ec34e2ad1869b0f95171c02de749f20478de8c7437b1ad025a1`).
+
+On sixteen cached English clips /96 independently transcribed development words,
+the original TIFA/HFA boundary pair retains 56. Correctly mapped local CTC contrast
+retains only **one**, with one correct TIFA clock and zero of 96 fixed wrong-phone
+variants passing. Ninety-five words beat the blank path, but only one beats the
+one-phone substitution union; only five reach the 0.45 mean emission probability
+rule. Median emission probability is 0.190. This **1.4-second cached trial is
+rejected** before collecting further English inference. Its observation SHA-256 is
+`67e8b1b402374119a21511878993266e5bd367cc74a4b4ef38ce1eac6eb3d2a0`.
+English orthographic references, supplied-phone timing and phonetic likelihood
+evidence remain separate; no spelling accuracy is inferred from conditional scores.
+
+An additional [official RomajiASR inference-source audit](https://github.com/Xiantaidu/RomajiASR/blob/main/src/infer.py)
+finds the existing mono /16 kHz /raw-float /one-unpadded-crop path already matches
+the author's inference. The pinned group-normalized HuBERT archive has no processor
+config; its 157 token-expansion entries all match the app's parser exactly. There
+is no supported normalization or expansion fix to justify rerunning recognition.
+The four unmapped vocabulary entries are structural specials, not sung phones.
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue

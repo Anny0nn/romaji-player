@@ -356,6 +356,37 @@ proposal. The adapter's silent unknown-mora dropping is fixed with a regression.
 These are measured rejected recipes, not a promoted change: keep model weights
 private, disclose unknown PJS training overlap, and preserve the substantive target.
 
+The next duration trial replaces pause-only surroundings with a source-independent
+mixture over distinct acoustic state outputs. Sum complete positive-duration state
+paths with an exact finite-window prior normalizer; retain actual frame boundaries
+and report their posterior spread. This is an acoustic background diagnostic, not
+a full phone-loop recognizer. Compare the same windows with the pause ablation,
+the opened PJS labels and all mismatch controls. The first trial checks 171 PJS
+groups with 171 correct TIFA clocks, but still leaves only one commercial proposal.
+Keep original intervals immutable; their collisions are not permission to retime
+user/provider/unknown-origin data. A source-tag/result audit can distinguish an
+earlier automatic interval, but each proposed replacement still needs fresh evidence
+and unchanged outer anchors.
+
+Test a separate duration-model pronunciation contrast next: compare each complete
+word with all canonical same-length one-phone substitutions, using the same observed
+window and each candidate's own prior-fit normalizer. A strict unweighted sum of
+these conditional likelihoods is not a union probability or calibrated confidence.
+Report competitor counts, unknown phones and bounded-window abstentions. This tests
+an alternative to the CTC emission-confidence gate; it is not a threshold reduction
+or an app policy change. Freeze the recipe before scoring known references and
+wrong-reading/wrong-audio controls. Wider commercial replay requires positive results.
+The first fixed pilot scores twelve eligible PJS groups and none beats even its
+best competing phone path; all commercial additions are zero. Keep the exact scorer
+and null result, but reject this GMM pronunciation gate and do not expand it unchanged.
+
+A real alias-routing defect is fixed: explicit validated phones must be considered
+even when ordinary text routing rejects a macron-bearing lyric. Preserve its source
+text/span and reject unknown phones. The RomajiASR contract audit finds no missing
+waveform normalization and no token-expansion discrepancy; those unchanged paths
+do not warrant another recognizer sweep. A correctly mapped English HFA CTC contrast
+retains only one of 96 development words and is rejected before further inference.
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,
