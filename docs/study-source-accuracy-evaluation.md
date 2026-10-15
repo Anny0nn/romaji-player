@@ -329,6 +329,77 @@ ASR-derived clocks are used to fill gaps.
   --output /private/tmp/romaji-source-evidence
 ```
 
+## Free Qwen decoding and boundary checks
+
+The previous Qwen experiment forced Japanese even on English clips. The new
+`transcribe-qwen-singing.py` comparison pins the official
+[Qwen3-ASR-1.7B-hf](https://huggingface.co/Qwen/Qwen3-ASR-1.7B-hf/tree/bcd2b5b7f32b480ab5790554cfa8347f246a14f3)
+checkpoint, uses its native BF16 precision, and supplies no lyric prompt. Automatic
+language selection and explicit English are separate trials. Decoded tokens and
+their actual full-vocabulary probabilities are saved; a budget-exhausted view is
+withheld before scoring. ASR supplies no word timestamps.
+
+On the 96 Jamendo development words, automatic language selection gives **12 word
+errors (12.5% WER)** and 88 exact source matches in unique multiword blocks. All 88
+reach the exploratory 0.70 geometric-mean token-probability threshold. This is a
+free-decoder statistic, distinct from Whisper word confidence and CTC probability.
+BPE pieces spanning words cannot receive invented individual word scores, and
+partial UTF-8 pieces must reconstruct exactly. The run takes 20.1 seconds including
+5.1 seconds loading; MPS allocated/driver readings are 4.09/4.61 GB and process RSS
+is 0.66 GB, reported separately.
+
+Recognition does not settle boundary correctness. Qwen-confirmed TIFA/HubertFA
+clocks retain 52 reference words, **49 joint-correct**. A diagnostic requiring
+HubertFA's first/last-phone greedy agreement and choosing its actual CTC envelope
+retains nine, all nine correct. Nine development words cannot certify a new recipe.
+Qwen alone also matches three words in the four eligible negative cues: common-word
+recognition is insufficient wrong-verse protection.
+
+The existing native Qwen forced aligner independently gives 92 valid reference
+intervals, only **62 joint-correct**. Its TIFA-paired subset gives 50/52 correct when
+keeping TIFA's clock. This is forced alignment, separate from free Qwen ASR; sharing
+a product name does not establish equivalent accuracy or independent lexical truth.
+
+On the preselected commercial pilot's twelve cues /24 mix-vocal views, free Qwen
+finds 31 exact multiword matches across both views, including retained anchors.
+Seven missing groups match in both views; the unchanged context/collision overlay
+leaves **five proposals: two on TEENAGE CITY RIOT and three on LOST IN PARADISE**.
+No saved interval is lost or moved. One view exhausts its token budget and another
+detects a different language; both are withheld. These are proposals before the
+complete accuracy/negative gates, not five shipped or verified words.
+
+`collect-qwen-lexical.py` reproduces lexical collection from completed observations
+without another inference run. It checks model/tokenizer assets, closed-record hashes,
+crop identity and exact source ownership. The existing app remains at 2,210/2,927.
+
+## Singing letters and original-script timing
+
+A fresh [Echora checkpoint](https://huggingface.co/hcX02/echora-mms-300m-multilingual-lyrics-forced-aligner/tree/701595f1be1125cce835d4e32fd432358ea8ed9f)
+comparison strictly loads both released heads: 30 base vocabulary entries plus the
+two special entries used by its 32-output architecture. Its custom terms permit
+this private research but restrict redistribution and commercial use; weights do
+not ship. `recognize-singing-letters.py` caches unmasked audio-only CTC distributions.
+The two heads share an encoder and are not independent votes.
+
+On the 16 original Jamendo clips, the lead stream emits letters without word
+delimiters; normalized character error is 159/349 (45.6%). Absence of spaces alone
+is not proof of failed recognition. The secondary stream is blank on these clips.
+Complete literal-word forced paths give 68/96 correct boundaries on the mix and
+77/96 on Kim-isolated vocals. A 0.45 confidence requirement plus TIFA agreement
+retains 41/36 correct on the mix and 44/39 on vocals, so neither is promoted.
+`prepare-reference-vocals.py` creates the position-preserving vocal comparison from
+the pinned recordings without using reference boundaries in separation.
+
+An original-script pilot selects three Japanese-gap cues from each eligible low
+song before inference: 18 cues, 150 original groups, 72 native-model views comparing
+original spelling /selected reading and mix /vocals. 嘘 has no native-script source
+and is excluded from this comparison. In 11.5 seconds the aligner returns 489 valid
+intervals across all four views. Within-model mix/vocal agreement plus the immutable
+overlay leaves five source-script proposals versus four selected-reading proposals.
+This is a representation diagnostic, not independent verification or evidence that
+kanji input solves the remaining coverage problem. `source_script_probe.py` keeps
+original UTF-8 spans and spelling, including punctuation, without merging groups.
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue

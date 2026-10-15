@@ -274,6 +274,13 @@ rejected, not a baseline to rescue by opening held-out data.
 - The substantial multi-song target remains unmet. Continue the lexical verification,
   sung-reading and anchor work on this same draft PR. Results and reproduction are
   recorded in [the evaluation](../study-source-accuracy-evaluation.md).
+- Free Qwen decoding with explicit language policy improves the English development
+  transcription, but the paired timing pilot still has errors and only five commercial
+  proposals. Fresh singing-letter and original-kanji /selected-kana comparisons also
+  fail to establish a substantive recipe. Test joint neighboring-cue alignment next:
+  preserve original groups and use unions of authenticated Rust crop bounds, with
+  occurrence-specific clocks. Compare it with isolated cues before expanding the run;
+  shared-model agreement alone never authorizes a new saved word.
 
 ## Out of scope
 

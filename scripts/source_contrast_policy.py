@@ -49,8 +49,6 @@ def supported(unit, length_ms, *, wrong_verse=True):
 
 def recover_original_groups(baseline, views, length_ms, source_words):
     """Research-only overlay: adjacent evidence, same groups, immutable old clocks."""
-    from itertools import pairwise
-
     if (
         not baseline
         or type(source_words) is not int
@@ -73,6 +71,21 @@ def recover_original_groups(baseline, views, length_ms, source_words):
         and supported(b, length_ms)
         and (a["start_ms"], a["end_ms"]) == (b["start_ms"], b["end_ms"])
     }
+    return overlay_original_groups(baseline, views[0], eligible, source_words)
+
+
+def overlay_original_groups(baseline, clocks, eligible, source_words):
+    """Shared research overlay for verified candidates; preserve every old group."""
+    from itertools import pairwise
+
+    if (
+        type(source_words) is not int
+        or source_words < len(baseline)
+        or len(clocks) != len(baseline)
+        or [u["raw_span"] for u in clocks] != [u["raw_span"] for u in baseline]
+        or any(type(i) is not int or not 0 <= i < len(baseline) for i in eligible)
+    ):
+        raise ValueError("Candidate overlay changed original group ownership.")
     original = [dict(u) for u in baseline]
     if not any(
         u["start_ms"] >= 0 or u.get("protected", False) for u in original
@@ -87,8 +100,8 @@ def recover_original_groups(baseline, views, length_ms, source_words):
             continue
         candidate = {
             **original[index],
-            "start_ms": views[0][index]["start_ms"],
-            "end_ms": views[0][index]["end_ms"],
+            "start_ms": clocks[index]["start_ms"],
+            "end_ms": clocks[index]["end_ms"],
         }
         trial = [candidate if n == index else u for n, u in enumerate(original)]
         timed = [u for u in trial if u["start_ms"] >= 0 or u.get("protected", False)]

@@ -13,7 +13,8 @@ repair and clamping. No model is downloaded by builds or checks.
 - GGML: `9be313313c8ecb9488911bd64550190e3ed80f38`, MIT, embedded Metal shaders.
 - Qwen3-ForcedAligner-0.6B Q8: OpenVoiceOS revision
   `efe4002aa7d567851883c05f9950c869debe8847`, Apache-2.0; model size and SHA-256
-  live in `src/study/alignment.rs`. The compatible quantized checkpoint was tested
+  live in `scripts/observe-native-word-bounds.py`; the default TIFA archive is a
+  separate model pinned in `src/study/alignment.rs`. The quantized checkpoint was tested
   directly. A similarly named, incompatible GGUF from another converter was rejected.
 
 Protocol v2 takes model path, mono 16 kHz little-endian float32 PCM path, and

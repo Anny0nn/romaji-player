@@ -30,6 +30,9 @@ def word_observations(logp, reference, vocabulary, targets):
             "mean_probability": 0.0,
             "minimum_phone_probability": 0.0,
             "greedy_agreement": 0.0,
+            "minimum_phone_greedy_agreement": 0.0,
+            "first_phone_greedy_agreement": 0.0,
+            "last_phone_greedy_agreement": 0.0,
         }
         for t in targets
     ]
@@ -69,6 +72,9 @@ def word_observations(logp, reference, vocabulary, targets):
             mean_probability=sum(probabilities) / len(probabilities),
             minimum_phone_probability=min(probabilities),
             greedy_agreement=sum(agreement) / len(agreement),
+            minimum_phone_greedy_agreement=min(agreement),
+            first_phone_greedy_agreement=agreement[0],
+            last_phone_greedy_agreement=agreement[-1],
         )
     return result
 

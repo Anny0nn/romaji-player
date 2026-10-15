@@ -17,6 +17,7 @@ from hubertfa_research import ROOT, ResearchAligner, assets, digest, private_pat
 
 sys.path[:0] = [str(ROOT / "refinement"), str(ROOT / "tifa")]
 from english_boundaries import paired_boundary
+from english_ctc_words import word_observations
 
 spec = importlib.util.spec_from_file_location(
     "boundary_probe", ROOT / "scripts/probe-english-boundaries.py"
@@ -40,6 +41,7 @@ def main():
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--hfa-models", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--observe-ctc", action="store_true")
     args = parser.parse_args()
     args.manifest, args.archive, args.hfa_models, args.output = map(
         private_path, (args.manifest, args.archive, args.hfa_models, args.output)
@@ -57,11 +59,13 @@ def main():
                 "scripts/prepare-paired-reference.py",
                 "scripts/probe-english-boundaries.py",
                 "scripts/hubertfa_research.py",
+                "scripts/english_ctc_words.py",
                 "refinement/english_boundaries.py",
                 "tifa/tifa_helper.py",
             )
         },
         "mask_source": "paired independently observed original-audio boundaries; no human boundary input",
+        "observe_ctc": args.observe_ctc,
     }
     tifa = Aligner(prepare_model(args.archive))
     hfa = ResearchAligner(args.hfa_models, "mps")
@@ -81,14 +85,21 @@ def main():
         clocks = [
             {"raw_span": t["raw_span"], "start_ms": -1, "end_ms": -1} for t in targets
         ]
-        raw, envelopes = [], []
+        raw, envelopes, ctc_words = [], [], []
         if pronunciation:
             aliases, reference = pronunciation
             with contextlib.redirect_stdout(io.StringIO()):
                 tifa.align(samples, targets, diagnostics=raw, phonetic_aliases=aliases)
+            matrices = []
             phones, _ = hfa.infer(
-                resample_poly(samples, 441, 160).astype(np.float32), reference
+                resample_poly(samples, 441, 160).astype(np.float32),
+                reference,
+                ctc_observer=matrices.append if args.observe_ctc else None,
             )
+            if args.observe_ctc:
+                ctc_words = word_observations(
+                    matrices[0], reference, hfa.vocab["vocab"], targets
+                )
             envelopes = probe.whole_word_envelopes(reference, phones, targets)
             clocks = [
                 paired_boundary(a, b, len(samples) / 16) or empty
@@ -102,7 +113,13 @@ def main():
             }
         )
         records.append(
-            {"id": case["id"], "tifa": raw, "hfa": envelopes, "paired": clocks}
+            {
+                "id": case["id"],
+                "tifa": raw,
+                "hfa": envelopes,
+                "paired": clocks,
+                "ctc_words": ctc_words,
+            }
         )
     (args.output / "private-observations.json").write_text(
         json.dumps(
