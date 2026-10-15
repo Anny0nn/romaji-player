@@ -567,6 +567,53 @@ accuracy checks before integration; these are not shipped gains.
   --baseline "$PJS_BASELINE" --pjs "$PJS_CORPUS" --output "$PRIVATE_OUTPUT"
 ```
 
+## Japanese-specific speech recognizer pilot (2026-10-15)
+
+[ReazonSpeech NeMo v2](https://huggingface.co/reazon-research/reazonspeech-nemo-v2)
+tests a different acoustic model: a Japanese FastConformer/RNN-T recognizer rather
+than another Whisper/Qwen setting. Its published evidence is for speech, not singing.
+The private pilot uses the Apache-2.0
+[Q8 conversion](https://huggingface.co/sakasegawa/reazonspeech-nemo-v2-GGUF/tree/ed04d9ee2cd156414982a7c0f6123c6fd1093904)
+through MIT [speech.cpp v0.8.4](https://github.com/nyosegawa/speech.cpp/tree/d23c49f3233375e3ad4944c880807790b7f490be).
+`scripts/reazon-singing-files.json` pins the complete 660,910,656-byte artifact,
+SHA-256, immutable source/model revisions and ggml submodule. No weights, cloned
+source or new app runtime are committed.
+
+Twenty clips are fixed before inference: the eighteen earlier native-source Kim
+cues and two earlier high-gap 嘘 cues. They contain **169 original groups /81 gaps**
+and 93.23 seconds of audio. Exact authenticated samples are wrapped as 16 kHz mono
+float WAVs; their hashes and original Rust crop owners remain recorded. The CLI
+receives only local model/audio paths, explicit Metal/four-thread settings and JSON
+output. No model alias, source text, prompt, detection model or microphone is used.
+
+Greedy decoding completes in 22.7 seconds, including 20.8 seconds first loading;
+its twenty recognitions take 1.83 seconds. Beam decoding on the same clips completes
+in 2.58 seconds, including a 0.21-second load with the shader cache warm; inference
+takes 2.34 seconds. The load difference is not a decoder speed claim. Peak process
+RSS is 876 MB greedy /847 MB beam; the separate macOS footprint readings are
+770/769 MB. These are measured M2 Pro results, not the converter's published M5
+speech benchmark extrapolated to singing.
+
+The CLI's JSON exposes transcript text and stop reason but no actual token
+probabilities. Decoder-emission timestamps are not used as word clocks. Literal
+unique source matches offer six missing-group opportunities with greedy and eight
+with beam. Converting closed transcripts with the pinned reading helper, without
+song defaults, and requiring complete unique phonetic context gives **seven**
+opportunities with either decoder: one on TEENAGE CITY RIOT and six on 嘘. These
+sets overlap; they are not retained or verified additions. Two greedy clips are
+empty, versus one beam clip. A decoded kanji's dictionary reading is not independent
+evidence for choosing a sung reading. No new timings, reading edits or app data are
+saved. This bounded pilot does not justify a full-song sweep or promotion.
+
+For reproduction, build the pinned external runtime privately with CMake and the
+existing Apple toolchain, verify the model bytes against the manifest, then run:
+
+```sh
+"$PRIVATE_SPEECH" asr "$VERIFIED_REAZON_GGUF" --device gpu --threads 4 \
+  --decoding greedy --format json "$PRIVATE_CLIP_WAV" > "$PRIVATE_RESULT" 2> "$PRIVATE_LOG"
+# Repeat on the identical files with --decoding beam and fresh output paths.
+```
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue

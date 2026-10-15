@@ -323,6 +323,15 @@ count. Preserve these nulls and continue with a different acoustic recognizer or
 source-correspondence hypothesis; do not expand these unchanged recipes merely to
 accumulate more proposals.
 
+The next different acoustic candidate is Japanese-specific
+[ReazonSpeech NeMo v2](https://huggingface.co/reazon-research/reazonspeech-nemo-v2),
+using a pinned private speech.cpp Metal runtime and Q8 checkpoint. Its twenty-clip
+greedy/beam comparison finds only seven phonetic opportunities among 81 gaps with
+either decoder, and its public JSON has no word probabilities. Keep the artifact
+pins and benchmark in the evaluation; do not integrate its transcript or emission
+times as verified lyric/timing corrections. The substantial integration target
+remains open.
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,

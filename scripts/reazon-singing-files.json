@@ -1,0 +1,33 @@
+{
+  "repo": "sakasegawa/reazonspeech-nemo-v2-GGUF",
+  "revision": "ed04d9ee2cd156414982a7c0f6123c6fd1093904",
+  "license": "Apache-2.0",
+  "files": {
+    "reazonspeech-nemo-619M-v2-Q8_0.gguf": {
+      "size": 660910656,
+      "sha256": "944411cb740938f858c939aa1d42f7eb4bb884fc350d9daae8b7e724853e54a3"
+    }
+  },
+  "runtime": {
+    "repo": "https://github.com/nyosegawa/speech.cpp",
+    "revision": "d23c49f3233375e3ad4944c880807790b7f490be",
+    "release": "v0.8.4",
+    "license": "MIT",
+    "ggml_revision": "1d73413d60fd74538099958600ca111856473e59"
+  },
+  "upstream_checkpoint_from_gguf_metadata": {
+    "repo": "reazon-research/reazonspeech-nemo-v2",
+    "revision": "33693408be76b7cba9fd4a7546a0a8772430211b"
+  },
+  "research_contract": {
+    "architecture": "FastConformer encoder and RNN-T decoder",
+    "sample_rate": 16000,
+    "device": "Metal",
+    "threads": 4,
+    "decoders": ["greedy", "beam"],
+    "input": "authenticated local audio only; no lyric prompt",
+    "json_word_probabilities_available": false,
+    "supplies_accepted_word_timestamps": false,
+    "promoted": false
+  }
+}
