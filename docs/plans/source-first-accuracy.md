@@ -195,6 +195,16 @@ rejected, not a baseline to rescue by opening held-out data.
 
 ## Steps
 
+The next reading trial compares explicit kana minimal pairs on otherwise identical
+cues, rather than re-reading an ASR-produced kanji string. Use real/silence/other-verse
+contrasts for both the owned word and complete cue so a candidate cannot absorb its
+neighbor unnoticed. These remain research nominations: test localized acoustic
+dependence and independent reading evidence before any correction. Keep model
+features cached without changing scores. English work also tests a genuinely new
+source-blind CTC recognizer; CTC spikes supply lexical location, never word offsets.
+The latest SOFA/MFA and pitch-transform limitations are recorded in the evaluation;
+none authorizes relaxing the integration gates or changing saved results.
+
 1. **Cache and trace.** Build the reviewed evidence/probe tools, authenticate existing
    inputs, and collect only missing caches for the frozen ten. Publish the restriction
    breakdown before choosing longer model trials. Fix exact mapping defects with fixtures.

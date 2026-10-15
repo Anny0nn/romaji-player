@@ -957,6 +957,134 @@ MLX allocation is **10.23 GB**, but inference peak memory was not sampled. This 
 latency ceiling, not evidence of inaccurate recognition, an out-of-memory failure or
 paging. No words or timings are inferred from that incomplete test.
 
+## Kana minimal pairs instead of a second kanji dictionary
+
+The next reading experiment supplies explicit kana alternatives to the already
+pinned Whisper large-v3 model. Every hypothesis replaces exactly one original
+Japanese group in an otherwise unchanged kana cue. Real audio, silence and a
+different verse use identical decoder tokens. Full-vocabulary token likelihoods
+retain exact UTF-8/BPE ownership; a token crossing the target boundary withholds
+the comparison. This is conditioned evidence, not free transcription or a
+calibrated probability that a reading is correct.
+
+The three previously verified examples form an opened calibration set: departure!'s
+地球 → ほし, and Tabi's 闇夜 → やみよ and 行こう → ゆこう. Fourteen candidate
+readings include dictionary readings and fixed incorrect alternatives. All three
+sung readings win both real-minus-silence and real-minus-other-verse comparisons.
+The 42 observations take **24.5 seconds** after loading. Reusing identical encoder
+features gives bit-identical scores in **7.9 seconds**, with **3.95 GB** peak MLX
+allocation. These examples were already corrected; they add no new saved coverage.
+
+An eighteen-cue trial covers **72 original kanji groups** and **427 hypotheses**,
+including the current reading. The first run takes **126.4 seconds** after loading,
+with **4.04 GB** peak MLX allocation and **1.49 GB** process RSS. Six cues initially
+lack a distinct same-length wrong-verse control. A frozen supplement supplies 28
+unique controls from other authenticated recordings, excluding the target word,
+line and canonical kana. Only the missing **166** conditions are run, taking
+**31.0 seconds**; the original real/silence observations remain unchanged.
+
+Target-token scoring exposes a new failure: an alternative can absorb the next
+word while receiving a high score for its own tokens. For example, a proposed
+あまの for the original 天 is followed by a separately owned の. Whole-cue
+scoring prefers あま in that case, although its margin remains too small. The new
+`kana_reading_contrast.py` therefore requires the same winner for both the owned
+word and the complete cue, against both audio controls. Its exploratory ln(10)
+margin remains uncalibrated and produces nominations only.
+
+| Complete 72-group replay outcome         | Groups |
+| ---------------------------------------- | -----: |
+| Current reading passes the contrast rule |     29 |
+| Alternative nominated for further checks |      3 |
+| Contrast too weak                        |     15 |
+| Word/cue or audio-control winners differ |     14 |
+| At least one competitor has unowned BPE  |      8 |
+| No distinct alternative                  |      3 |
+
+The three alternative nominations are not three verified fixes. A separate Qwen
+conditional check does not strongly corroborate the first unknown reading; another
+nomination may reflect a voiced/unvoiced consonant error. No edits or timings are
+saved. Local acoustic masking and independent pronunciation checks remain necessary.
+
+`evaluate-reading-contrasts.py` authenticates closed observation files, the original
+Rust source/snapshot/crop and every competitor's unchanged surrounding text and
+waveform. A supplement can add only an absent condition, using the same model and
+source scorer. Per-word reports stay outside Git. The replay performs no inference
+and never reads reference labels or writes app data:
+
+```sh
+.venv/bin/python scripts/evaluate-reading-contrasts.py \
+  "$PRIVATE_READING_MANIFEST" "$CLOSED_READING_OBSERVATIONS" \
+  --supplement-manifest "$PRIVATE_MISSING_CONTROL_MANIFEST" \
+  --supplement-observations "$CLOSED_MISSING_CONTROLS" \
+  --output "$FRESH_PRIVATE_READING_REPLAY"
+```
+
+Omit both supplement arguments for a fully controlled original run. The replay
+reproduces all three calibration nominations and the 72-group table above.
+
+## Further independent acoustic comparisons
+
+A new English CTC family, [Parakeet CTC 1.1B](https://huggingface.co/mlx-community/parakeet-ctc-1.1b),
+closes **214 source-blind views**: 172 context views and 42 negative-control views.
+Its frame spikes locate lexical evidence only; they never supply a word's offset.
+The fixed-context replay reproduces the earlier sixteen Qwen proposals before
+adding two groups, both on Wild Side, with zero lost or moved intervals. Requiring
+cross-family Qwen/CTC agreement adds zero. The negative replay admits zero of 143
+targets, but 105 Japanese targets are structurally unsupported; the 38 English or
+mixed targets must remain a separate denominator. This is not an app promotion.
+
+An English MFA comparison closes 230 mix/vocal cue views across six songs in
+**30.5 seconds**. Eleven missing exports are explicit abstentions. Joining fresh
+TIFA and adapted MFA intervals yields fourteen physical pairs; lexical and original
+interval checks leave three proposals, two already in the earlier sixteen. The
+single additional source group does not establish the required multi-song gain.
+
+The official [Japanese MFA model](https://huggingface.co/MontrealCorpusTools/japanese_mfa/tree/da71f868eaf4f4ebbf4b1941031df192d9e498de)
+adds a different speech-trained duration family. On the opened PJS development
+set, 238/390 reference groups have an exact supported phone mapping; 214 supply
+valid intervals. Fresh TIFA/MFA agreement retains **148/390**, all 148 within the
+human endpoint tolerances. This checks a limited supported subset; TIFA already
+has 389/390 correct and is not improved. On 41 native-source and 嘘 cues, the model
+adds no original gap under the existing checks.
+
+That comparison also identifies six disagreements with saved automatic clocks.
+An independent provenance audit finds no user edits or provider word timings in
+those six records. A private solver tests replacement regions of at most four
+groups, with fresh paired boundaries, exact source ownership, complete order and
+unchanged supported outer anchors. Only one region passes; five remain withheld.
+On the opened references it moves no correct PJS or Jamendo interval and adds no
+error. The one unlabelled-song proposal is a possible timing repair, not measured
+correctness or a completeness gain.
+
+The approved English [SOFA combined checkpoint](https://huggingface.co/Silasimo/SOFA-combined/tree/4a86e84a2c0275a00c06152b9a6fa9bcf1ae52fc)
+is a distinct mel/UNet singing model. Its complete state, 39-phone inventory,
+44.1 kHz frontend and 128-sample output grid are verified. Unmasked phone/edge/CTC
+outputs close before any supplied phone sequence or reference clocks are read.
+Weights remain private; their CC BY-NC-SA terms are not a new app dependency.
+
+| SOFA input; same 96 Jamendo reference words | Clocks within 150 ms onset /200 ms offset |
+| ------------------------------------------- | ----------------------------------------: |
+| Original short mixed clips                  |                                     41/96 |
+| Mixed audio with real context               |                                     45/96 |
+| Isolated vocals with the same context       |                                     44/96 |
+
+The context runs preserve the exact focal frame phase and use at least six seconds
+of real audio on each side. They take **7.3 seconds** and **3.9 seconds** respectively
+after loading. Isolated vocals improve some boundary-error medians but fail to
+improve the acceptance rule: the Qwen/TIFA/SOFA gate has 30 correct clocks among
+39 admitted, versus the historical Qwen/TIFA/HFA 49/52. Neither longer context nor
+vocal isolation makes this checkpoint suitable for integration.
+
+A separate four-cue speech-projection pilot changes pitch without changing the
+model. Rubber Band R3 preserves formants while lowering register by seven semitones.
+Source-blind Japanese Whisper runs on the originals and transformed vocals. Across
+three kana-only cues, pronunciation-normalized text edit distance changes from
+73/94 to 74/94; the fourth mixed cue is empty in both conditions. A net extra short
+word is offset by losses elsewhere, with no recovered multiword content block.
+Cutlet-derived text phones are diagnostic references, not acoustic gold. All
+transformed timestamps are unusable. The next bounded factor changes F0 contour
+variance while preserving median register; it does not repeat the failed shift.
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue
