@@ -140,6 +140,34 @@ keys/shapes and the 44.1 kHz /10 ms output clock before running NUS development 
 Its conditional path confidence does not verify spelling. Keep weights research-only;
 measure CPU and MPS rather than assuming upstream supports Metal.
 
+The next English comparison separates lexical verification from word boundaries.
+Use source-blind Whisper on original mix and vocals to confirm unique multiword runs
+with probability at least 0.70, preserving its audio-occurrence check. TIFA and
+HubertFA must separately observe both boundaries within 150 ms; keep TIFA's 0.90
+agreement, positive similarity and 80 ms duration rules. Do not treat HubertFA's
+conditional score as recognition confidence. On the opened development reference,
+the boundary pair retains 31/37 word envelopes with 31 correct; lexical verification
+and wrong-target tests remain prerequisites. Compare original cue recognition against
+up-to-30-second unions of complete Rust crops, with unchanged timing-job bounds.
+
+Keep recognition statistics typed: Whisper word confidence and an acoustic CTC
+phone probability are different measurements. The exploratory HubertFA CTC path
+requires every phone to reach 0.45 unmasked probability, 0.90 greedy agreement,
+and an adjacent supported word in each actual audio view. Its CTC and alignment
+heads share an encoder. The first development test accepts three correct groups
+and rejects 111 wrong-phone controls, but the commercial trial adds zero groups.
+It is not an integration candidate or a calibrated universal probability rule.
+
+Test the released [MOSS-Music singing recognizer](https://github.com/OpenMOSS/MOSS-Music)
+through an isolated, pinned MLX runtime. The 4-bit checkpoint is about 6 GB; require
+strict complete weight loading and a local tokenizer without custom remote code.
+Use audio-only transcription, keep text as an unverified proposal, and never use
+generative timestamps as word clocks. Measure M2 memory and processing time.
+The first four-clip pilot and two-clip prompt diagnostic both repeat and exhaust
+their token limits. Reject that path unless a reproducible inference change fixes
+it; larger precision is not itself a fix. A bounded speech-ASR challenger may still
+test fast English recognition, without assuming singing accuracy from speech scores.
+
 [SingAlign](https://huggingface.co/pymaster/SingAlign) is a possible singing-trained
 English phoneme path only if its encoder/head/vocabulary/frame-clock contract can be
 recovered and pinned. Its linked source currently returns 404. Search official renamed
@@ -215,6 +243,13 @@ rejected, not a baseline to rescue by opening held-out data.
   words or app recipe are promoted.
 - The reviewed romaji parser and bounded region probe ran 29 fresh local trials on
   嘘, producing zero additions beyond the earlier one-word full-window proposal.
+- English recognition on 172 context views finds 47 missing groups with evidence
+  in both views. Paired TIFA/HubertFA retains eight proposals; a complete CMU G2P
+  fallback raises that to eleven across three songs, with zero losses or moves.
+  These are research proposals, not shipped coverage.
+- The phone-recognition gate adds zero groups across 189 commercial cues. MOSS
+  fits the M2 memory target but repeats. Keep those failures visible and pursue
+  a changed recognition/verification approach instead of relaxing the gates.
 - The substantial multi-song target remains unmet. Continue the lexical verification,
   sung-reading and anchor work on this same draft PR. Results and reproduction are
   recorded in [the evaluation](../study-source-accuracy-evaluation.md).

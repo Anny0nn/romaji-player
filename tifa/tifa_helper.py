@@ -221,19 +221,25 @@ class Aligner:
             if language is None:
                 continue
             if phonetic_aliases and phonetic_aliases.get(index):
+                alias = phonetic_aliases[index]
+                alias_language, phones = (
+                    (alias.get("language"), alias.get("phones"))
+                    if isinstance(alias, dict)
+                    else ("ja", alias)
+                )
+                if (
+                    alias_language not in ("ja", "en")
+                    or not isinstance(phones, list)
+                    or not phones
+                    or len(phones) > 256
+                    or any(not isinstance(phone, str) or not phone for phone in phones)
+                ):
+                    raise ValueError("Invalid explicit pronunciation hypothesis.")
                 word = G2PWord(
                     text=text,
-                    language="ja",
+                    language=alias_language,
                     readings=[
-                        G2PReading(
-                            paths=[
-                                [
-                                    G2PGroup(
-                                        script=text, phonemes=phonetic_aliases[index]
-                                    )
-                                ]
-                            ]
-                        )
+                        G2PReading(paths=[[G2PGroup(script=text, phonemes=phones)]])
                     ],
                 )
                 try:

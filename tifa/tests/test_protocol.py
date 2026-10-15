@@ -148,6 +148,31 @@ def test_phonetic_alias_keeps_one_source_word_and_rejects_unknown_phone():
         aligner.words(targets, phonetic_aliases={1: ["a"]})
 
 
+def test_explicit_english_phone_hypothesis_keeps_language_inventory_and_source_owner():
+    from lib.vocabulary import Vocabulary
+
+    aligner = Aligner.__new__(Aligner)
+    aligner.vocabulary = Vocabulary(symbol_to_id={"en/k": 3, "en/aa": 4, "ja/a": 5})
+    aligner.converters = {}
+    targets = [{"text": "word", "romaji": "word", "raw_span": [8, 12]}]
+    words, indices = aligner.words(
+        targets, phonetic_aliases={0: {"language": "en", "phones": ["k", "aa"]}}
+    )
+    assert indices == [0] and len(words) == 1
+    assert words[0].language == "en"
+    assert [g.phonemes for g in words[0].readings[0].paths[0]] == [["k", "aa"]]
+    assert aligner.words(
+        targets, phonetic_aliases={0: {"language": "en", "phones": ["a"]}}
+    ) == ([], [])
+    for alias in (
+        {"language": "xx", "phones": ["k"]},
+        {"language": "en", "phones": "aa"},
+        {"language": "en", "phones": [False]},
+    ):
+        with pytest.raises(ValueError, match="hypothesis"):
+            aligner.words(targets, phonetic_aliases={0: alias})
+
+
 def test_vowel_fallback_never_rewrites_valid_digraphs_or_guesses_other_kana():
     assert (
         vowel_extensions("あぁぁ いぃ うぅ えぇ おぉ アァ")

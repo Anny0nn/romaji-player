@@ -125,6 +125,117 @@ preserves complete original group ownership and refuses actual overlap rather th
 trimming timestamps. Eight offline tests cover these cases. It remains a research
 tool pending labelled, wrong-window and commercial evaluation.
 
+## Recognition and boundary agreement
+
+The new collector authenticates the frozen Rust jobs, source snapshots, recordings,
+model manifests and stems. It reuses three stems and collects the other four low-set
+stems without re-recording. Audio contexts union complete Rust crops, stay at most
+30 seconds, and are chosen before recognition. They never supply word clocks.
+
+Source-blind Whisper large-v3 recognizes 172 mix/vocal context views with `language=en`,
+no lyric prompt and no previous-text conditioning. Source-bearing reconciliation lives
+separately outside Git. Each candidate needs a unique exact multiword match and at
+least 0.70 confidence in both views. Its observed midpoint checks occurrence inside
+the original cue; Whisper endpoints are never copied, clipped or rescaled.
+
+Fresh TIFA and HubertFA must observe both boundaries within 150 ms. TIFA still needs
+positive similarity, 0.90 agreement and 80 ms duration; its actual interval is retained.
+The known-phone ADIZ development comparison retains **31/37 envelopes, all 31 correct**
+within the labelled limits. TIFA alone retains 35/37, all 35 correct. This tests boundaries
+for supplied correct phones, not spelling. The pair's descriptive Wilson interval is
+89.0–100%, so it does not certify 98% correctness across songs.
+
+| Frozen song                        | Gaps recognized in both views | Dictionary proposals | CMU fallback proposals |
+| ---------------------------------- | ----------------------------: | -------------------: | ---------------------: |
+| Just Awake                         |                             0 |                    0 |                      0 |
+| Wild Side                          |                            16 |                    0 |                      3 |
+| Kyouran Hey Kids!!                 |                             0 |                    0 |                      0 |
+| TEENAGE CITY RIOT                  |                            10 |                    1 |                      1 |
+| LOST IN PARADISE                   |                            19 |                    7 |                      7 |
+| 嘘                                 |                             2 |                    0 |                      0 |
+| 天天天国地獄国                     |                             0 |                    0 |                      0 |
+| たぶん / CROW / 残酷な天使のテーゼ |                             0 |                    0 |                      0 |
+| Total                              |                            47 |                    8 |                     11 |
+
+Latin script does not establish English: the two recognized 嘘 groups obtain no new
+timing. This first boundary runner withholds mixed cues. Extended dictionary phones
+`ax`, `dx` and `_r` initially block whole cues; the CMU fallback predicts a complete
+alternative with the existing LSTM converter. It does not substitute unknown phones,
+remove groups or change lyrics. Every alternative still needs both observed boundaries
+and both lexical views.
+
+The dictionary trial takes 7.9 seconds after loading, with 0.75 GB lifetime RSS; the
+CMU fallback takes 8.6 seconds, with 1.13 GB. Eleven proposals would give 2,221/2,927
+(75.9%), with zero losses/moves. **Saved app coverage remains 2,210/2,927.** Full accuracy
+and negative checks are still pending; these counts are not listening-verified completeness.
+
+The reproducible sequence is `cache-capped-singing.py`, `transcribe-timing-crops.py`,
+`probe-context-english.py`, then `probe-english-boundaries.py --pronunciation cmu-fallback`.
+Their `--help` lists private manifests/cache paths. Completed observations bind source,
+audio, recipe and record hashes; changed identities or silent overwrites are refused.
+
+## Singing CTC pronunciation veto
+
+The HubertFA adapter exposes its unmasked audio-only CTC probabilities through an
+optional observer. No supplied-phone mask influences that head. It shares an encoder
+with the alignment head, so those heads are correlated evidence. Its statistics stay
+separate from Whisper's word-confidence statistic.
+
+The exploratory gate requires every phone's probability at least 0.45, greedy agreement
+at least 0.90, an adjacent qualifying word and paired TIFA/HubertFA endpoints. On opened
+ADIZ development material, **3/37 words qualify, all three with correct boundaries**.
+The CTC veto rejects 111 fixed wrong-phone substitutions. Those are pronunciation
+controls, separate from the 143 wrong-window/verse integration controls. There is no
+orthographic gold and JLEE remains unopened. The three-word descriptive Wilson interval
+is 43.9–100%; this does not establish a generally calibrated acceptance rule.
+
+Across 189 whole-English commercial cues, the boundary pair finds 137 missing candidates
+but the complete dual-view CTC gate adds **zero**. Existing intervals remain unchanged.
+The run takes 63.3 seconds with 1.89 GB lifetime RSS. This rejects the first CTC recipe;
+it does not justify bypassing pronunciation verification. `benchmark-english-ctc.py`
+records the development/control comparison, while `--lexical-mode singing-ctc` selects
+the private commercial probe. Neither writes app data.
+
+## MOSS-Music singing transcription pilot
+
+[MOSS-Music](https://github.com/OpenMOSS/MOSS-Music) is a different singing-specific
+recognizer. The research bootstrap pins the community
+[4-bit checkpoint](https://huggingface.co/mlx-community/MOSS-Music-8B-Thinking-4bit/tree/b14123a419b6254b92d9e55b8a5b6f7285e05c70)
+and [MLX runtime](https://github.com/Blaizzy/mlx-audio/tree/70f4add32911bab6f869b824864ad9f1e24dcb97).
+Weights are Apache-2.0; runtime source is MIT. `scripts/moss-model-files.json` records
+every model artifact, the runtime archive and three Apple Silicon Python 3.14 dependency
+wheels. They are installed privately, without changing the app's locked dependencies.
+Offline inference verifies files/source, requires `strict=True` and rejects remote
+tokenizer code. Generated text is an unverified proposal; timestamps are not word clocks.
+
+The pilot picks a difficult context each from Just Awake and Wild Side using baseline
+missing-group counts, then transcribes mix and vocals without lyric input. All four
+22.0–29.5-second clips exhaust 1,024 tokens with repetitive output. Loading takes
+12.1 seconds; clips take 36.0–53.1 seconds. Largest MLX peak is 6.73 GB; process RSS is
+1.19 GB. Those accounting measures overlap and are not added or called total unified
+memory. The 6.02 GB checkpoint download/verification takes 329 seconds.
+
+A second diagnostic uses the official timestamp-transcription task in a full chat
+prompt with an empty thinking suffix. Both identical Just Awake contexts exhaust
+256 tokens again. It takes 25.4 seconds including loading, with 6.61 GB MLX peak.
+No generated text or timestamp is accepted as a correction.
+
+[Upstream reports similar repetition](https://github.com/OpenMOSS/MOSS-Music/issues/1)
+and says its Hugging Face path was fixed; no confirmed corresponding MLX fix was found.
+The [separate MLX port](https://github.com/OpenMOSS/MOSS-Music/pull/3) calls 4-bit/6-bit
+execution unverified. This does not prove quantization caused the result or justify
+a 10.2 GB 8-bit download. Reject the tested path until a concrete inference change
+merits another bounded pilot. Local loading success does not establish singing accuracy.
+
+```sh
+.venv-experimental/bin/python scripts/fetch-singing-research.py \
+  --output /private/tmp/romaji-moss-research
+.venv-experimental/bin/python scripts/transcribe-singing-crops.py \
+  /private/tmp/romaji-private/audio-only-pilot.json \
+  --asset-directory /private/tmp/romaji-moss-research \
+  --output /private/tmp/romaji-moss-pilot
+```
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue

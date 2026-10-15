@@ -246,7 +246,7 @@ class ResearchAligner:
             raise ValueError("Changed encoder feature clock.")
         self.decoder = decoder_class(source)(self.vocab, 44100, 441)
 
-    def infer(self, waveform, reference):
+    def infer(self, waveform, reference, *, ctc_observer=None):
         import numpy as np
         import torch
         from scipy.signal import resample_poly
@@ -284,6 +284,10 @@ class ResearchAligner:
             )
             frame, edge, ctc = self.head(units, power[None, None, :])
         frame, edge, ctc = (x.float().cpu().numpy() for x in (frame, edge, ctc))
+        if ctc_observer is not None:
+            # This head is unconstrained audio recognition. The optional consumer
+            # receives original log probabilities, not a supplied-phone mask.
+            ctc_observer((ctc[0] - np.logaddexp.reduce(ctc[0], axis=0)).T)
         result = [
             {**row, "start_ms": -1, "end_ms": -1, "mean_probability": 0.0}
             for row in reference
