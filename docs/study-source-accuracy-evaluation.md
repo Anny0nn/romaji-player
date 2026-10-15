@@ -386,7 +386,8 @@ delimiters; normalized character error is 159/349 (45.6%). Absence of spaces alo
 is not proof of failed recognition. The secondary stream is blank on these clips.
 Complete literal-word forced paths give 68/96 correct boundaries on the mix and
 77/96 on Kim-isolated vocals. A 0.45 confidence requirement plus TIFA agreement
-retains 41/36 correct on the mix and 44/39 on vocals, so neither is promoted.
+retains 41 words with 36 correct on the mix and 44 with 39 correct on vocals,
+so neither is promoted.
 `prepare-reference-vocals.py` creates the position-preserving vocal comparison from
 the pinned recordings without using reference boundaries in separation.
 
@@ -399,6 +400,48 @@ overlay leaves five source-script proposals versus four selected-reading proposa
 This is a representation diagnostic, not independent verification or evidence that
 kanji input solves the remaining coverage problem. `source_script_probe.py` keeps
 original UTF-8 spans and spelling, including punctuation, without merging groups.
+
+## Partial-source and joint-window trials (2026-10-15)
+
+A different decoder now allows an entire unmatched source word to remain unplaced
+and consumes unrelated audio without assigning it to lyrics. It retains ordinary
+CTC repeat/blank rules inside words, complete phone ownership and original frame
+clocks. A mora cannot be divided between source words. The deletion margin compares
+actual path scores with the word disabled; it is not a calibrated probability.
+This is an experimental extension inspired by
+[CTC segmentation](https://github.com/lumaku/ctc-segmentation), rather than a claim
+that the upstream implementation solves lyric mismatches.
+
+`benchmark-partial-singing.py` reuses the closed PJS development posteriors and
+closes observations before reading human clocks. Across the original 390 groups
+and 62 recordings, 388 receive an envelope but only **226 are joint-correct**.
+The predeclared probability /duration /margin /adjacency gate retains 164, only
+99 correct. Keeping an existing TIFA clock and requiring both endpoints to agree
+within 150 ms gives 75, of which 74 are correct. The 12.8-second cached trial
+rejects this decoder as a standalone clock; no saved timings change.
+
+On the same 18 commercial Japanese-gap cues, the fresh TIFA comparison adds one
+proposal with the forced verifier and two with the partial verifier, with zero
+lost/moved intervals. That is **one incremental proposal**, not a substantive
+recipe. `probe-partial-source.py` records both methods on identical samples;
+none of these observations is promoted.
+
+A separate joint-window experiment selects one previously authenticated context
+per low song by baseline gap count before inference. It covers **479 original
+source groups, including 218 gaps**, across seven 22.0–29.9-second windows. The
+same word groups retain their occurrence and UTF-8 identities when neighboring
+cues are joined. Returned clocks reattach by exact owners and sample offsets;
+unplaced words stay unplaced. Repeated text is not matched by string search.
+
+Native Qwen forced alignment takes 20.2 seconds for 14 mix/vocal views and returns
+658 valid intervals across both views. TIFA takes 6.8 seconds including loading
+and retains 550 across both views. Source-blind Qwen recognition reuses the two
+identical earlier Just Awake observations and runs only the twelve new views;
+two exhaust their token budget and are withheld. The independent native/TIFA
+boundary pair plus dual-view lexical/context checks adds **zero** words and
+loses/moves zero. Larger context alone does not solve the frozen subset.
+`joint_source_windows.py` and its regression fixtures protect repeated-line
+ownership, crop bounds, Unicode and negative crop-relative saved starts.
 
 ## Remaining work
 

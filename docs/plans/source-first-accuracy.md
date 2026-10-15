@@ -282,6 +282,24 @@ rejected, not a baseline to rescue by opening held-out data.
   occurrence-specific clocks. Compare it with isolated cues before expanding the run;
   shared-model agreement alone never authorizes a new saved word.
 
+## Next bounded comparison (2026-10-15)
+
+The deletion-aware and neighboring-cue pilots do not meet the gain target. Keep
+them as measured research tools; neither changes the app. Test the dedicated
+Japanese-singing [SOFA akm_ja release](https://github.com/ariikamusic/SOFA_Models/releases/tag/akm_ja_v001)
+as a different acoustic surface. Pin the released checkpoint and matching
+inference source, validate the complete state, phone inventory, mel preprocessing
+and output clock, and measure a small CPU pilot before expanding. Its selected-path
+confidence is conditional and must not be called independent lexical probability.
+Keep raw observations, require complete original word ownership and compare with
+fresh independent boundaries. This does not waive existing promotion gates.
+
+The model owner lists PJS in training. PJS may check this adapter's contract but
+cannot establish independent accuracy for this checkpoint. Keep unknown weight
+redistribution terms explicit and weights private; an integration decision needs
+appropriate independent evidence. Do not ask the maintainer for labels or accounts
+as a prerequisite to continuing the other experiments.
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,

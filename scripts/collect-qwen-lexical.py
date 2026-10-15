@@ -22,6 +22,11 @@ def main():
     parser.add_argument("--observations", type=Path, required=True)
     parser.add_argument("--model-directory", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--subset",
+        action="store_true",
+        help="Select exact crops from a larger, closed recognition run without rerunning it.",
+    )
     args = parser.parse_args()
     args.manifest, args.observations, args.model_directory, args.output = map(
         private_path,
@@ -60,9 +65,13 @@ def main():
         ):
             raise ValueError("Changed/duplicate Qwen observation ownership.")
         observed[row["id"]] = row
-    if len(manifest["cases"]) != len(observed) or set(observed) != {
-        c["id"] for c in manifest["cases"]
-    }:
+    selected = {c["id"] for c in manifest["cases"]}
+    if (
+        len(selected) != len(manifest["cases"])
+        or not selected <= set(observed)
+        or not args.subset
+        and selected != set(observed)
+    ):
         raise ValueError("Incomplete or duplicate source candidate set.")
     counts, records = Counter(), []
     for case in manifest["cases"]:
@@ -116,6 +125,7 @@ def main():
         "minimum_unique_matching_block": 2,
         "supplies_word_timestamps": False,
         "language_routing_is_not_gold": True,
+        "excluded_closed_observations": len(observed) - len(selected),
     }
     os.umask(0o077)
     args.output.mkdir(mode=0o700, parents=True, exist_ok=False)
