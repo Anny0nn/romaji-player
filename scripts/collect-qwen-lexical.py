@@ -11,12 +11,49 @@ from collections import Counter
 from pathlib import Path
 
 from hubertfa_research import ROOT, digest, private_path
-from qwen_lexical import decoder_words, exact_matches
+from qwen_lexical import exact_matches, recognition_words
+
+
+def closed_observations(folder, model_directory):
+    """Authenticate a closed audio-only run and its exact tokenizer assets."""
+    from transformers import AutoTokenizer
+
+    identity = json.loads((folder / "identity.json").read_text())
+    complete = json.loads((folder / "complete.json").read_text())
+    pin = json.loads((ROOT / "scripts/qwen-singing-files.json").read_text())
+    if (
+        identity["assets"] != pin
+        or identity["source_prompt"] is not None
+        or identity["do_sample"] is not False
+        or complete["identity_sha256"] != digest(folder / "identity.json")
+    ):
+        raise ValueError("Expected completed source-blind pinned Qwen observations.")
+    for name, expected in pin["files"].items():
+        path = model_directory / name
+        if (
+            path.stat().st_size != expected["size"]
+            or digest(path) != expected["sha256"]
+        ):
+            raise ValueError("Changed pinned tokenizer/model assets.")
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_directory, local_files_only=True, trust_remote_code=False
+    )
+    observed = {}
+    for entry in complete["records"]:
+        path = folder / entry["file"]
+        if Path(entry["file"]).name != entry["file"] or digest(path) != entry["sha256"]:
+            raise ValueError("Changed closed recognition record.")
+        row = json.loads(path.read_text())
+        if (
+            row["identity_sha256"] != complete["identity_sha256"]
+            or row["id"] in observed
+        ):
+            raise ValueError("Changed/duplicate Qwen observation ownership.")
+        observed[row["id"]] = row
+    return identity, observed, tokenizer
 
 
 def main():
-    from transformers import AutoTokenizer
-
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("manifest", type=Path)
     parser.add_argument("--observations", type=Path, required=True)
@@ -33,38 +70,9 @@ def main():
         (args.manifest, args.observations, args.model_directory, args.output),
     )
     manifest = json.loads(args.manifest.read_text())
-    identity = json.loads((args.observations / "identity.json").read_text())
-    complete = json.loads((args.observations / "complete.json").read_text())
-    pin = json.loads((ROOT / "scripts/qwen-singing-files.json").read_text())
-    if (
-        identity["assets"] != pin
-        or identity["source_prompt"] is not None
-        or identity["do_sample"] is not False
-        or complete["identity_sha256"] != digest(args.observations / "identity.json")
-    ):
-        raise ValueError("Expected completed source-blind pinned Qwen observations.")
-    for name, expected in pin["files"].items():
-        path = args.model_directory / name
-        if (
-            path.stat().st_size != expected["size"]
-            or digest(path) != expected["sha256"]
-        ):
-            raise ValueError("Changed pinned tokenizer/model assets.")
-    tokenizer = AutoTokenizer.from_pretrained(
-        args.model_directory, local_files_only=True, trust_remote_code=False
+    identity, observed, tokenizer = closed_observations(
+        args.observations, args.model_directory
     )
-    observed = {}
-    for entry in complete["records"]:
-        path = args.observations / entry["file"]
-        if Path(entry["file"]).name != entry["file"] or digest(path) != entry["sha256"]:
-            raise ValueError("Changed closed recognition record.")
-        row = json.loads(path.read_text())
-        if (
-            row["identity_sha256"] != complete["identity_sha256"]
-            or row["id"] in observed
-        ):
-            raise ValueError("Changed/duplicate Qwen observation ownership.")
-        observed[row["id"]] = row
     selected = {c["id"] for c in manifest["cases"]}
     if (
         len(selected) != len(manifest["cases"])
@@ -84,16 +92,7 @@ def main():
         language_ok = detected == "English" or (
             identity["language"] == "en" and detected is None
         )
-        words = (
-            decoder_words(
-                tokenizer,
-                row["decoded_tokens"],
-                row["token_log_probabilities"],
-                row["decoded"]["transcription"],
-            )
-            if not exhausted and language_ok
-            else []
-        )
+        words, rejection = recognition_words(tokenizer, row, identity["language"])
         flags = exact_matches(case["targets"], words)
         counts.update(
             cases=1,
@@ -101,6 +100,7 @@ def main():
             exact_multiword_matches=sum(u["source_match"] for u in flags),
             exhausted_views=exhausted,
             other_language_views=not language_ok,
+            unreconstructible_views=rejection == "unreconstructible_transcript",
         )
         records.append(
             {
@@ -110,6 +110,7 @@ def main():
                 "detected_language": detected,
                 "forced_language": identity["language"],
                 "budget_exhausted": exhausted,
+                "withheld_reason": rejection,
             }
         )
     recipe = {

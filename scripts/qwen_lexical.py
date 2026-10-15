@@ -13,6 +13,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "refinement"))
 from english_timing import english_key
 
 
+class DecoderTextMismatch(ValueError):
+    """Parsed/repetition-cleaned text no longer owns the actual decoder bytes."""
+
+
 def decoder_words(tokenizer, ids, logp, transcription):
     """Complete UTF-8 decoder pieces own scores; a BPE piece is never split."""
     if len(ids) != len(logp) or any(
@@ -31,7 +35,7 @@ def decoder_words(tokenizer, ids, logp, transcription):
     if not transcription:
         return []
     if first < 0 or raw[first:].strip() != transcription:
-        raise ValueError(
+        raise DecoderTextMismatch(
             "ASR transcript does not reconstruct its actual decoder bytes."
         )
     offset, pieces, owners, pending = 0, [], [], []
@@ -71,6 +75,24 @@ def decoder_words(tokenizer, ids, logp, transcription):
             }
         )
     return result
+
+
+def recognition_words(tokenizer, row, forced_language):
+    """Withhold a complete rewritten view; never transfer its old token scores."""
+    if row["budget_exhausted"]:
+        return [], "token_budget"
+    detected = row["decoded"].get("language")
+    if detected != "English" and not (forced_language == "en" and detected is None):
+        return [], "other_language"
+    try:
+        return decoder_words(
+            tokenizer,
+            row["decoded_tokens"],
+            row["token_log_probabilities"],
+            row["decoded"]["transcription"],
+        ), None
+    except DecoderTextMismatch:
+        return [], "unreconstructible_transcript"
 
 
 def exact_matches(targets, words, *, probability_floor=0.7):
@@ -126,6 +148,33 @@ def exact_matches(targets, words, *, probability_floor=0.7):
             result[block.a + offset].update(
                 source_match=True, probability=p, matched_words=block.size
             )
+    return result
+
+
+def context_matches(crops, words):
+    """Match the complete source context before returning occurrence-owned words.
+
+    Repeated phrases in neighboring cues must be visible to the uniqueness check.
+    UTF-8 spans are local to their original line and never identify an occurrence.
+    """
+    if len({c["occurrence"] for c in crops}) != len(crops):
+        raise ValueError("Duplicate source occurrence in recognition context.")
+    targets, owners = [], []
+    for crop in crops:
+        raw = crop["raw_line"].encode()
+        previous = 0
+        for index, target in enumerate(crop["targets"]):
+            first, last = target["raw_span"]
+            if not previous <= first < last <= len(raw):
+                raise ValueError("Invalid original UTF-8 word span.")
+            text = raw[first:last].decode()
+            targets.append({**target, "expected_text": text})
+            owners.append((crop["occurrence"], index))
+            previous = last
+    flags = exact_matches(targets, words)
+    result = {c["occurrence"]: [] for c in crops}
+    for (occurrence, _), flag in zip(owners, flags, strict=True):
+        result[occurrence].append(flag)
     return result
 
 

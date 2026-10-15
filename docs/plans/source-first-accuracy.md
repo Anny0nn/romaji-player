@@ -310,6 +310,18 @@ clips, with unchanged probability and independent boundary checks. Match the com
 source window before assigning occurrences, so repeated phrases cannot be credited
 to the wrong cue. Reuse the existing authenticated paired boundaries and withhold
 incomplete recognition; this comparison does not change the app or open a holdout.
+The completed comparison leaves sixteen proposals across three songs, with no lost
+or moved intervals; it still misses the substantive target. Thirteen of the 172
+views are withheld for exhaustion or non-reconstructible repetition-cleaned text.
+Record that full-window English detection fails on Japanese passages even though
+the PJS/order diagnostics work. Test a bounded explicit Japanese-language hypothesis
+against original-source words next; a language prefill is not a lyric prompt, a
+detected-language result or independent evidence that a particular word was sung.
+That six-view pilot finds only one scored literal match among 18 missing groups.
+A private long-vowel projection also fails to increase the complete opportunity
+count. Preserve these nulls and continue with a different acoustic recognizer or
+source-correspondence hypothesis; do not expand these unchanged recipes merely to
+accumulate more proposals.
 
 ## Out of scope
 

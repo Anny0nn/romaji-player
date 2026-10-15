@@ -372,6 +372,55 @@ complete accuracy/negative gates, not five shipped or verified words.
 without another inference run. It checks model/tokenizer assets, closed-record hashes,
 crop identity and exact source ownership. The existing app remains at 2,210/2,927.
 
+The expanded comparison completes all **172 frozen mix/vocal context clips** in
+714.6 seconds, including 4.2 seconds loading. Process peak RSS is 1.22 GB and MPS
+allocated/driver readings are 4.09/4.62 GB, reported separately. Eleven views exhaust
+their budget. On two further views, the official parser shortens repetitive output:
+its returned transcript no longer reconstructs the scored decoder bytes. Withhold
+those complete views; never transfer the longer output's scores to the shortened
+text. The collector records this reason without aborting other authenticated clips;
+a regression fixture protects both the abstention and invalid-probability errors.
+
+`evaluate-qwen-contexts.py` matches each complete source window before assigning
+words to individual occurrences. A phrase repeated in neighboring cues cannot be
+credited to whichever identical line is inspected first. Both views still require
+actual whole-token probability at least 0.70, and fresh TIFA/HubertFA clocks must
+pass the unchanged duration/agreement/endpoint checks. Existing fragments remain
+protected even when their crop-relative start is negative.
+
+The replay has cached boundary observations for **189 cues /453 original gaps**;
+57 other source cues have no cached pair and are outside this timing comparison.
+Within the paired subset, 83 missing groups have dual-view lexical matches, 32
+also have paired clocks, and preservation/context checks leave **16 proposals**:
+two Kyouran, six TEENAGE CITY RIOT and eight LOST IN PARADISE. Zero old intervals
+are lost or moved. These are alternative proposals against the original baseline,
+not sixteen incremental gains beyond earlier trials or verified shipped words.
+
+All 172 views report English, including the romanized Japanese source contexts.
+A separate three-clip PJS diagnostic correctly reports Japanese; explicit Japanese
+prefill gives the same three transcripts. Repeating the same 嘘 clip before and
+after English/PJS audio gives identical tokens, also identical to the full run.
+This rejects a cross-request state explanation for that clip, not the observed
+commercial language-routing failure. Source language remains a hypothesis needing
+validation. Explicit Japanese prefill on six mix/vocal views from three previously
+selected native-source cues finds just one of 18 missing groups with a unique
+literal source match and complete scored tokens in both views. This is a lexical
+opportunity check, not a new retained timing. The 57 mixed cues without cached
+English boundaries contain 178 original gaps; their existing context outputs give
+only one further dual-view lexical match. Neither result justifies a bulk repeat
+of unchanged alignment models. A third boundary-model intersection on Jamendo also falls short:
+Qwen-confirmed TIFA/HubertFA/native-Qwen agreement retains 41 words with 40
+joint-correct. Neither expansion establishes a recipe for promotion.
+
+```sh
+.venv-experimental/bin/python scripts/transcribe-qwen-singing.py "$AUDIO_CONTEXTS" \
+  --model-directory "$QWEN_ASSETS" --language auto --output "$PRIVATE_RECOGNITION"
+.venv-experimental/bin/python scripts/evaluate-qwen-contexts.py \
+  --suite "$FROZEN_SUITE" --contexts "$CONTEXT_CACHE" --paired "$BOUNDARY_CACHE" \
+  --lexical "$ORIGINAL_LEXICAL_CACHE" --observations "$PRIVATE_RECOGNITION" \
+  --model-directory "$QWEN_ASSETS" --output "$PRIVATE_REPLAY"
+```
+
 ## Singing letters and original-script timing
 
 A fresh [Echora checkpoint](https://huggingface.co/hcX02/echora-mms-300m-multilingual-lyrics-forced-aligner/tree/701595f1be1125cce835d4e32fd432358ea8ed9f)
@@ -488,6 +537,14 @@ complete representation in this Japanese phone vocabulary; count those as exclud
 not successful English verification. A genuinely source-blind HubertFA head cache
 also finds zero complete unique word witnesses on the 96 Jamendo development words.
 Do not sweep the commercial English set with that unchanged phone-decoder recipe.
+
+A separate private projection tests long-vowel correspondence (`ou`/`oo`, `ei`/`ee`
+and repeated vowels), preserving complete observed token envelopes and original
+word boundaries. It produces 35 missing-group witnesses rather than 40; adding
+a `wo`/`o` equivalence gives 36. Both have 78/79 correct TIFA-paired PJS clocks.
+The negative results remain zero, with the same 32 English exclusions. This is
+not a successful normalization fix; in particular, the production kana converter
+already maps the particle を to `o`. Neither private projection changes the app.
 
 The dedicated Japanese-singing SOFA checkpoint has a separate private CPU contract
 pilot. Its complete inference state loads strictly; saved mel settings and the
