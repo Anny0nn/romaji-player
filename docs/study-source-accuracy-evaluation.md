@@ -443,6 +443,73 @@ loses/moves zero. Larger context alone does not solve the frozen subset.
 `joint_source_windows.py` and its regression fixtures protect repeated-line
 ownership, crop bounds, Unicode and negative crop-relative saved starts.
 
+## Source-blind phone witnesses (2026-10-15)
+
+`free_phone_words.py` matches words only after an unconstrained audio-only CTC
+decode. Complete observed mora tokens own the word envelope and their actual
+probabilities; a token crossing a source word boundary cannot be divided.
+The default requires an exact unique word plus two context phones on each side.
+This is phonetic correspondence, not proof of kanji spelling. Unsupported source
+words remain unmatched without preventing later words from being considered.
+
+`benchmark-free-phones.py` closes observations before opening the same 390 PJS
+development references. At the 0.45 probability and 80 ms duration requirements,
+180 words qualify, but their free-decoder clocks are joint-correct for only 112.
+Requiring both endpoints to agree with TIFA within 150 ms leaves 84 words;
+83 TIFA clocks are joint-correct (98.8%; descriptive Wilson 93.6–99.8%). This
+does not certify the free decoder as a timing model or a representative pop recipe.
+The cached benchmark takes 2.2 seconds.
+
+A complete opportunity check reuses 41 earlier posteriors and collects only 255
+missing audio-only caches. It covers all 296 affected cues in the seven low songs,
+with **714 original gaps**; the high three songs' three gaps are outside this
+comparison. Existing selected/direct/loan pronunciation hypotheses and the explicit
+Japanese-romaji hypothesis for 嘘 produce **40 distinct phonetic witnesses**:
+3 Just Awake, 1 Wild Side, 7 Kyouran, 3 TEENAGE CITY RIOT, 2 LOST IN PARADISE,
+21 嘘 and 3 天天天国地獄国. These are an upper bound before boundary, context and
+saved-interval checks, not 40 retained or correct additions. Cached matching takes
+7.0 seconds; inference and postprocessing are separate measurements.
+
+Removing the neighboring-phone requirement tests whether a misrecognized neighbor
+was the main restriction. All trials retain complete word/token ownership, exact
+unique correspondence, the same probabilities and original denominators:
+
+| Matching rule                        | Missing-group witnesses | PJS paired clocks | Joint-correct pairs |
+| ------------------------------------ | ----------------------- | ----------------- | ------------------- |
+| Two context phones on each side      | 40                      | 84                | 83                  |
+| One context phone on each side       | 42                      | 87                | 86                  |
+| Unique whole word, at least 4 phones | 42                      | 79                | 78                  |
+| Unique whole word, at least 6 phones | 23                      | 36                | 35                  |
+| Unique whole word, at least 8 phones | 11                      | 12                | 12                  |
+
+None provides a substantial recipe. The Japanese negative comparison matches zero
+of 105 words. The separate English comparison matches zero of 38, but 32 have no
+complete representation in this Japanese phone vocabulary; count those as excluded,
+not successful English verification. A genuinely source-blind HubertFA head cache
+also finds zero complete unique word witnesses on the 96 Jamendo development words.
+Do not sweep the commercial English set with that unchanged phone-decoder recipe.
+
+The dedicated Japanese-singing SOFA checkpoint has a separate private CPU contract
+pilot. Its complete inference state loads strictly; saved mel settings and the
+58-phone inventory, rather than an English phone-set assumption, define the adapter.
+The training loss uses per-utterance phone masks: neither its selected-path score
+nor unmasked full-vocabulary score is calibrated independent word confidence.
+Use it only as a boundary challenger. PJS appears in its training list, so the PJS
+contract smoke is not an independent accuracy result. Weight redistribution terms
+remain unspecified and the weights are not bundled.
+
+On three preselected 嘘 cues, 28 groups include 14 original gaps. SOFA/TIFA supplies
+seven valid paired missing candidates; six also have independent free-phone
+witnesses. The immutable-interval overlay leaves **five proposals**, zero lost or
+moved intervals. This private prototype needs reproducible adapter and independent
+accuracy checks before integration; these are not shipped gains.
+
+```sh
+.venv-experimental/bin/python scripts/benchmark-free-phones.py "$PJS_MANIFEST" \
+  --recognition "$PJS_RECOGNITION" --cases "$PJS_CASES" \
+  --baseline "$PJS_BASELINE" --pjs "$PJS_CORPUS" --output "$PRIVATE_OUTPUT"
+```
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue

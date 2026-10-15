@@ -246,7 +246,7 @@ class ResearchAligner:
             raise ValueError("Changed encoder feature clock.")
         self.decoder = decoder_class(source)(self.vocab, 44100, 441)
 
-    def infer(self, waveform, reference, *, ctc_observer=None):
+    def infer(self, waveform, reference=None, *, ctc_observer=None):
         import numpy as np
         import torch
         from scipy.signal import resample_poly
@@ -257,7 +257,13 @@ class ResearchAligner:
             or not 1103 <= len(waveform) <= 44100 * 30
         ):
             raise ValueError("Expected finite mono 44.1 kHz, 25 ms–30 s crop.")
-        phones, owners = phone_sequence(reference, self.vocab["vocab"])
+        if reference is None and ctc_observer is None:
+            raise ValueError("Audio-only inference requires a CTC observer.")
+        phones, owners = (
+            phone_sequence(reference, self.vocab["vocab"])
+            if reference is not None
+            else (None, None)
+        )
         # The official encoder receives raw waveform without feature-extractor
         # normalization. Existing SciPy polyphase resampling is an explicit variant.
         audio = (
@@ -288,6 +294,8 @@ class ResearchAligner:
             # This head is unconstrained audio recognition. The optional consumer
             # receives original log probabilities, not a supplied-phone mask.
             ctc_observer((ctc[0] - np.logaddexp.reduce(ctc[0], axis=0)).T)
+        if reference is None:
+            return [], {"status": "audio_only_ctc", "supplied_phone_reference": False}
         result = [
             {**row, "start_ms": -1, "end_ms": -1, "mean_probability": 0.0}
             for row in reference

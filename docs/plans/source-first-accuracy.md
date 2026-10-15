@@ -300,6 +300,17 @@ redistribution terms explicit and weights private; an integration decision needs
 appropriate independent evidence. Do not ask the maintainer for labels or accounts
 as a prerequisite to continuing the other experiments.
 
+Separate source-blind phone presence from a forced path's clocks. The first complete
+low-set opportunity comparison finds only 40/714 missing groups with exact unique
+phone witnesses; neighboring-phone ablations reach 42 and do not solve the restriction.
+The SOFA/TIFA/free-phone prototype leaves five proposals on three 嘘 cues, without
+changing existing timings. Neither trial meets the integration milestone. Expand
+the better English free-decoding pilot to the already frozen 172 mix/vocal context
+clips, with unchanged probability and independent boundary checks. Match the complete
+source window before assigning occurrences, so repeated phrases cannot be credited
+to the wrong cue. Reuse the existing authenticated paired boundaries and withhold
+incomplete recognition; this comparison does not change the app or open a holdout.
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,
