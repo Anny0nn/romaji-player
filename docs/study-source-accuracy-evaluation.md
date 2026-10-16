@@ -1442,6 +1442,73 @@ seconds with 0.94 GB peak RSS; 54 native forced-aligner calls take 7.9 seconds.
 Twenty-two private source/import/join regressions pass. Neither the alternative
 source feature nor a new accuracy recipe is integrated from this trial alone.
 
+## Separate pronunciation evidence from physical word duration
+
+The next comparison keeps the existing CTC pronunciation test unchanged: positive
+complete-sequence margins against the one-phone substitution union and blank,
+with at least 0.45 mean probability on actual emission frames. It replaces the
+CTC-spike duration comparison with two physical observations: TIFA and the native
+Qwen source-word aligner. Both must satisfy the fixed duration/interior rules and
+agree within 150 ms at each endpoint. Accepted timestamps remain TIFA's actual
+interval; no spike is extended and no endpoint is averaged.
+
+The native run retains every original conditioning group across 62 PJS recordings
+and 22 existing mismatch cues. One nine-group mismatch cue is unsupported because
+its original word contains whitespace; all nine stay in the control denominator.
+Two derived PCM buffers preserve each original clip byte-for-byte, and the helper
+aligns their exact slices independently. There is no cross-recording clock
+transfer. The 83 eligible native cues take 30.5 seconds. Additional context scores
+use cached posteriors, with no new recognition or recordings.
+
+Proposals close before joining the same 390 already opened PJS reference words.
+The lexical scores and thresholds are unchanged; only the physical observer is
+different. Correct counts below satisfy both strict 150/150 ms and the historical
+150/200 ms reference tolerances, except the explicitly marked old comparator.
+
+| Opened PJS development rule                      | Qualified /390 | Correct intervals |
+| ------------------------------------------------ | -------------: | ----------------: |
+| Old lexical + CTC-spike physical gate            |             79 |    78, historical |
+| TIFA/native physical pair without lexical filter |            303 |               303 |
+| Unchanged lexical filter + TIFA/native pair      |            257 |               257 |
+| Also require coherent full source context        |            208 |               208 |
+| Also pass the existing ordered drop-one overlay  |            170 |               170 |
+
+The 257-word rule shares 64 old admissions, adds 193 correct previously withheld
+words and withholds fifteen old admissions: fourteen correct and the old error.
+It does not extend the original 79-word set monotonically. Recording-disjoint
+descriptive folds qualify 46, 66, 28, 75 and 42 words, all correct; no fold is used
+to fit thresholds. These are development results with unknown native-model
+training overlap, rather than fresh holdout or app coverage.
+The [reference labels](https://github.com/UtaUtaUtau/pjs-manual-labels) are human
+relabels/corrections. The [PJS recordings](https://arxiv.org/html/2006.02959) use
+one male singer following guide melodies on phoneme-balanced sentences in a
+controlled room. That narrow setting does not establish transfer to natural pop.
+
+The word-level gate still accepts one wrong-verse control of 143: a common
+phonetic word has coincident physical clocks. Its cue has only one of six
+qualified groups, so the separately frozen context requirement (at least two and
+at least half of all original groups) rejects it. Context and ordered overlay
+therefore admit zero of 143 controls; the primary false positive remains recorded.
+All 390 fixed one-phone wrong readings remain rejected. The 32 English phone
+abstentions and nine native-unsupported groups are structural exclusions, not
+successful English verification. Song trials must retain the context requirement.
+
+`source_physical_policy.py` exports the exact model-free research decision and
+immutable overlay. Fifteen regressions cover source identity, sustained vowels,
+finite statistics, both physical endpoints, crop edges, original denominators,
+context and protected clocks. Its decisions reproduce all 390 reference words,
+143 negatives and full source contexts. It does not change the app pipeline.
+
+A source-selected trial then tests 48 original gaps across all seven difficult
+songs, including current readings rather than only proposed dictionary changes.
+All 255 original groups in their forty cues remain represented. Twenty-seven
+targets have eligible TIFA windows, thirteen pass the unchanged lexical check,
+five have TIFA/native physical pairs and four satisfy both. One passes full
+context, and zero survive the existing ordered overlay. The surviving target
+also overlaps an old automatic neighbor by 30 ms; no unsupported neighbor move
+is made to hide that conflict. The reference improvement therefore supplies no
+additional song timings in this closed trial.
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue

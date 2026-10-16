@@ -477,6 +477,25 @@ Never manufacture, average, trim, snap or transfer an endpoint from another word
 Protect user, provider and unknown-origin data, retain the earlier strict solver's
 results, and validate this new recipe independently before any app migration.
 
+Keep the existing complete-pronunciation CTC contrast and its 0.45 emission check
+as lexical evidence, separately from physical duration. Test native source-word
+forced alignment as the second physical clock beside TIFA; the CTC spike's
+endpoints do not become the word's boundaries. This changes the observer family,
+not the pronunciation margin or timestamp tolerances. Start with all 390 opened
+PJS words and the existing wrong-reading/audio controls, then a source-selected
+48-gap cohort across the frozen low songs, including current readings. Report
+every structural abstention and retain the old CTC-clock and HSMM comparisons.
+
+Test native character timestamp slots as a separate granularity factor. The
+official Python Japanese path uses Nagisa morphemes; the pinned C++ Japanese
+path instead splits CJK characters. Neither establishes that character slots
+will improve singing. Keep the same frozen words and waveforms, tile each source
+word exactly with auxiliary character/run pieces, and aggregate only its first
+observed start and last observed end. Equal internal character timestamps are
+recorded, not interpolated; missing, nonmonotone or ambiguous pieces abstain.
+Original word denominators and display groups remain unchanged. Evaluate this
+condition on the same references and controls before considering it for songs.
+
 Test direct source-blind kana decoding as a separate acoustic representation:
 ordinary Japanese transcripts can hide a sung pronunciation behind kanji. A
 UTF-8 token-state constraint may emit kana without supplying the target lyrics;
