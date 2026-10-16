@@ -1,0 +1,109 @@
+{
+  "schema": 1,
+  "purpose": "Research-only English singing phone boundaries; no lexical verification",
+  "source_commit": "b3f086966946255a05b0ccb69c865c8e3e806e0a",
+  "head_revision": "f20e23ab12596d914b2adfcbeb8882180dd92fac",
+  "encoder_revision": "fce0375452b1dd6c080ac3248d423d4d037bc831",
+  "licenses": {
+    "source": "Apache-2.0",
+    "head": "CC-BY-NC-SA-4.0",
+    "encoder": "MIT"
+  },
+  "files": {
+    "source/networks/layer/attention/attention.py": {
+      "url": "https://raw.githubusercontent.com/wolfgitpr/HubertFA/b3f086966946255a05b0ccb69c865c8e3e806e0a/networks/layer/attention/attention.py",
+      "sha256": "c896f059feaf8cb0c6be9ba1fbce7d9c502f369489cace96020be94f8e8d3a75",
+      "size": 592
+    },
+    "source/networks/layer/backbone/unet.py": {
+      "url": "https://raw.githubusercontent.com/wolfgitpr/HubertFA/b3f086966946255a05b0ccb69c865c8e3e806e0a/networks/layer/backbone/unet.py",
+      "sha256": "ee90a0ff875e74c47d44f38395467e706c9add61482718c1469373f9d23b60b8",
+      "size": 4437
+    },
+    "source/networks/layer/block/resnet_block.py": {
+      "url": "https://raw.githubusercontent.com/wolfgitpr/HubertFA/b3f086966946255a05b0ccb69c865c8e3e806e0a/networks/layer/block/resnet_block.py",
+      "sha256": "30b94aea9d8a26a407689003214983b4b4642d1f3c37a6353aa013d5409d75c9",
+      "size": 4414
+    },
+    "source/networks/layer/scaling/stride_conv.py": {
+      "url": "https://raw.githubusercontent.com/wolfgitpr/HubertFA/b3f086966946255a05b0ccb69c865c8e3e806e0a/networks/layer/scaling/stride_conv.py",
+      "sha256": "654f607152253615e5b48cbf5a15a43e203429b9906129b4e19a1fa0fdd29d6f",
+      "size": 1541
+    },
+    "source/networks/layer/fusion/curves_fusion.py": {
+      "url": "https://raw.githubusercontent.com/wolfgitpr/HubertFA/b3f086966946255a05b0ccb69c865c8e3e806e0a/networks/layer/fusion/curves_fusion.py",
+      "sha256": "b29437c50812313b6f18a791fe8d66f4e7ef9e854d098bc3df10168354e95192",
+      "size": 4674
+    },
+    "source/tools/decoder.py": {
+      "url": "https://raw.githubusercontent.com/wolfgitpr/HubertFA/b3f086966946255a05b0ccb69c865c8e3e806e0a/tools/decoder.py",
+      "sha256": "3bf10c0e2ab260c30605aca0c18b50dbb156ffa6ad0bd4dc330ac3339fd0750c",
+      "size": 12209
+    },
+    "source/tools/align_word.py": {
+      "url": "https://raw.githubusercontent.com/wolfgitpr/HubertFA/b3f086966946255a05b0ccb69c865c8e3e806e0a/tools/align_word.py",
+      "sha256": "d4947e5b9b560327614c9fced6599d479ca3dd3347eaae21f8f4151f718c13c0",
+      "size": 12158
+    },
+    "source/networks/task/forced_alignment_task.py": {
+      "url": "https://raw.githubusercontent.com/wolfgitpr/HubertFA/b3f086966946255a05b0ccb69c865c8e3e806e0a/networks/task/forced_alignment_task.py",
+      "sha256": "3c2ef203ff0150df1555024538d1e519b545ffc94122134953f866a7960c70e6",
+      "size": 19669
+    },
+    "source/tools/encoder.py": {
+      "url": "https://raw.githubusercontent.com/wolfgitpr/HubertFA/b3f086966946255a05b0ccb69c865c8e3e806e0a/tools/encoder.py",
+      "sha256": "e63de6d01e92160d03b2b6dd362d21f326b3e09d36e77c7fca8ebc86e4c5a8d3",
+      "size": 4728
+    },
+    "source/tools/binarize_util.py": {
+      "url": "https://raw.githubusercontent.com/wolfgitpr/HubertFA/b3f086966946255a05b0ccb69c865c8e3e806e0a/tools/binarize_util.py",
+      "sha256": "a07f64e91fe1258add90e94efab065cca520242140ef2e621b7ba22130276c25",
+      "size": 3204
+    },
+    "source/LICENSE": {
+      "url": "https://raw.githubusercontent.com/wolfgitpr/HubertFA/b3f086966946255a05b0ccb69c865c8e3e806e0a/LICENSE",
+      "sha256": "e5a51cf1e64a50a2b89f95dced5d7aa6c14bed16feaae2bef6a3cf940458aebc",
+      "size": 11444
+    },
+    "model/combined.ckpt": {
+      "url": "https://huggingface.co/Silasimo/HubertFA-combined/resolve/f20e23ab12596d914b2adfcbeb8882180dd92fac/combined.ckpt",
+      "sha256": "c44df86e6ee8077bcd41ff781080f6d2962bff5df822e1e102687b1d597e1889",
+      "size": 54141290
+    },
+    "model/config.yaml": {
+      "url": "https://huggingface.co/Silasimo/HubertFA-combined/resolve/f20e23ab12596d914b2adfcbeb8882180dd92fac/config.yaml",
+      "sha256": "970b055d8e7641e4037974c04f03c741607c2a0cf7160d8c89771d9936fc9bd5",
+      "size": 3093
+    },
+    "model/datasets.yaml": {
+      "url": "https://huggingface.co/Silasimo/HubertFA-combined/resolve/f20e23ab12596d914b2adfcbeb8882180dd92fac/datasets.yaml",
+      "sha256": "96324ae2e7bd15fe3b52500e61049c96bc7394e382c9401425b6c2884328ffdf",
+      "size": 1891
+    },
+    "model/vocab.yaml": {
+      "url": "https://huggingface.co/Silasimo/HubertFA-combined/resolve/f20e23ab12596d914b2adfcbeb8882180dd92fac/vocab.yaml",
+      "sha256": "17721e4a0683d85e8f10095a31ac5ab8bb7169d338cdf6b4052b0b0b05b14027",
+      "size": 702
+    },
+    "encoder/pytorch_model.bin": {
+      "url": "https://huggingface.co/TencentGameMate/chinese-hubert-base/resolve/fce0375452b1dd6c080ac3248d423d4d037bc831/pytorch_model.bin",
+      "sha256": "2fefccd26c2794a583b80f6f7210c721873cb7ebae2c1cde3baf9b27855e24d8",
+      "size": 377552987
+    },
+    "encoder/config.json": {
+      "url": "https://huggingface.co/TencentGameMate/chinese-hubert-base/resolve/fce0375452b1dd6c080ac3248d423d4d037bc831/config.json",
+      "sha256": "f6bd1bdef239518d022edcef31243acf344a2afa33d5428e16f221cac09cbcd0",
+      "size": 1380
+    },
+    "encoder/preprocessor_config.json": {
+      "url": "https://huggingface.co/TencentGameMate/chinese-hubert-base/resolve/fce0375452b1dd6c080ac3248d423d4d037bc831/preprocessor_config.json",
+      "sha256": "dcd684124d06722947939d41ea6ae58dbf10968c60a11a29f23ddc602c64a29b",
+      "size": 212
+    },
+    "source/networks/layer/scaling/base.py": {
+      "url": "https://raw.githubusercontent.com/wolfgitpr/HubertFA/b3f086966946255a05b0ccb69c865c8e3e806e0a/networks/layer/scaling/base.py",
+      "sha256": "4a5a19cc593ae18b2d7e0cfbd411bdc3948c14d215cd162d5b989014bdd084d5",
+      "size": 456
+    }
+  }
+}

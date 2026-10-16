@@ -1,0 +1,28 @@
+{
+  "repo": "hcX02/echora-mms-300m-multilingual-lyrics-forced-aligner",
+  "revision": "701595f1be1125cce835d4e32fd432358ea8ed9f",
+  "files": {
+    "model.safetensors": {
+      "sha256": "ac97765319ad0f94f42e665adeae668c605ed8b119369586d2e5caaf2f4ead6d",
+      "size": 1262070000
+    },
+    "config.json": {
+      "sha256": "ee3ec56cbfd5a0ad3fdbfdce5a947d3c235bf2c3318397ac663aded7054b9f40",
+      "size": 2080
+    },
+    "processor_config.json": {
+      "sha256": "8bc3c8d6d97ea61524d5c15d8554b4baf072d2264c0bda1839bc7a822c200d66",
+      "size": 299
+    },
+    "vocab.json": {
+      "sha256": "26dc928520b2bde28e1c9e7fd425aae6b4eb40cd992bcb0bcc16ca6fada46491",
+      "size": 331
+    },
+    "tokenizer_config.json": {
+      "sha256": "981f5a9b6fbd0103917ac64b9d6b6063835830d718fe535ddf504798925784c5",
+      "size": 1363
+    }
+  },
+  "license": "custom personal/noncommercial research; no redistribution; never bundle these weights",
+  "source": "https://huggingface.co/hcX02/echora-mms-300m-multilingual-lyrics-forced-aligner/tree/701595f1be1125cce835d4e32fd432358ea8ed9f"
+}

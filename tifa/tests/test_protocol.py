@@ -148,6 +148,47 @@ def test_phonetic_alias_keeps_one_source_word_and_rejects_unknown_phone():
         aligner.words(targets, phonetic_aliases={1: ["a"]})
 
 
+def test_explicit_english_phone_hypothesis_keeps_language_inventory_and_source_owner():
+    from lib.vocabulary import Vocabulary
+
+    aligner = Aligner.__new__(Aligner)
+    aligner.vocabulary = Vocabulary(symbol_to_id={"en/k": 3, "en/aa": 4, "ja/a": 5})
+    aligner.converters = {}
+    targets = [{"text": "word", "romaji": "word", "raw_span": [8, 12]}]
+    words, indices = aligner.words(
+        targets, phonetic_aliases={0: {"language": "en", "phones": ["k", "aa"]}}
+    )
+    assert indices == [0] and len(words) == 1
+    assert words[0].language == "en"
+    assert [g.phonemes for g in words[0].readings[0].paths[0]] == [["k", "aa"]]
+    assert aligner.words(
+        targets, phonetic_aliases={0: {"language": "en", "phones": ["a"]}}
+    ) == ([], [])
+    for alias in (
+        {"language": "xx", "phones": ["k"]},
+        {"language": "en", "phones": "aa"},
+        {"language": "en", "phones": [False]},
+    ):
+        with pytest.raises(ValueError, match="hypothesis"):
+            aligner.words(targets, phonetic_aliases={0: alias})
+
+
+def test_explicit_pronunciation_can_cover_macron_source_without_rewriting_it():
+    from lib.vocabulary import Vocabulary
+
+    aligner = Aligner.__new__(Aligner)
+    aligner.vocabulary = Vocabulary(symbol_to_id={"ja/y": 3, "ja/o": 4})
+    aligner.converters = {}
+    targets = [{"text": "yō", "romaji": "yō", "raw_span": [5, 8]}]
+    assert aligner.words(targets) == ([], [])
+    words, indices = aligner.words(targets, phonetic_aliases={0: ["y", "o", "o"]})
+    assert indices == [0] and len(words) == 1
+    assert words[0].text == "yō" and words[0].language == "ja"
+    assert [g.phonemes for g in words[0].readings[0].paths[0]] == [["y", "o", "o"]]
+    assert targets == [{"text": "yō", "romaji": "yō", "raw_span": [5, 8]}]
+    assert aligner.words(targets, phonetic_aliases={0: ["unknown"]}) == ([], [])
+
+
 def test_vowel_fallback_never_rewrites_valid_digraphs_or_guesses_other_kana():
     assert (
         vowel_extensions("あぁぁ いぃ うぅ えぇ おぉ アァ")
@@ -165,6 +206,61 @@ def test_vowel_fallback_never_rewrites_valid_digraphs_or_guesses_other_kana():
         "アぁ",
     ):
         assert vowel_extensions(unchanged) == unchanged
+
+
+@pytest.mark.parametrize(
+    ("source", "expanded"),
+    [
+        ("さぁ", "さあ"),
+        ("ねぇ", "ねえ"),
+        ("ふぅ", "ふう"),
+        ("サァ", "サア"),
+        ("ネェ", "ネエ"),
+        ("きゃぁ", "きゃあ"),
+        ("キャァ", "キャア"),
+        ("ファァ", "ファア"),
+        ("ウィィ", "ウィイ"),
+        ("てぃぃ", "てぃい"),
+        ("さぁぁ", "さああ"),
+        ("さーぁ", "さーあ"),
+        ("ゆぁ", "ゆぁ"),
+        ("んぁ", "んぁ"),
+        ("っぁ", "っぁ"),
+        ("さぃ", "さぃ"),
+        ("あァ", "あァ"),
+        ("さ、ぁ", "さ、ぁ"),
+        ("ふァァ", "ふァァ"),
+    ],
+)
+def test_small_vowel_fallback_follows_the_mora_and_keeps_source_script(
+    source, expanded
+):
+    assert vowel_extensions(source) == expanded
+
+
+def test_mora_extension_retains_the_source_word_and_converter_phone_groups(tmp_path):
+    from g2p.converters.japanese import JapaneseKanaConverter
+    from lib.vocabulary import Vocabulary
+
+    dictionary = tmp_path / "kana.txt"
+    dictionary.write_text("sa\ts a\na\ta\nne\tn e\ne\te\n")
+    aligner = Aligner.__new__(Aligner)
+    aligner.converters = {"ja": JapaneseKanaConverter(str(dictionary))}
+    aligner.vocabulary = Vocabulary(
+        symbol_to_id={"ja/s": 3, "ja/a": 4, "ja/n": 5, "ja/e": 6}
+    )
+    targets = [
+        {"text": "さぁ", "romaji": "saa", "raw_span": [0, 6]},
+        {"text": "ねぇ", "romaji": "nee", "raw_span": [7, 13]},
+    ]
+    assert aligner.words(targets) == ([], [])
+    words, indices = aligner.words(targets, expand_vowels=True)
+    assert indices == [0, 1]
+    assert [word.text for word in words] == ["さぁ", "ねぇ"]
+    assert [
+        [group.phonemes for group in word.readings[0].paths[0]] for word in words
+    ] == [[["s", "a"], ["a"]], [["n", "e"], ["e"]]]
+    assert [target["raw_span"] for target in targets] == [[0, 6], [7, 13]]
 
 
 def test_library_amplitude_diagnostics_cannot_corrupt_jsonl(capsys):

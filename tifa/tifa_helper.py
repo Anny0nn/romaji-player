@@ -148,19 +148,54 @@ def retain_interval(spans, indices, similarity, agreement, length_ms):
 
 
 def vowel_extensions(text):
-    """Expand only same-vowel small-kana elongation, never contracted digraphs.
+    """Expand a mora's matching small vowel, preserving existing digraphs.
 
     This is a phonetic input fallback; source text, displayed reading and byte spans
     remain intact. Unknown small vowels and script mixtures remain unsupported.
     """
+    from g2p.converters.japanese import _KANA_TO_ROMAJI, _kata_to_hira
+
+    def script(char):
+        if "ぁ" <= char <= "ゖ":
+            return "hiragana"
+        if "ァ" <= char <= "ヶ":
+            return "katakana"
+        return None
+
     pairs = dict(zip("ぁぃぅぇぉァィゥェォ", "あいうえおアイウエオ", strict=True))
     result = []
-    for char in text:
+    last_vowel, last_script, position = None, None, 0
+    while position < len(text):
+        digraph = text[position : position + 2]
+        current_script = script(digraph[0])
+        reading = (
+            _KANA_TO_ROMAJI.get(_kata_to_hira(digraph))
+            if len(digraph) == 2
+            and current_script is not None
+            and script(digraph[1]) == current_script
+            else None
+        )
+        if reading is not None:
+            result.extend(digraph)
+            last_vowel = reading[-1] if reading[-1] in "aeiou" else None
+            last_script = current_script
+            position += 2
+            continue
+        char = text[position]
         large = pairs.get(char)
-        if result and large == result[-1]:
+        if (
+            large is not None
+            and current_script == last_script
+            and _KANA_TO_ROMAJI[_kata_to_hira(large)] == last_vowel
+        ):
             result.append(large)
         else:
             result.append(char)
+            if char != "ー":
+                reading = _KANA_TO_ROMAJI.get(_kata_to_hira(char))
+                last_vowel = reading[-1] if reading and reading[-1] in "aeiou" else None
+                last_script = current_script
+        position += 1
     return "".join(result)
 
 
@@ -218,22 +253,26 @@ class Aligner:
             raise ValueError("Pronunciation aliases changed source-word ownership.")
         for index, target in enumerate(targets):
             text, language = pronunciation(target["text"], target["romaji"])
-            if language is None:
-                continue
             if phonetic_aliases and phonetic_aliases.get(index):
+                alias = phonetic_aliases[index]
+                alias_language, phones = (
+                    (alias.get("language"), alias.get("phones"))
+                    if isinstance(alias, dict)
+                    else ("ja", alias)
+                )
+                if (
+                    alias_language not in ("ja", "en")
+                    or not isinstance(phones, list)
+                    or not phones
+                    or len(phones) > 256
+                    or any(not isinstance(phone, str) or not phone for phone in phones)
+                ):
+                    raise ValueError("Invalid explicit pronunciation hypothesis.")
                 word = G2PWord(
                     text=text,
-                    language="ja",
+                    language=alias_language,
                     readings=[
-                        G2PReading(
-                            paths=[
-                                [
-                                    G2PGroup(
-                                        script=text, phonemes=phonetic_aliases[index]
-                                    )
-                                ]
-                            ]
-                        )
+                        G2PReading(paths=[[G2PGroup(script=text, phonemes=phones)]])
                     ],
                 )
                 try:
@@ -244,6 +283,8 @@ class Aligner:
                     continue
                 words.append(word)
                 target_indices.append(index)
+                continue
+            if language is None:
                 continue
             try:
                 parts = self.converters[language].convert(text)

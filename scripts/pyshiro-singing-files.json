@@ -1,0 +1,33 @@
+{
+  "repo": "https://github.com/wavtechyukky/pyshiro",
+  "revision": "49851cd4701d300eaf310b274f7c3b3e594d3824",
+  "code_license": "GPL-3.0",
+  "checkpoint_license": "not separately stated; private evaluation only, not bundled",
+  "checkpoint_training_recordings": "not disclosed for v2; PJS overlap unknown",
+  "files": {
+    "checkpoint/pyshiro-jp-v2.hsmm": {
+      "size": 498599,
+      "sha256": "f85cb3106ae7a380ecd22de7bcdd67aaa0d31c1fd35c3884bb95b68efce55a3f"
+    },
+    "checkpoint/pyshiro-jp-v2_phonemap.json": {
+      "size": 22813,
+      "sha256": "eae45adee755e2c4e7bcd380e004981ef7cc7488a42f0aec222fad9767fb1b55"
+    },
+    "pyshiro/data/kana2phonemes.table": {
+      "size": 4013,
+      "sha256": "7711412e4eac6386c509c2d1da1e6c5254a1bdd8d8b7bc627a62dbc130cf02c4"
+    }
+  },
+  "research_contract": {
+    "sample_rate_hz": 16000,
+    "frame_ms": 5,
+    "feature_streams": 3,
+    "features_per_stream": 12,
+    "device": "CPU",
+    "inference": "HMM bootstrap followed by HSMM duration refinement",
+    "refinement_window_frames": 60,
+    "input": "complete mapped Japanese phone groups; unsupported mora never skipped",
+    "word_probability_available": false,
+    "promoted": false
+  }
+}

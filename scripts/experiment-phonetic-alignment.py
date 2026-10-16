@@ -651,10 +651,31 @@ def kana(cases, model, source):
     return results
 
 
+def shiro_phones(text, table):
+    """Map every input mora; upstream warns and silently skips unknown characters."""
+    vowels = dict(zip("aiueoAIUEO", "AIUEOAIUEO", strict=True))
+    if not text or any(not ("ぁ" <= c <= "ゖ" or c == "ー") for c in text):
+        return None
+    keys = sorted((key for key in table if key), key=len, reverse=True)
+    result, offset = [], 0
+    while offset < len(text):
+        if text[offset] == "ー":
+            if not result or result[-1] not in vowels:
+                return None
+            result.append(vowels[result[-1]])
+            offset += 1
+            continue
+        key = next((key for key in keys if text.startswith(key, offset)), None)
+        if key is None or not table[key]:
+            return None
+        result.extend(table[key])
+        offset += len(key)
+    return result
+
+
 def hsmm(cases, model):
     import pyshiro
     from pyshiro.labels import segments_to_phoneme_intervals
-    from pyshiro.phonemes import kana_to_phonemes
 
     backend = pyshiro.load_hsmm(model / "checkpoint/pyshiro-jp-v2.hsmm")
     phonemap = pyshiro.load_phonemap(model / "checkpoint/pyshiro-jp-v2_phonemap.json")
@@ -669,12 +690,9 @@ def hsmm(cases, model):
         ]
         with contextlib.redirect_stdout(io.StringIO()):
             spellings = [spoken(w).replace(" ", "") for w in case["words"]]
-            # Do not let upstream silently discard unsupported characters/English.
-            valid = all(
-                s and all("ぁ" <= c <= "ゖ" or c == "ー" for c in s) for s in spellings
-            )
+            phones = [shiro_phones(s, table) for s in spellings]
+            valid = all(phones)
             if valid:
-                phones = [kana_to_phonemes(s, table) for s in spellings]
                 flattened = ["pau", *(p for word in phones for p in word), "pau"]
                 features = pyshiro.extract_mfcc(samples, 16000)
                 states = pyshiro.build_state_sequence(

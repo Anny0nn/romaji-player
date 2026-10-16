@@ -1,0 +1,924 @@
+# Source-aware singing accuracy and word boundaries
+
+Status: Approved (2026-10-14; maintainer requested implementation in the successor PR)
+
+## Goal
+
+Make Experimental correctly read and highlight substantially more of the words being
+sung, including difficult Japanese, pre-romanized Japanese and English passages. Keep
+one automatic action, the five views, local processing on M2 Pro /16 GiB and saved
+results that survive reopening. The user will not time words or label recordings.
+
+This is the maintainer-requested successor to [PR #4](https://github.com/Anny0nn/romaji-player/pull/4),
+merged at `21a8286`. Its 61 authenticated baseline recordings remain intact:
+**15,265/17,561 retained groups (86.9%)**. The active ten-song set has **2,210/2,927
+(75.5%)**, leaving **717** gaps. See the [catalog](../study-song-catalog.md) for counts,
+URLs, the fixed seven-low/three-high selection and private-source provenance.
+
+Aim for at least 95% retained coverage on each selected song. The first integration
+milestone targets at least **100 independently supported original groups across three
+or more low-set songs**, with the accuracy and preservation checks below. A tiny gain
+or a null trial does not complete this PR: keep working and keep it draft. These
+targets do not authorize invented timing or guarantee that every provider word is sung.
+
+## Approach
+
+### Start from the measured restrictions
+
+The ten-song selection stays fixed: Just Awake, Wild Side, Kyouran Hey Kids!!, TEENAGE
+CITY RIOT, LOST IN PARADISE, 嘘 and 天天天国地獄国; plus たぶん, CROW and 残酷な天使のテーゼ.
+No selected crop reaches the 30-second limit. Of the 717 gaps, 583 contain Latin
+letters, 85 contain kanji, 48 contain only kana and one is neither. Script alone does
+not establish language, a wrong reading, or whether a word is present in the recording.
+
+嘘 illustrates two separate defects. Its LRCLIB source is already Japanese romaji:
+158 ASCII targets take the English route and nine macron-bearing targets are unsupported.
+A private Japanese-phone probe recovered no words; including marked vowels recovered
+one. Fresh TIFA retained 43/51 missing candidates, but only nine agreed with the singing
+recognizer's endpoints within 150 ms; seven also passed its probability check, and one
+survived context/interval conflicts. Fixing target spelling alone is insufficient.
+
+Several earlier approaches are already rejected: a speech IPA verifier produced only
+10/17 correct accepted English word groups on the small NUS development sample;
+blind phone reading repair introduced additional wrong repairs; weak-repeat DTW added
+zero words. Repeating those recipes without a specific changed factor is not new work.
+
+### First deliverable: source ownership and reproducible evidence
+
+Move reusable private probe logic into reviewed repository tools. Consume authenticated
+Rust crop manifests, source/result hashes, pinned model revisions and the frozen selection.
+Cache vocals, audio-only transcripts and acoustic posteriors outside Git, checkpoint
+each song, and refuse changed identities or silent overwrites. Separate collection from
+candidate evaluation so later trials reuse recognition instead of rerunning whole songs.
+
+Export per-word restrictions at each stage: source mapping, pronunciation support,
+TIFA path/completeness/agreement/duration, independent probability, both endpoint errors,
+phrase context, and collision with an already retained interval. Keep unknown acoustic
+causes unknown. Store lyric-bearing ledgers privately; publish aggregate restrictions,
+per-song gains/losses/moves and processing/memory observations.
+
+Resolve demonstrated exact-source mapping defects, including dotted-kana tokens split
+inside a dictionary node. A proposed subnode mapping must reconstruct every source
+piece and display token exactly through normalization, with unique UTF-8 boundaries;
+otherwise retain the existing line fallback. Keep existing displayed groups and original
+denominators. Do not merge syllables or remove troublesome groups to improve percentages.
+
+Preserve internal apostrophes in an original English contraction's acoustic
+spelling. The current punctuation filter turns `Don't` into the different G2P
+input `Dont`; audit original-versus-target dictionary paths and replay affected
+cues without changing their source spans, displays or saved clocks. Cover
+contractions and surrounding quotation punctuation with regressions.
+
+### Canonical readings and source language
+
+Represent original spelling, selected kana, acoustic pronunciation and provenance
+separately. Keep Rust as persistence/identity authority and Cutlet as the bundled display
+converter. A change of display script never changes acoustic inputs.
+
+1. Test bounded Japanese-romaji hypotheses, including macrons, syllabic `n`, gemination,
+   apostrophes and mixed-script text. Preserve original source spans and displayed text.
+   Ambiguous spellings remain alternatives; English words that also parse as romaji
+   need acoustic discrimination. Round-trip spelling and provider language are hints.
+2. Compare authentic Japanese-source candidates where the selected provider offers only
+   romanized text. Require matching title, complete artist credits, recording duration
+   and album/version where available; then check correspondence with the actual audio.
+   LRCLIB record 9914800 is the confirmed romanized 嘘 source, not a new Japanese candidate.
+   Unavailable search or ambiguous recording identity remains an explicit failure.
+3. Generate sung-reading candidates from source-provided readings, bounded dictionary
+   alternatives and closed audio-only phone/kana recognition. Check local source-owned
+   envelopes so an unsupported English word elsewhere cannot block a Japanese reading.
+   Do not send the same kanji through a second dictionary and call that new evidence.
+
+Accepted corrections stay attached to original lyric spans, apply to identical repeated
+text, and obtain fresh occurrence-specific alignment. Preserve user edits and verified
+readings; never reconstruct ambiguous kanji from sound. A genuinely different source
+snapshot stays a separate saved version. Report its new denominator separately; compare
+old groups only when phonetic/source correspondence is unique and documented.
+
+### Local acoustic verification and region realignment
+
+Compare full-line alignment with bounded local regions on the same waveform. Use only
+anchors supported by fresh acoustic evidence; retain their exact frame/crop provenance.
+Local regions must remain inside Rust-exported recording bounds and include enough
+context to check both sides. Candidates at a cut edge, ambiguous repeats and missing
+word ownership remain withheld. Cropping is a search restriction, not a word timestamp.
+
+Keep current probability, token-agreement, duration and endpoint rules for the first
+comparison: independent probability at least 0.45, TIFA agreement at least 0.90 when
+using raw rejected paths, positive similarity, duration at least 80 ms, and both observed
+endpoints within 150 ms. Evaluate any later policy change against references before
+adoption; do not lower thresholds because the commercial coverage count is disappointing.
+
+The existing immutable-interval fallback can block a correct new candidate beside a
+wrong earlier interval. Test a separate, bounded region solver using the existing
+`repair_regions` work as a starting point. It may replace an **automatic** neighbor only
+when fresh independent observations agree with the replacement and contradict the old
+boundary, and the complete region passes order, overlap, context and unchanged outer
+anchor checks. A region starts with at most four groups. User/supplied timing stays
+protected. Preserve the earlier version rather than silently rewriting it.
+
+Report added words and moved words separately. Unsupported old intervals are not erased
+to clear space. Correct existing reference timings must not gain new errors; source
+reading changes and justified repairs are identified explicitly rather than hidden in
+an assertion that nothing moved.
+
+### English singing needs an appropriate acoustic path
+
+Reuse existing TIFA and cached singing evidence first. English and romanized Japanese
+must be routed separately, with an unknown/mixed option. Test verified English runs
+using a singing-trained challenger and an independent family of evidence rather than
+requiring the Japanese-only phoneme checker to understand all English words.
+
+The pinned [Echora](https://huggingface.co/hcX02/echora-mms-300m-multilingual-lyrics-forced-aligner)
+checkpoint is a bounded research candidate already available locally. Its actual
+30-token vocabulary is Latin-only, so native kanji/kana are unsupported despite the
+model card's language claims. Its earlier six additions and zero direct RomajiASR-gated
+additions must remain visible. A new trial changes phrase routing and verification,
+not just the model name. Do not bundle its research-only weights.
+
+The first new challenger is [HubertFA-combined](https://huggingface.co/Silasimo/HubertFA-combined/tree/f20e23ab12596d914b2adfcbeb8882180dd92fac),
+with [Apache-licensed inference source](https://github.com/wolfgitpr/HubertFA/tree/b3f086966946255a05b0ccb69c865c8e3e806e0a)
+and a pinned Chinese HuBERT encoder. It publishes a 39-phone ARPAbet inventory plus
+silence, configuration and a singing-trained boundary head. The upstream CLI also
+requires an unpublished nonlexical head: test the forced-alignment head alone, without
+pretending to detect breaths. Verify restricted checkpoint loading, complete state
+keys/shapes and the 44.1 kHz /10 ms output clock before running NUS development audio.
+Its conditional path confidence does not verify spelling. Keep weights research-only;
+measure CPU and MPS rather than assuming upstream supports Metal.
+
+The next English comparison separates lexical verification from word boundaries.
+Use source-blind Whisper on original mix and vocals to confirm unique multiword runs
+with probability at least 0.70, preserving its audio-occurrence check. TIFA and
+HubertFA must separately observe both boundaries within 150 ms; keep TIFA's 0.90
+agreement, positive similarity and 80 ms duration rules. Do not treat HubertFA's
+conditional score as recognition confidence. On the opened development reference,
+the boundary pair retains 31/37 word envelopes with 31 correct; lexical verification
+and wrong-target tests remain prerequisites. Compare original cue recognition against
+up-to-30-second unions of complete Rust crops, with unchanged timing-job bounds.
+
+Keep recognition statistics typed: Whisper word confidence and an acoustic CTC
+phone probability are different measurements. The exploratory HubertFA CTC path
+requires every phone to reach 0.45 unmasked probability, 0.90 greedy agreement,
+and an adjacent supported word in each actual audio view. Its CTC and alignment
+heads share an encoder. The first development test accepts three correct groups
+and rejects 111 wrong-phone controls, but the commercial trial adds zero groups.
+It is not an integration candidate or a calibrated universal probability rule.
+
+Test the released [MOSS-Music singing recognizer](https://github.com/OpenMOSS/MOSS-Music)
+through an isolated, pinned MLX runtime. The 4-bit checkpoint is about 6 GB; require
+strict complete weight loading and a local tokenizer without custom remote code.
+Use audio-only transcription, keep text as an unverified proposal, and never use
+generative timestamps as word clocks. Measure M2 memory and processing time.
+The first four-clip pilot and two-clip prompt diagnostic both repeat and exhaust
+their token limits. Reject that path unless a reproducible inference change fixes
+it; larger precision is not itself a fix. A bounded speech-ASR challenger may still
+test fast English recognition, without assuming singing accuracy from speech scores.
+
+The next comparisons change the acoustic path: a second vocal separator before
+source-blind recognition, English GMM-HMM clocks with and without per-speaker
+feature adaptation, and complete Parakeet CTC paths from cached audio-only emissions.
+Keep these separate from text/reading corrections. A third fixed waveform requires
+two scored, unique-context word witnesses; it supplies no word clocks. Same-model
+waveforms remain correlated. Test lead/backing-vocal separation separately from
+ordinary all-vocal extraction. The MOSS port's validated 8-bit configuration may
+receive one controlled comparison against the unvalidated 4-bit result, within a
+measured memory limit; it must demonstrate a change rather than presume one.
+
+[SingAlign](https://huggingface.co/pymaster/SingAlign) is a possible singing-trained
+English phoneme path only if its encoder/head/vocabulary/frame-clock contract can be
+recovered and pinned. Its linked source currently returns 404. Search official renamed
+or archived sources and inspect safe documented metadata before rejecting it; never
+initialize missing layers or guess the inference graph. If unusable, record that exact
+restriction and pursue the reproducible path. New downloads require pinned hashes and
+recorded terms; no training on the private commercial test recordings is planned.
+
+Japanese timing uses the existing PJS references. English timing needs the existing
+NUS singing phone/word-marker references: PJS is not English evidence. NUS word groups
+have no orthographic gold text; evaluate supplied-phone boundary accuracy honestly, and
+score spelling only after an independently sourced transcript matches the human phone
+groups uniquely. Do not use ASR output as gold. The previous speech verifier remains
+rejected, not a baseline to rescue by opening held-out data.
+
+## Steps
+
+The next reading trial compares explicit kana minimal pairs on otherwise identical
+cues, rather than re-reading an ASR-produced kanji string. Use real/silence/other-verse
+contrasts for both the owned word and complete cue so a candidate cannot absorb its
+neighbor unnoticed. These remain research nominations: test localized acoustic
+dependence and independent reading evidence before any correction. Keep model
+features cached without changing scores. English work also tests a genuinely new
+source-blind CTC recognizer; CTC spikes supply lexical location, never word offsets.
+The latest SOFA/MFA and pitch-transform limitations are recorded in the evaluation;
+none authorizes relaxing the integration gates or changing saved results.
+
+1. **Cache and trace.** Build the reviewed evidence/probe tools, authenticate existing
+   inputs, and collect only missing caches for the frozen ten. Publish the restriction
+   breakdown before choosing longer model trials. Fix exact mapping defects with fixtures.
+2. **Readings and routing.** Implement bounded source/romaji/kana hypotheses and local
+   reading verification. Run written-versus-spoken and language-routing comparisons
+   separately, preserving the input groups and reporting all selected songs.
+3. **Boundaries.** Compare full-line, local-region and verified-neighbor-repair paths.
+   Exercise timing checks on known labels and wrong-window controls before integration.
+4. **English challenger.** Establish a reproducible singing-specific model contract,
+   explicit phone/token mapping and positive English singing evaluation. Run the same
+   frozen commercial cases and reject incomplete or poorly validated paths.
+5. **Integrate a substantive recipe.** Extend Experimental only after a candidate passes
+   the gates and delivers multi-song gains. Version engine/model/provenance identities;
+   retain the original TIFA action, saved edits and earlier results. Keep this same PR
+   open if the first candidates fail; update the plan as evidence changes the approach.
+6. **Validate and explain.** Native replay/reopening on the ten selected songs, protected
+   reading and representation fixtures, app/ZIP packaging and relocation, full repository
+   checks, README/design/evaluation updates. Further catalog testing uses documented
+   bounded sets after the recipe freezes; never replay all 61 for each hypothesis.
+
+## Tests and checks
+
+- Source/representation: dotted and half-width kana; combining dakuten; macrons and
+  ASCII English lookalikes; punctuation; repeated lines; non-bijective normalization;
+  unknown readings; exact source ownership; protected edits and reconversion reattachment.
+- Every cache/result binds recording, original/source snapshot, selected group identities,
+  Rust crop samples, delay, source/edit revision, model and code hashes. Interrupted runs
+  resume only authenticated completed work. No capture helper rebuild or Keychain access.
+- Compare frozen original groups: gains, losses, moves, reading/text changes and new
+  denominators where necessary. Never equate retained coverage with verified correctness.
+- PJS: keep the previously opened 390-word/62-recording development comparison, including
+  masked gaps. Preserve the 389 previously joint-correct words (onset error ≤150 ms and
+  offset error ≤200 ms), retain their coverage, and report the remaining error separately.
+  Labels are opened only after a trial's observations close; this is no fresh holdout claim.
+- English: keep used NUS ADIZ development evidence separate from the frozen JLEE song 05
+  reserve. Freeze model, mapping, preprocessing, thresholds and eligibility before opening
+  JLEE labels. Report word-group timing, sample size and uncertainty by song; one clean
+  a cappella song cannot certify commercial mixed-language pop accuracy.
+- Exact new stages must admit zero timings on the 143 existing wrong-verse, silence,
+  instrumental and English mismatch controls, plus region-specific wrong-word/repeat
+  controls. Correct-reading controls and the six verified Tabi/fifteen saved occurrences
+  remain unchanged. Extra false repairs fail promotion even if coverage increases.
+- No required listening/annotation assignment to the user. Optional listening feedback
+  supplements existing labelled evaluation; limitations remain explicit.
+- Measure cached and full-pipeline time, process RSS and sampled MPS/MLX allocation on
+  M2 Pro /16 GiB separately. Run models serially, checkpoint, and preserve safe cancellation.
+- `bash scripts/check.sh` remains the mandatory offline gate; new tool checks join it
+  without model inference/network. Packaged/helper and `check-app-package.py` smoke tests
+  verify signatures, source/protocol compatibility and relocation before a merge request.
+
+## Progress (2026-10-14)
+
+- Exact dotted-kana mapping is implemented with nine additional source/edit fixtures.
+- Pinned HubertFA inference and development benchmark tools run on CPU and MPS.
+  The supplied-phone test gives 32/37 correct word envelopes; no verifier-qualified
+  words or app recipe are promoted.
+- The reviewed romaji parser and bounded region probe ran 29 fresh local trials on
+  嘘, producing zero additions beyond the earlier one-word full-window proposal.
+- English recognition on 172 context views finds 47 missing groups with evidence
+  in both views. Paired TIFA/HubertFA retains eight proposals; a complete CMU G2P
+  fallback raises that to eleven across three songs, with zero losses or moves.
+  These are research proposals, not shipped coverage.
+- The phone-recognition gate adds zero groups across 189 commercial cues. MOSS
+  fits the M2 memory target but repeats. Keep those failures visible and pursue
+  a changed recognition/verification approach instead of relaxing the gates.
+- A source-blind Parakeet pilot also fails on the difficult mix/vocal contexts.
+  Tempo and pitch transformations are restricted to text proposals: their clocks
+  cannot supply saved timing. Do not sweep the cap until a bounded pilot retains
+  actual original groups.
+- Test a different verification surface with the already pinned Whisper model:
+  score the exact original Japanese/English source against the original waveform,
+  silence and a different verse. Mask each model-observed word interval and compare
+  the score change with equal-size masks elsewhere. This tests local acoustic support
+  without requiring greedy transcription to spell our selected romaji. Forced text,
+  attention clocks and conditional confidence alone never verify a word. Calibrate
+  the combined decision on labelled development audio and existing negatives before
+  considering integration; preserve the existing boundary and saved-edit gates.
+- Add two pinned CC BY JamendoLyrics development songs with human word clocks and
+  exact normalized word text. They address NUS's missing orthographic transcript;
+  they are a small English development sample, not a new Japanese/pop holdout.
+  Store all lyrics/audio/results outside Git, retain attribution, and do not mix
+  corpus accuracy with commercial retained coverage. JLEE remains reserved.
+- The localized source-contrast pilot does not improve English retention. Forced
+  Whisper clocks fail the labelled comparison; TIFA/HubertFA masks retain 34
+  development words, 33 joint-correct. Continue with independently decoded singing
+  text and explicit language routing; do not promote this conditional-only recipe.
+- The substantial multi-song target remains unmet. Continue the lexical verification,
+  sung-reading and anchor work on this same draft PR. Results and reproduction are
+  recorded in [the evaluation](../study-source-accuracy-evaluation.md).
+- Free Qwen decoding with explicit language policy improves the English development
+  transcription, but the paired timing pilot still has errors and only five commercial
+  proposals. Fresh singing-letter and original-kanji /selected-kana comparisons also
+  fail to establish a substantive recipe. Test joint neighboring-cue alignment next:
+  preserve original groups and use unions of authenticated Rust crop bounds, with
+  occurrence-specific clocks. Compare it with isolated cues before expanding the run;
+  shared-model agreement alone never authorizes a new saved word.
+
+## Next bounded comparison (2026-10-15)
+
+The deletion-aware and neighboring-cue pilots do not meet the gain target. Keep
+them as measured research tools; neither changes the app. Test the dedicated
+Japanese-singing [SOFA akm_ja release](https://github.com/ariikamusic/SOFA_Models/releases/tag/akm_ja_v001)
+as a different acoustic surface. Pin the released checkpoint and matching
+inference source, validate the complete state, phone inventory, mel preprocessing
+and output clock, and measure a small CPU pilot before expanding. Its selected-path
+confidence is conditional and must not be called independent lexical probability.
+Keep raw observations, require complete original word ownership and compare with
+fresh independent boundaries. This does not waive existing promotion gates.
+
+The model owner lists PJS in training. PJS may check this adapter's contract but
+cannot establish independent accuracy for this checkpoint. Keep unknown weight
+redistribution terms explicit and weights private; an integration decision needs
+appropriate independent evidence. Do not ask the maintainer for labels or accounts
+as a prerequisite to continuing the other experiments.
+
+Separate source-blind phone presence from a forced path's clocks. The first complete
+low-set opportunity comparison finds only 40/714 missing groups with exact unique
+phone witnesses; neighboring-phone ablations reach 42 and do not solve the restriction.
+The SOFA/TIFA/free-phone prototype leaves five proposals on three 嘘 cues, without
+changing existing timings. Neither trial meets the integration milestone. Expand
+the better English free-decoding pilot to the already frozen 172 mix/vocal context
+clips, with unchanged probability and independent boundary checks. Match the complete
+source window before assigning occurrences, so repeated phrases cannot be credited
+to the wrong cue. Reuse the existing authenticated paired boundaries and withhold
+incomplete recognition; this comparison does not change the app or open a holdout.
+The completed comparison leaves sixteen proposals across three songs, with no lost
+or moved intervals; it still misses the substantive target. Thirteen of the 172
+views are withheld for exhaustion or non-reconstructible repetition-cleaned text.
+Record that full-window English detection fails on Japanese passages even though
+the PJS/order diagnostics work. Test a bounded explicit Japanese-language hypothesis
+against original-source words next; a language prefill is not a lyric prompt, a
+detected-language result or independent evidence that a particular word was sung.
+That six-view pilot finds only one scored literal match among 18 missing groups.
+A private long-vowel projection also fails to increase the complete opportunity
+count. Preserve these nulls and continue with a different acoustic recognizer or
+source-correspondence hypothesis; do not expand these unchanged recipes merely to
+accumulate more proposals.
+
+The next different acoustic candidate is Japanese-specific
+[ReazonSpeech NeMo v2](https://huggingface.co/reazon-research/reazonspeech-nemo-v2),
+using a pinned private speech.cpp Metal runtime and Q8 checkpoint. Its twenty-clip
+greedy/beam comparison finds only seven phonetic opportunities among 81 gaps with
+either decoder, and its public JSON has no word probabilities. Keep the artifact
+pins and benchmark in the evaluation; do not integrate its transcript or emission
+times as verified lyric/timing corrections. The substantial integration target
+remains open.
+
+Test local pronunciation contrast on closed singing CTC posteriors next. Compare
+each complete original group's phones against the union of representable one-phone
+substitutions and the blank path on identical frames. This is a likelihood ratio,
+not a calibrated word probability. Keep the existing observed-frame duration,
+independent boundary, context and preservation checks. The fixed first comparison
+rejects all 390 wrong-reading variants but pairs only 79 original development words
+with TIFA, of which 78 are correct; its eighteen-cue commercial replay leaves one
+proposal. It does not satisfy promotion. Investigate the observed boundary failures
+and a duration-aware singing model rather than expanding that unchanged recipe.
+
+A numerical MOSS frontend check on one earlier crop matches the official-equivalent
+Whisper features closely. It supplies no corrected runtime that warrants repeating
+the recognizer sweep. Keep this one-crop diagnostic separate from model accuracy.
+
+The closed CTC audit measures a median 170 ms early ending against human sung
+boundaries; padding is not the main cause. Test a separate duration model rather
+than extending emission peaks. A private pinned PySHIRO v2 full-phrase comparison
+checks 264 development groups with 263 correct TIFA clocks, but its commercial
+overlay adds zero. At-most-four-group Japanese regions remove mixed-language
+blocking but reduce development boundary accuracy and leave only one commercial
+proposal. The adapter's silent unknown-mora dropping is fixed with a regression.
+These are measured rejected recipes, not a promoted change: keep model weights
+private, disclose unknown PJS training overlap, and preserve the substantive target.
+
+The next duration trial replaces pause-only surroundings with a source-independent
+mixture over distinct acoustic state outputs. Sum complete positive-duration state
+paths with an exact finite-window prior normalizer; retain actual frame boundaries
+and report their posterior spread. This is an acoustic background diagnostic, not
+a full phone-loop recognizer. Compare the same windows with the pause ablation,
+the opened PJS labels and all mismatch controls. The first trial checks 171 PJS
+groups with 171 correct TIFA clocks, but still leaves only one commercial proposal.
+Keep original intervals immutable; their collisions are not permission to retime
+user/provider/unknown-origin data. A source-tag/result audit can distinguish an
+earlier automatic interval, but each proposed replacement still needs fresh evidence
+and unchanged outer anchors.
+
+Test a separate duration-model pronunciation contrast next: compare each complete
+word with all canonical same-length one-phone substitutions, using the same observed
+window and each candidate's own prior-fit normalizer. A strict unweighted sum of
+these conditional likelihoods is not a union probability or calibrated confidence.
+Report competitor counts, unknown phones and bounded-window abstentions. This tests
+an alternative to the CTC emission-confidence gate; it is not a threshold reduction
+or an app policy change. Freeze the recipe before scoring known references and
+wrong-reading/wrong-audio controls. Wider commercial replay requires positive results.
+The first fixed pilot scores twelve eligible PJS groups and none beats even its
+best competing phone path; all commercial additions are zero. Keep the exact scorer
+and null result, but reject this GMM pronunciation gate and do not expand it unchanged.
+
+A real alias-routing defect is fixed: explicit validated phones must be considered
+even when ordinary text routing rejects a macron-bearing lyric. Preserve its source
+text/span and reject unknown phones. The RomajiASR contract audit finds no missing
+waveform normalization and no token-expansion discrepancy; those unchanged paths
+do not warrant another recognizer sweep. A correctly mapped English HFA CTC contrast
+retains only one of 96 development words and is rejected before further inference.
+
+## Latest experiment adjustment
+
+Correct the private English replay's fully supported-source skip before judging
+its evidence. Export its source-owned lexical matcher and regressions, then test
+original UTF-8 source groups directly rather than encoding supplied lyrics with
+an English-only tokenizer. Both changes improve measurement but add no gaps
+beyond the same eighteen unpromoted proposals; do not count extra witnesses as
+coverage gains.
+
+Dictionary replacement and the independent acoustic pilots still miss the
+substantive target. Test context-aware kana candidate generation as a distinct
+reading-selection approach: freeze source-only prompts and model identity before
+inference, keep labels and current readings outside that process, and reject
+changed IDs or incomplete responses. Reattach candidate readings to original
+spans, preserve surrounding words, and evaluate them against real audio and
+controls before considering any saved edit. Published furigana may nominate
+alternatives but cannot certify how the singer pronounces them. This remains
+research in this PR and changes neither the app recipe nor its saved timings.
+
+Keep a separate whole-cue minimal-pair unit where a recognizer's BPE token spans
+more than one source word. Score the complete unchanged-neighbor cue against the
+same controls, without dividing a token score between words. Preserve the original
+word-and-cue gate and report both units. Three cross-family sequence nominations
+justify fresh current-versus-candidate clock probes; they do not authorize edits.
+Also test current-reading winners as possible timing evidence and a small English
+CMU-confusable-word pilot. These tests ask whether discriminative source checking
+can recover useful evidence when free transcription fails. Freeze competitors and
+controls before inference, score wrong-current queries symmetrically, and require
+physical/reference checks before any integration.
+
+The full English cue may include another language or incorrect neighboring lyrics.
+Test a separate immediate-source-neighbor window on all twelve reference words,
+twelve hard gaps and twelve independent negatives, rather than selecting only
+favorable failures. Keep the same competitors, controls and decision margins.
+Changing text context is a new verification unit, not permission to discard a
+failed full-cue decision from the record.
+
+Challenge canonical English pronunciation as well. A bounded Japanese-English
+phone lattice can represent documented consonant substitutions while preserving
+the original source word. Start with unambiguous, contextual rules from
+[Ando et al.](https://www.isca-archive.org/interspeech_2021/ando21_interspeech.pdf),
+with a fixed variant cap and deterministic gap selection across low-set songs.
+The speech evidence is a hypothesis for singing. Do not invent epenthetic vowels
+where the source does not define a usable rule. Alternative forced paths nominate
+boundaries, not verified lyric spelling; compare them against canonical paths,
+independent lexical evidence, physical clocks and wrong-audio controls.
+
+Keep natural source script and phonetic input separate in the verifier too. Compare
+unchanged original-script neighbors with all-kana contexts, reusing only byte-identical
+closed inputs. A separate mixture-versus-vocals comparison holds the complete
+candidate sets and source context fixed; agreement on a distorted consonant must
+not become a displayed reading correction. Likewise, local boundary comparisons
+must keep the old waveform role before attributing a difference to context alone.
+
+Measure the oracle availability of correct existing intervals as a diagnostic,
+separate from a label-free interval selector. A whole-interval consensus may choose
+only measured original-word observations; report introduced errors, lost correct
+words and source-order overlaps, not just added words. It remains a research recipe
+until correctness and ordered-region checks pass together.
+
+A corrected reading can restore a paired target while the old automatic neighbors
+still overlap it. Test a separate bounded automatic-region solver using only
+observed endpoints belonging to the same original word and waveform. An old
+endpoint may be retained when both fresh models endorse it; another endpoint of
+that word may come from a fresh observation. Such an interval has explicit
+composite provenance and must not be described as one model's complete output.
+Never manufacture, average, trim, snap or transfer an endpoint from another word.
+Protect user, provider and unknown-origin data, retain the earlier strict solver's
+results, and validate this new recipe independently before any app migration.
+
+Keep the existing complete-pronunciation CTC contrast and its 0.45 emission check
+as lexical evidence, separately from physical duration. Test native source-word
+forced alignment as the second physical clock beside TIFA; the CTC spike's
+endpoints do not become the word's boundaries. This changes the observer family,
+not the pronunciation margin or timestamp tolerances. Start with all 390 opened
+PJS words and the existing wrong-reading/audio controls, then a source-selected
+48-gap cohort across the frozen low songs, including current readings. Report
+every structural abstention and retain the old CTC-clock and HSMM comparisons.
+
+Test native character timestamp slots as a separate granularity factor. The
+official Python Japanese path uses Nagisa morphemes; the pinned C++ Japanese
+path instead splits CJK characters. Neither establishes that character slots
+will improve singing. Keep the same frozen words and waveforms, tile each source
+word exactly with auxiliary character/run pieces, and aggregate only its first
+observed start and last observed end. Equal internal character timestamps are
+recorded, not interpolated; missing, nonmonotone or ambiguous pieces abstain.
+Original word denominators and display groups remain unchanged. Evaluate this
+condition on the same references and controls before considering it for songs.
+
+Test Fun-ASR-Nano as a different source-blind lexical observer. Its model card
+lists Japanese and music-background lyric recognition, but does not establish
+Japanese singing accuracy. Use the official pinned native checkpoint, a separate
+local research environment and saved audio. Freeze language routing, frontend,
+decoding and complete-source-owner matching before each comparison. Keep generic
+automatic-language and upstream-amplitude conditions separate; do not choose a
+different winner for each clip. Compare only authenticated identical waveforms
+with earlier free transcription, retaining missing comparisons explicitly.
+Transcription matches nominate reading or timing checks; they never supply word
+duration. First audit the physical/ordered-overlay ceiling before expanding a
+cohort whose clocks remain fixed. Test English gaps separately from romanized
+Japanese, since treating every Latin source as English repeats the existing bug.
+
+Complete a missing-observation census for all 717 frozen gaps before extrapolating
+from selected probes. Keep every original group in each gap-containing Rust cue,
+reuse exact closed observations and collect only missing ordinary-current TIFA
+and native clocks. The seven difficult songs use their authenticated Kim stems;
+the three high-set gaps without authenticated stems remain a separate original-
+mixture stratum. A missing cached observation is unknown, not model failure.
+Keep the separately frozen English cohort and its dual-view free-transcription
+matches separate from this physical census. Calibrate any proposed replacement
+lexical observer on the same opened references and mismatch controls before
+considering app admission; do not substitute its decoder confidence for CTC
+emission probability.
+
+The complete census also permits a separate filter experiment: TIFA's 0.99
+token-agreement threshold is a mean conditional token probability, not proof
+that a path is structurally complete. Keep the original action and current
+retained-path policy unchanged. Test complete raw observations with finite
+positive similarity and the same strict duration/interior/paired-clock rules,
+using independently qualified lexical evidence in place of that one confidence
+filter. First close proposals on the opened PJS/English references and existing
+mismatch controls, then join their labels and report wrong readings, errors and
+lost correct intervals. Missing complete-path proof abstains. This is a new
+research recipe, not permission to treat every rejected raw path as a word.
+
+Test a different boundary factor rather than repeating the failed preset-head
+Whisper run. Port the pinned stable-ts runtime head selection with six heads per
+token and two selection/DTW passes. Keep the same forced text and acoustic
+features; the selector sees no reference timestamps. This is source-conditioned
+alignment, not source-blind recognition. Start with the already opened sixteen
+English cues and unchanged controls. Retain attention/head selections and both
+paths, and compare endpoint error and independently qualified intervals. Exclude
+refinement, silence suppression, duration clamps and timing shifts. Do not sweep
+head counts or iterations against these labels; a null result does not justify
+choosing the best head retrospectively.
+
+Test direct source-blind kana decoding as a separate acoustic representation:
+ordinary Japanese transcripts can hide a sung pronunciation behind kanji. A
+UTF-8 token-state constraint may emit kana without supplying the target lyrics;
+retain split-byte tokens, permit end-of-text only after complete UTF-8, and save
+the chosen tokens' original full-vocabulary scores separately from the masked
+distribution. Constrained output is a hypothesis, not calibrated lexical
+confidence. Start with the three opened reading examples before expanding.
+
+Exact repeated source lines offer another bounded experiment. The frozen cap
+contains at most 44 missing groups with a compatible already-timed occurrence.
+Test whether independent acoustic sequences can locate boundaries on the target's
+observed frames, using wrong-verse controls and protected-neighbor checks. Never
+copy a source timestamp or linearly stretch it onto the target; a source-only
+repeat count is not recovered coverage. Record this ceiling before collecting
+the small additional acoustic observations the existing caches lack.
+
+Test the initial Music Flamingo checkpoint as a music-trained alternative to
+speech ASR. Use a pinned Q4_K_M text model, its matched F16 audio projector and
+an isolated current llama.cpp build with explicit Music Flamingo audio support.
+Keep these research assets outside the app and Git. Freeze one generic lyric
+transcription prompt, decoding settings and the same eight audio-only pilot
+windows; preserve sample identity through WAV encoding. Strictly validate model,
+projector, runtime and frontend provenance before interpreting output. Japanese
+lyric quality and M2 memory/latency are measurements to make, not established
+capabilities. No integration or larger replay follows an unvalidated pilot.
+
+Test a singing-conditioned boundary model rather than another speech recognizer:
+the released Schulze-Forster lyrics-aligner jointly learns phone alignment and
+lyric-conditioned vocal separation. Freeze its pinned checkpoint, canonical CMU
+dictionary and all 39 phones before the same sixteen Jamendo development cues.
+The model receives supplied phones, so this is source-conditioned alignment.
+Start with the original mixtures; isolated vocals are a separate condition.
+Use deterministic evaluation mode, no VAD threshold, an explicit Torch STFT
+compatibility change and no additional padding. Retain complete attention/DTW
+paths. Measure first-phone onsets as the primary endpoint and its observed
+separator-state word ends as a separate full-interval comparison; neither is
+ground truth merely because the model produces it. Reject skipped or incomplete
+owners, preserve all original denominators, and close proposals before joining
+reference clocks. Disclose training-domain overlap checks. Expand to the frozen
+song gaps only if reference/control results justify it.
+
+Test complete multi-line contexts as an explicit structural factor. The sixteen
+existing Jamendo cues form two consecutive source passages under thirty seconds;
+validate that no intervening source line is skipped. Join their complete source
+texts and original word owners, align each contiguous original-audio passage
+jointly, and map observed clocks back through exact sample origins. Keep all 96
+focal owners and their references unchanged. Compare the singing-conditioned
+model, TIFA and native forced alignment on these same passages before expanding
+to songs. Do not confuse additional context with a timing correction, omit words
+to fit a crop, introduce synthetic padding, or select a different recipe per word.
+Keep admission context attached to the complete original source cue, independently
+of the larger inference window. Report the initial whole-window confidence test
+separately; extending audio must not silently change the source-context denominator.
+
+Test a Japanese singing duration head as a separate supervised approach. Use the
+pinned [GTSinger Japanese singing subset](https://huggingface.co/datasets/AaronZ345/GTSinger/tree/d78cd68d00135b1995da03f25fccb3a221efd8c1),
+with human-corrected phone/word boundaries, to fit a small dense phone-occupancy
+head over frozen, already cached Japanese-singing HuBERT features. This learns
+sustained phone frames rather than reusing CTC emission spikes as word clocks.
+Keep corpus, features and trained products private during the trial. The source
+dataset is CC BY-NC-SA 4.0; clean studio singing and only two Japanese singers are
+important domain limitations.
+
+Freeze the feature layer, phone inventory and title-grouped splits before training.
+Use two singer-disjoint outer folds, retaining every technique variant of a title
+in its singer's partition; internal validation uses only training-singer titles.
+These singers are held out from the new head. The cached encoder's unpublished
+training list prevents a claim that they are unseen by the encoder.
+Authenticate the frontend's frame origin and receptive field. Rasterize reference
+phone intervals by fractional overlap with real feature cells; preserve unknown
+labels and sub-frame phones explicitly. Test kana-to-inventory conversion and
+complete word ownership with fixtures before decoding. Japanese annotation text
+units are individual characters, so group them through exact source-owned converter
+spans before reporting displayed-word accuracy; never call character coverage word
+coverage. Report complete word
+endpoint accuracy, unsupported labels, skipped phones, runtime and memory on the
+public held-singer folds before considering a frozen private-song trial. No private
+song-suite recording or lyric enters training. The initial encoder stays frozen.
+
+The first final-layer linear head fails even with supplied pronunciations. Keep
+its results and test two separate factors rather than promoting its raw coverage:
+a train-only zero-inflated geometric phone-duration decoder on the same posteriors,
+and the same linear head over the frozen encoder's midpoint layer six. Fit duration
+parameters only on training-singer training titles; zero-frame phones remain explicit
+and an entirely unobserved word abstains. Preserve observed frame-cell clocks and
+report complete-phone versus skipped-phone words separately. Keep the midpoint
+head's architecture, fitting splits, hyperparameters and source/metric gates fixed;
+this is one feature-layer hypothesis, not a search for the best test-layer score.
+The public corpus is now development evidence, not a new holdout for these follow-ups.
+
+Both the duration decoder and midpoint-layer head lose correct intervals. Test one
+small temporal head on the original final-layer features: a nine-frame per-channel
+filter, initialized as the identity, followed by the original linear classifier.
+It can learn local context within 80 ms on either side while retaining the baseline
+hypothesis. Context indices stay inside each recording; no extra acoustic frames
+or timestamps are created. Keep the same title splits, loss, training schedule,
+validation checkpoint selection and original decoder. Evaluate the source-phone
+mapping change separately before combining factors.
+
+Check transfer separately on the existing PJS development subset. Fit the original
+linear head on all 2,000 public training clips for a fixed 21 epochs, the mean of
+the two original validation-selected epochs. Freeze that recipe before PJS
+inference. Preserve its 390 focal words, all 949 context owners and original audio
+origins; unsupported source phones remain explicit. This is external development
+evidence, not an unseen-corpus claim or a reason to skip the wrong-lyric controls.
+
+The frozen-feature heads also fail the external PJS comparison. Test a bounded
+adaptation of only the final two encoder blocks to the dense phone-occupancy
+objective. Cache block-ten outputs on the same authenticated public waveforms;
+verify that replaying the unmodified final blocks reproduces the original output.
+Keep earlier blocks frozen, initialize each fold from its original trained linear
+head, and retain the same singer/title exclusions. Freeze five epochs, an encoder
+learning rate of 0.00001 and head rate of 0.0003 before fitting; select the original
+epoch-zero model or an adapted checkpoint using only training-singer validation
+loss. Preserve whole recordings and mask padded features in attention and loss.
+Close all test posteriors before the unchanged source/clock evaluation. Report
+runtime and peak memory, including the cost of the new feature cache. This changes
+the earlier frozen-encoder assumption because smaller heads failed; it does not
+authorize training on private songs or treating training loss as singing accuracy.
+
+Test source pronunciation alternatives as a separate factor on the original head.
+The first lattice covers only literal source `っ`/`ッ` followed by a mora whose
+closure variants occur at least three times across two training titles in that
+fold. Keep every original word, choose one complete nonempty variant per source
+slot, and allow pauses only between words. Normalize repeated identical annotation
+labels only inside the same original character owner. Unobserved contexts remain
+unsupported. The fixed portions must reproduce the earlier source mapping exactly;
+selected variants supply the actual phone identities for the unchanged timing
+qualifiers. Test branch selection exhaustively, including long leading/trailing
+pauses, before reading cached posteriors. This changes the phone representation,
+without choosing a different kanji reading or changing an original word's ownership.
+
+A label-free feature diagnostic finds larger per-record channel-mean shifts for
+the held singer, without a matching increase in within-record channel spread.
+Test per-record mean centering on the original final-layer features before fitting
+the same linear head. Use only real frames, retain the original training-fold
+channel scale, and apply the identical transformation to training, validation and
+test clips. Do not normalize each recording's variance. Keep the original fitting
+schedule, title splits, validation selection and decoder unchanged. This tests a
+possible voice/content shift; the diagnostic alone establishes no accuracy gain.
+
+The supervised heads and their agreement tests still do not justify app admission.
+Test a separate source route: existing word- or syllable-timed lyrics, including
+sung romanization, from open-source clients and community karaoke catalogs.
+Start with the same ten frozen songs. Authenticate title, artists, release/version
+and actual recording duration from public catalog metadata; processing time in
+our evaluation tables is not song duration. A matching title or nearby duration
+alone is insufficient to transplant clocks between recordings.
+
+Preserve the original provider response, its hash, parser revision, complete text,
+raw clock units and session state privately. Respect provider errors and quotas;
+do not rotate sessions to get around them. Inspect the existing raw Spotify/LRCLIB
+payloads before implementing another fetcher. Compare Karaoke Mugen ASS, QQ QRC
+and romanization, NetEase YRC, and Musixmatch richsync only where actually returned.
+Reject wrong-recording matches even if the provider labels them successful. A
+romanization sidecar is a candidate reading, not proof of acoustic correctness.
+
+Close source-only mapping proposals before joining saved coverage or model clocks.
+Keep every original word owner and map only complete contiguous supplied chunks
+that exactly tile its text under a stated normalization. Do not split a chunk,
+fill a rest, distribute line time, or invent a word end from an onset-only field.
+Resolve repeated text only through unambiguous source order; preserve ambiguity
+when multiple mappings remain. Report source eligibility, old-gap overlap and
+recording/endpoint verification separately. Supplied clocks from another version
+must not overwrite the active source. Validate promising proposals against the
+authorized recording and the existing negative controls before considering app
+integration; retain previous sources, readings and user edits.
+
+Test a source-language input repair separately from supplied clock transfer.
+Pre-romanized Japanese currently enters TIFA's English pronunciation path.
+Use an authenticated Japanese alternative to qualify exact phoneme mappings,
+then change only those original words' model input to Japanese kana. Preserve
+the original display words, UTF-8 owners, complete cue context and original Rust
+audio windows. First require whole alternative-source word ownership; test an
+additional kana-mora-boundary arm separately. The latter permits a reading split,
+never a split or copied timing. Keep unmappable words as explicit unchanged
+fallbacks. Compare original, qualified-kana and original-Japanese model text on
+identical mixture audio, then repeat on the production vocal stem. Count actual
+saved-gap recoveries and preservation separately from fresh TIFA retention.
+
+The next supervised model comparison adapts TIFA itself, rather than an
+unconditional classifier over another encoder. Its existing supervised objective
+uses frame-to-phone alignment, annotated phone spans, token identity and frame
+identity. Preserve the cached checkpoint's exact vocabulary IDs and strict tensor
+loading; equal vocabulary sizes do not establish equal token semantics. Start
+with the conservative subset of the approved Japanese corpus whose phone labels
+map to existing tokens. Unsupported clips remain in evaluation denominators.
+Retain the existing singer/title folds and shared-title exclusions.
+
+Audit the model's actual 48 kHz, 10 ms-hop feature geometry and all frame masks
+before fitting. Keep short phones that receive no frame center explicit; verify
+the official loss behavior on empty spans before choosing a fitting rule. First
+run a short whole-clip forward/gradient/memory check on the M2 Pro, including a
+disposable optimizer step with the intended accumulation count. If activation
+recomputation is needed, verify identical outputs and numerical gradient parity
+with CPU and MPS random-state preservation before fitting. Report process RSS
+and GPU-driver allocations separately. Use batch one, gradient accumulation and
+no concatenation or truncation. Disable the auxiliary
+semi-supervised stream and EMA for this labeled-data-only trial. Freeze a bounded
+schedule and validation selection, including the unchanged checkpoint, before
+fitting. No private song enters training, and improved training loss alone does
+not authorize app promotion.
+
+Test a different source-free Japanese phone encoder as a separate challenger:
+[Phonsa](https://github.com/YatingMusic/Phonsa/tree/8c6abaa82a77a71738698bce745243121484654a)
+has released Japanese singing weights and explicit phone/boundary classes. Its
+published Mandarin results are not Japanese accuracy evidence. Pin the released
+checkpoint and config, verify restricted strict loading, and start with the
+existing 16-record Japanese pilot on CPU before measuring Metal. No second base
+Whisper checkpoint should be needed. Preserve the trained attention behavior
+and the released inventory's ambiguous classes rather than silently repairing
+them. Freeze canonical-source-to-phone proposals before opening predictions or
+reference clocks; unsupported owners remain barriers and stay in denominators.
+Report source-free phone discrimination separately from conditional boundary
+accuracy. One model's two outputs do not provide independent verification. PJS
+is named in its training configuration and cannot serve as an unseen test.
+
+Separate candidate generation from reading selection. Test the released model's
+audio-only Japanese transcription decoder without lyric prompts or prior text.
+When a unique transcript difference exactly covers an original source owner,
+convert the replacement into a reading candidate attached to that owner's
+unchanged source span. Keep the current reading and every dictionary rival;
+ambiguous, crossing or incomplete mappings remain withheld. An ASR spelling is
+not a replacement source snapshot or a verified reading. Its decoder and phone
+head share an encoder, so agreement between them is not independent evidence.
+TIFA remains responsible for any fresh timing proposal.
+
+Before integration, test actual converter alternatives on a source-selected
+Japanese singing control set: 100 Soprano calibration clips, 100 Tenor evaluation
+clips with disjoint normalized song titles, and ten smoke clips. Deduplicate
+exact audio and exclude conflicting source metadata before selection. Freeze
+all candidate paths, source ownership, confidence features and the calibration
+rule before model outputs or reference joins. Report correct changes, wrong
+changes, preserved correct readings, missing true candidates and unknown
+references separately. Overall nomination accuracy cannot substitute for enough
+evidence about changed readings; the known regressions do not set thresholds.
+The GTSinger trial exposes repeated phone-interval labels without reliable
+lexical-fragment identity, so its raw sequence join cannot supply those reading
+labels. Keep calibration withheld; any duration-insensitive sequence diagnostic
+is descriptive and cannot authorize edits. Continue with the frozen song pilot
+and independently trained recognizers while retaining the closed corpus scores.
+
+Repeat the fixed 14-crop reading pilot on Kim-isolated vocals as a waveform-only
+comparison. Keep the original Rust sample bounds, all 78 context owners and all
+167 rival paths in 24 comparisons. Separate newly closed stem-generation runs
+from historical stems whose recipe provenance was reconstructed. Collect fresh
+Phonsa phone observations and transcripts, then independent HuBERT and original
+TIFA scores on the same stems. A better reading nomination still needs fresh
+boundary and context checks; shared training or shared encoders do not become
+independent witnesses by changing the waveform.
+
+Test [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) as a distinct audio-only
+candidate generator. Its official model supports Japanese and song audio;
+that support is not evidence of accuracy on this suite. Start with pinned
+1.7B 8-bit MLX weights, the installed model implementation and a pinned research
+decoder, with verified assets and built-in tokenizer loading. This extends the
+earlier automatic-language BF16 English-context trial within the same model
+family; runtime variants do not provide independent votes. Freeze Japanese
+language selection, greedy
+decoding and a token cap before the first pass; record actual termination and
+withhold capped output. Reuse the original and vocal pilot manifests, then the
+existing regression crops. Supply no lyric prompts, reference text or saved
+word clocks. Compare candidate availability and verified reading preservation
+before expanding to further crops from the frozen ten songs. Published
+song-specific furigana may contribute additional source-owned candidates, but
+it cannot replace acoustic verification or supply timestamps.
+
+Separate language routing from model identity on the source-qualified Japanese
+romanized recording. Compare Japanese versus automatic routing on identical
+mixture/vocal windows, retaining capped outputs as explicit abstentions. Source
+aliases must be proved before transcript matching. Whole, unsplit BPE ownership
+and unique adjacent source context provide lexical witnesses, not reading labels
+or boundaries. Keep physical-context rules explicit when joining these witnesses;
+do not silently replace a physical-only context rule with a joint lexical rule.
+
+Test source-free kana-constrained Phonsa decoding separately from ordinary ASR.
+Its byte-BPE filter must preserve semantically viable UTF-8 prefixes, valid voicing
+marks and natural termination without permitting kanji. Capture chosen-token
+probabilities before all masks. Preserve every old candidate and score before
+joining the nine verified reading cases; do not expand a zero-candidate variant
+unchanged. Neighboring-cue phone overlap remains an ownership ambiguity even when
+several scorers prefer a candidate.
+
+The Japanese GTSinger phone labels cannot calibrate exact reading selection, but
+its original written words can test orthographic presence. Freeze separate
+whole-word and complete two/three-owner region queries, with source-matched and
+different-title audio controls. A region-negative example does not establish
+absence of each constituent word. Preserve repeated/ambiguous regions and shared
+negative strings as unknown; never divide a region token probability among its
+words. Use the existing 100-clip calibration and title-disjoint 100-clip evaluation
+partitions, keeping the ten smoke clips separate. Close all audio-only outputs
+and source proposals before label joins, freeze any calibration choice before
+opening the evaluation results, and report denominators by words, regions and
+recordings. This tests lexical evidence, without certifying disputed sung readings
+or accurate clocks.
+
+Test the native forced aligner's timestamp posterior as a distinct boundary
+representation. Its current adapter discards all but the highest-scoring class
+for each source-word start/end marker. Add a research-only observer in a separate
+build that preserves the exact unmodified logits, model timestamp step and
+source-marker ownership. Require old argmax parity before evaluating another
+decoder; keep the shipped helper and app unchanged during the experiment.
+
+Decode complete source sequences with a monotonic maximum-score path over the
+observed timestamp classes. Preserve every word and both markers, allow pauses
+between words, require at least 80 ms per word and strict crop interior, and
+abstain on impossible or unsupported inputs. Do not interpolate, skip a word,
+copy a neighboring boundary, average clocks or condition the native path on
+TIFA clocks. Retain full-vocabulary probabilities before any constraints. Compare
+the unrestricted path with separately frozen peak-relative logit-drop limits
+of zero, ln(2) and ln(10); a failed limit withholds the complete cue.
+
+Keep a second source-complete arm that permits a native start/end point in one
+timestamp bin. Such a point preserves its two observed markers and original
+owner but remains invalid for word timing; it never passes the unchanged 80 ms
+physical minimum. This separates a short auxiliary word from a missing source
+word without forcing its neighbors apart. Report both duration arms and all
+four peak-drop conditions separately, without selecting a recipe per word.
+
+Check dynamic-programming parity against exhaustive small examples before
+inference. Close the GTSinger 210-clip native observations and all decoder arms
+before joining existing word-boundary references; keep the earlier calibration,
+evaluation and smoke partitions. Report raw predictions, physical qualifications,
+TIFA endpoint agreement, gains/losses and wrong-audio controls separately. A
+more complete monotonic path is not accuracy evidence. As a second, separate
+diagnostic, measure native posterior mass near TIFA's actual observed endpoints;
+it must not select the native path or authorize admission without reference tests.
+
+Compare original glyph versus the converter's already-frozen
+`reading.alignment_text` as a separate native-model input factor. Keep the same
+recordings, all original owner spans, TIFA observations, decoder conditions and
+references. Store source surfaces separately from model text, authenticate both,
+and retain unsupported outputs explicitly. This distinguishes writing from
+pronunciation without letting the display mode choose model input.
+
+Transfer the comparison to all 518 authenticated Rust crops in the frozen ten
+only after the source-complete corpus runs and argmax checks close. Preserve all
+2,927 original owners. Compare original source slices with the exact saved Rust
+target text; do not replace that frozen text with a newer converter's output.
+Keep corpus converter-kana and commercial frozen-target conditions distinct.
+Materialize each cue's exact existing float32 sample slice with no padding or
+normalization, record its global sample origin, and keep missing ledgers or
+unsupported cues in the denominator. Authenticate any reused TIFA observation
+against its own audio crop, source snapshot and ordered owner spans; a matching
+track or occurrence alone is insufficient. Collect fresh observations where
+those identities differ, without modifying the saved app version.
+
+The posterior-mass diagnostic sums the full-vocabulary probability of actual
+native timestamp classes within 150 ms of each observed TIFA endpoint. It neither
+chooses a native timestamp nor changes the TIFA clock. Freeze both-endpoint
+thresholds of 0.25, 0.50, 0.75, 0.90, 0.95 and 0.99 before computation; keep raw
+argmax pairing, unrestricted 80 ms pairing and an explicitly unpaired diagnostic
+separate. Within each fixed input, physical and lexical condition, calibration
+may select the most retained clocks with zero known endpoint errors and at least
+25 correct candidates, breaking ties toward the higher threshold; otherwise it
+abstains. Close that choice before its evaluation. The evaluation references
+are already opened development data, so this is not a new holdout claim or
+permission to promote a condition by selecting its best evaluation result.
+
+Reference joins require exact record ID, WAV hash, original line bytes/hash and
+ordered source spans/surfaces. Duplicate audio can have different annotations;
+never resolve references through a WAV-only dictionary. Keep native-clock and
+retained-TIFA-clock correctness separately named in every report. Metadata
+`word_durs` and phone-derived durations agree numerically in this corpus and
+must not be represented as independent boundary checks.
+
+## Out of scope
+
+Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,
+another timing button, a hosted service, publishing private skills/history/credentials,
+recordings/lyrics/model weights, and training on the private song suite. Corpus acquisition
+that needs contacting/licensing a third party is not a prerequisite for the first source
+and boundary deliverables. This PR does not promise 100% or call unverified words correct.

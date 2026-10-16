@@ -69,6 +69,33 @@ def test_pronunciation_is_inflected_and_keeps_written_orthography(converter):
 
 
 @pytest.mark.parametrize(
+    "text", ["Don't", "I'm", "what's", "We're", "can't", "isn't", "rock'n'roll", "an'ya"]
+)
+def test_contraction_acoustic_spelling_keeps_its_source_and_display(converter, text):
+    response = convert(converter, text)
+    assert len(response["words"]) == 1
+    word = response["words"][0]
+    assert word["raw_span"] == [0, len(text.encode())]
+    assert word["expected_text"] == text
+    assert word["reading"]["alignment_text"] == text
+    assert word["reading"]["written"] == text
+    assert slice_bytes(response["romaji"], word["output_span"]) == text
+    assert slice_bytes(response["hiragana"], word["hiragana_span"]) == text
+    assert slice_bytes(response["katakana"], word["katakana_span"]) == text
+
+
+def test_contraction_keeps_internal_apostrophe_without_attaching_quotation_marks(converter):
+    raw = "'Don't' stop!"
+    response = convert(converter, raw)
+    assert [(w["expected_text"], w["raw_span"]) for w in response["words"]] == [
+        ("Don't", [1, 6]),
+        ("stop", [8, 12]),
+    ]
+    assert [w["reading"]["alignment_text"] for w in response["words"]] == ["Don't", "stop"]
+    assert response["romaji"] == raw
+
+
+@pytest.mark.parametrize(
     "raw,kana", [("闇夜", "やみよ"), ("行こう", "ゆこう"), ("闇夜", "やみ よ")]
 )
 def test_sung_correction_never_inherits_the_wrong_dictionary_pronunciation(converter, raw, kana):
@@ -99,3 +126,63 @@ def test_sung_correction_never_inherits_the_wrong_dictionary_pronunciation(conve
 def test_old_wire_protocol_is_explicitly_rejected(converter):
     with pytest.raises(ValueError, match="unsupported_protocol"):
         converter.convert({"protocol_version": 1, "command": "hello", "request_id": 1})
+
+
+@pytest.mark.parametrize(
+    "raw,pieces",
+    [
+        ("ゲ・ン・カ・イ", ["ゲ", "ン", "カ", "イ"]),
+        ("ゲ・ン・カ・イまで", ["ゲ", "ン", "カ", "イ", "まで"]),
+        ("ゲ・ﾝ・ｶ・ｲ", ["ゲ", "ﾝ", "ｶ", "ｲ"]),
+    ],
+)
+def test_unknown_dotted_kana_keeps_words_and_maps_each_exact_source_piece(converter, raw, pieces):
+    result = convert(converter, raw)
+    assert result["romaji"].startswith("ge/n/ka/i")
+    assert result["hiragana"].startswith("げ/ん/か/い")
+    assert result["katakana"].startswith("ゲ/ン/カ/イ")
+    assert len(result["words"]) == len(pieces)
+    assert [w["expected_text"] for w in result["words"]] == pieces
+    assert all(w["reading"]["origin"] == "source" for w in result["words"][:4])
+    for word, piece in zip(result["words"], pieces, strict=True):
+        assert slice_bytes(raw, word["raw_span"]) == piece
+        assert word["mapping_status"] == "mapped"
+        assert word["reading"]["written"]
+
+
+@pytest.mark.parametrize(
+    "surface,output",
+    [
+        ("ゲ・ン", "ge/m"),
+        ("ゲ・・ン", "ge/n"),
+        ("限・界", "gen/kai"),
+        ("ゲ・A", "ge/A"),
+        ("ゲ・ン", "gen"),
+    ],
+)
+def test_subnode_mapping_withholds_non_kana_or_inexact_reconstruction(converter, surface, output):
+    assert (
+        converter.dotted_kana_parts(
+            surface, output, [0, len(surface.encode())], [0, len(output.encode())]
+        )
+        == []
+    )
+
+
+def test_subnode_reading_edit_keeps_other_words_and_reattaches(converter):
+    raw = "ゲ・ン・カ・イ"
+    edit = {
+        "id": "saved",
+        "kind": "reading_kana",
+        "raw_span": [12, 15],
+        "expected_text": "カ",
+        "hiragana": "かあ",
+        "replacement": "kaa",
+    }
+    for _ in range(2):
+        result = convert(converter, raw, [edit])
+        assert result["pending_overrides"] == []
+        assert result["romaji"] == "ge/n/kaa/i"
+        assert result["hiragana"] == "げ/ん/かあ/い"
+        assert len(result["words"]) == 4
+        assert [w["raw_span"] for w in result["words"]] == [[0, 3], [6, 9], [12, 15], [18, 21]]

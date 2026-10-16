@@ -102,6 +102,12 @@ and RomajiASR uses singing phones. Display mode never chooses model input. The
 [representation evaluation](study-representation-evaluation.md) records compatibility,
 paired pronunciation trials and native replay results.
 
+Acoustic spelling preserves internal English apostrophes: `Don't` and `I'm` reach
+the pronunciation dictionary as contractions, rather than `Dont` and `Im`.
+Surrounding quotation marks and other punctuation remain outside the model word.
+Rust validates the same spelling rule; source spans, displayed words and saved
+timing ownership stay intact. The converter's signature versions this change.
+
 The [accuracy experiments](study-accuracy-evaluation.md) record why broader pronunciation
 scoring, neighboring context, repeat localization and an English speech verifier remain
 offline. Their research commands are explicit; hooks do not download models or run them.

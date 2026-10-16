@@ -19,7 +19,7 @@ pub const MODEL_SHA: &str = "6da6832cd2cb981aae1ccc2d9330f8f7c085ce7977d1eb13bff
 const MODEL_SIZE: u64 = 150_789_526;
 const MODEL_URL: &str = "https://github.com/openvpi/TIFA/releases/download/v1.0.0/TIFA-1.0-ST.zip";
 const ENGINE: &str = "TIFA/32a0a13-source-word-v2";
-const EXPERIMENTAL_ENGINE: &str = "TIFA+Demucs+Kim+MMS+RomajiASR+Whisper/sung-reading-v1+vowel-extension-v1+singing-word-recovery-v1+source-reading-v1+spoken-pronunciation-v1";
+const EXPERIMENTAL_ENGINE: &str = "TIFA+Demucs+Kim+MMS+RomajiASR+Whisper/sung-reading-v1+vowel-extension-v2+singing-word-recovery-v1+source-reading-v1+spoken-pronunciation-v1";
 const ASSETS: &str = include_str!("../../refinement/refinement-model-files.json");
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Method {
@@ -1685,6 +1685,27 @@ mod tests {
         assert_eq!(targets.len(), 3);
         assert_eq!(targets[2].raw_span, [6, 15]);
         assert_eq!(targets[2].text, "たべた");
+
+        let source = super::super::source::import("Don't stop!", "synthetic.txt").unwrap();
+        let converted = helper
+            .convert(&ConversionRequest {
+                protocol_version: crate::study::conversion::PROTOCOL,
+                request_id: 2,
+                track_id: "0000000000000000000000".into(),
+                snapshot_id: source.id,
+                occurrence_id: 0,
+                override_revision: 0,
+                expected_conversion_signature: helper.signature.clone(),
+                raw_line: source.occurrences[0].raw_line.clone(),
+                overrides: vec![],
+            })
+            .unwrap();
+        let targets = word_targets(&source.occurrences[0].raw_line, &converted);
+        assert_eq!(targets.len(), 2);
+        assert_eq!(targets[0].raw_span, [0, 5]);
+        assert_eq!(targets[0].text, "Don't");
+        assert_eq!(targets[1].raw_span, [6, 10]);
+        assert_eq!(targets[1].text, "stop");
     }
 
     #[test]

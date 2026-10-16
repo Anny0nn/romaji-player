@@ -125,6 +125,21 @@ pub fn katakana(text: &str) -> String {
         })
         .collect()
 }
+fn alignment_spelling(text: &str) -> String {
+    let bytes = text.as_bytes();
+    text.char_indices()
+        .filter(|(i, c)| {
+            c.is_alphanumeric()
+                || (*c == '\''
+                    && *i > 0
+                    && *i + 1 < bytes.len()
+                    && bytes[*i - 1].is_ascii_alphabetic()
+                    && bytes[*i + 1].is_ascii_alphabetic())
+        })
+        .map(|(_, c)| c)
+        .collect()
+}
+
 impl Response {
     pub fn display_text<'a>(&'a self, raw: &'a str, mode: super::LyricMode) -> &'a str {
         match mode {
@@ -221,11 +236,7 @@ impl Response {
                 .filter(|text| !text.contains('？'))
                 .unwrap_or(word.expected_text.as_deref().unwrap_or(""));
             if span(&self.romaji, &word.output_span) != Some(word.reading.romaji.as_str())
-                || word.reading.alignment_text
-                    != selected
-                        .chars()
-                        .filter(|c| c.is_alphanumeric())
-                        .collect::<String>()
+                || word.reading.alignment_text != alignment_spelling(selected)
             {
                 bail!("alignment target differs from selected reading");
             }
@@ -511,11 +522,55 @@ mod tests {
     }
 
     #[test]
-    fn dotted_kana_preserves_other_script_spans_and_explicit_original_line_fallback() {
+    fn dotted_kana_preserves_exact_word_spans_in_every_script() {
         use super::super::LyricMode;
         let mut helper = helper();
         let mut request = fixture(&helper);
         request.raw_line = "ゲ・ン・カ・イを歌う".into();
+        let response = helper.convert(&request).unwrap();
+        let expected = ["ゲ", "ン", "カ", "イ", "を", "歌う"];
+        assert_eq!(response.words.len(), expected.len());
+        assert_eq!(
+            response
+                .words
+                .iter()
+                .map(|word| word.raw_span)
+                .collect::<Vec<_>>(),
+            [[0, 3], [6, 9], [12, 15], [18, 21], [21, 24], [24, 30]].map(Some)
+        );
+        assert_eq!(
+            response.display_text(&request.raw_line, LyricMode::Japanese),
+            request.raw_line
+        );
+        for (range, source) in response
+            .display_spans(&request.raw_line, LyricMode::Japanese)
+            .iter()
+            .zip(expected)
+        {
+            assert_eq!(span(&request.raw_line, &range.unwrap()), Some(source));
+        }
+        for mode in [
+            LyricMode::Romaji,
+            LyricMode::Hiragana,
+            LyricMode::Katakana,
+            LyricMode::Japanese,
+        ] {
+            let text = response.display_text(&request.raw_line, mode);
+            assert!(
+                response
+                    .display_spans(&request.raw_line, mode)
+                    .iter()
+                    .all(|range| { range.is_some_and(|range| span(text, &range).is_some()) })
+            );
+        }
+    }
+
+    #[test]
+    fn ambiguous_gemination_retains_explicit_original_line_fallback() {
+        use super::super::LyricMode;
+        let mut helper = helper();
+        let mut request = fixture(&helper);
+        request.raw_line = "桜ぱっ と歌う".into();
         let response = helper.convert(&request).unwrap();
         assert!(response.words.iter().any(|word| word.raw_span.is_none()));
         assert!(response.words.iter().any(|word| word.raw_span.is_some()));
@@ -535,7 +590,7 @@ mod tests {
                 response
                     .display_spans(&request.raw_line, mode)
                     .iter()
-                    .all(|range| { range.is_some_and(|range| span(text, &range).is_some()) })
+                    .all(|range| range.is_some_and(|range| span(text, &range).is_some()))
             );
         }
     }
@@ -701,6 +756,12 @@ mod tests {
         assert!(response.validate(&request).is_err());
         response = original;
         response.protocol_version = 1;
+        assert!(response.validate(&request).is_err());
+
+        let mut request = fixture(&helper);
+        request.raw_line = "Don't".into();
+        let mut response = helper.convert(&request).unwrap();
+        response.words[0].reading.alignment_text = "Dont".into();
         assert!(response.validate(&request).is_err());
     }
     #[test]

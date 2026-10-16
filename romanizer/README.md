@@ -28,6 +28,12 @@ separate from normal hooks; pytest and real Rust/Python protocol tests are in
 the normal full gate. Requests are bounded, stale responses are rejected,
 and invalid/ambiguous source mappings remain visible for correction.
 
+Unknown dotted kana can retain exact word ownership: `ゲ・ン・カ・イ` still renders
+four words (`ge/n/ka/i`), but each word now maps to its own kana source span. This
+requires a complete, ordered reconstruction of the node's source and romaji;
+partial or ambiguous conversion keeps the fallback. Group counts never change
+to improve timing coverage.
+
 Verified track/context readings are bundled defaults, not guesses. SAKURA's
 故郷(まち) comes from [Uta-net's licensed annotation](https://www.uta-net.com/song/37330/).
 departure!'s 地球(ほし) follows [its licensed annotation](https://www.uta-net.com/song/123698/),
