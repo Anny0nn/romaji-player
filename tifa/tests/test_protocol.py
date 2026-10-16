@@ -208,6 +208,61 @@ def test_vowel_fallback_never_rewrites_valid_digraphs_or_guesses_other_kana():
         assert vowel_extensions(unchanged) == unchanged
 
 
+@pytest.mark.parametrize(
+    ("source", "expanded"),
+    [
+        ("さぁ", "さあ"),
+        ("ねぇ", "ねえ"),
+        ("ふぅ", "ふう"),
+        ("サァ", "サア"),
+        ("ネェ", "ネエ"),
+        ("きゃぁ", "きゃあ"),
+        ("キャァ", "キャア"),
+        ("ファァ", "ファア"),
+        ("ウィィ", "ウィイ"),
+        ("てぃぃ", "てぃい"),
+        ("さぁぁ", "さああ"),
+        ("さーぁ", "さーあ"),
+        ("ゆぁ", "ゆぁ"),
+        ("んぁ", "んぁ"),
+        ("っぁ", "っぁ"),
+        ("さぃ", "さぃ"),
+        ("あァ", "あァ"),
+        ("さ、ぁ", "さ、ぁ"),
+        ("ふァァ", "ふァァ"),
+    ],
+)
+def test_small_vowel_fallback_follows_the_mora_and_keeps_source_script(
+    source, expanded
+):
+    assert vowel_extensions(source) == expanded
+
+
+def test_mora_extension_retains_the_source_word_and_converter_phone_groups(tmp_path):
+    from g2p.converters.japanese import JapaneseKanaConverter
+    from lib.vocabulary import Vocabulary
+
+    dictionary = tmp_path / "kana.txt"
+    dictionary.write_text("sa\ts a\na\ta\nne\tn e\ne\te\n")
+    aligner = Aligner.__new__(Aligner)
+    aligner.converters = {"ja": JapaneseKanaConverter(str(dictionary))}
+    aligner.vocabulary = Vocabulary(
+        symbol_to_id={"ja/s": 3, "ja/a": 4, "ja/n": 5, "ja/e": 6}
+    )
+    targets = [
+        {"text": "さぁ", "romaji": "saa", "raw_span": [0, 6]},
+        {"text": "ねぇ", "romaji": "nee", "raw_span": [7, 13]},
+    ]
+    assert aligner.words(targets) == ([], [])
+    words, indices = aligner.words(targets, expand_vowels=True)
+    assert indices == [0, 1]
+    assert [word.text for word in words] == ["さぁ", "ねぇ"]
+    assert [
+        [group.phonemes for group in word.readings[0].paths[0]] for word in words
+    ] == [[["s", "a"], ["a"]], [["n", "e"], ["e"]]]
+    assert [target["raw_span"] for target in targets] == [[0, 6], [7, 13]]
+
+
 def test_library_amplitude_diagnostics_cannot_corrupt_jsonl(capsys):
     class Backend:
         def align(self, samples, targets):

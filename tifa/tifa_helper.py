@@ -148,19 +148,54 @@ def retain_interval(spans, indices, similarity, agreement, length_ms):
 
 
 def vowel_extensions(text):
-    """Expand only same-vowel small-kana elongation, never contracted digraphs.
+    """Expand a mora's matching small vowel, preserving existing digraphs.
 
     This is a phonetic input fallback; source text, displayed reading and byte spans
     remain intact. Unknown small vowels and script mixtures remain unsupported.
     """
+    from g2p.converters.japanese import _KANA_TO_ROMAJI, _kata_to_hira
+
+    def script(char):
+        if "ぁ" <= char <= "ゖ":
+            return "hiragana"
+        if "ァ" <= char <= "ヶ":
+            return "katakana"
+        return None
+
     pairs = dict(zip("ぁぃぅぇぉァィゥェォ", "あいうえおアイウエオ", strict=True))
     result = []
-    for char in text:
+    last_vowel, last_script, position = None, None, 0
+    while position < len(text):
+        digraph = text[position : position + 2]
+        current_script = script(digraph[0])
+        reading = (
+            _KANA_TO_ROMAJI.get(_kata_to_hira(digraph))
+            if len(digraph) == 2
+            and current_script is not None
+            and script(digraph[1]) == current_script
+            else None
+        )
+        if reading is not None:
+            result.extend(digraph)
+            last_vowel = reading[-1] if reading[-1] in "aeiou" else None
+            last_script = current_script
+            position += 2
+            continue
+        char = text[position]
         large = pairs.get(char)
-        if result and large == result[-1]:
+        if (
+            large is not None
+            and current_script == last_script
+            and _KANA_TO_ROMAJI[_kata_to_hira(large)] == last_vowel
+        ):
             result.append(large)
         else:
             result.append(char)
+            if char != "ー":
+                reading = _KANA_TO_ROMAJI.get(_kata_to_hira(char))
+                last_vowel = reading[-1] if reading and reading[-1] in "aeiou" else None
+                last_script = current_script
+        position += 1
     return "".join(result)
 
 

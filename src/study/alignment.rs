@@ -19,7 +19,7 @@ pub const MODEL_SHA: &str = "6da6832cd2cb981aae1ccc2d9330f8f7c085ce7977d1eb13bff
 const MODEL_SIZE: u64 = 150_789_526;
 const MODEL_URL: &str = "https://github.com/openvpi/TIFA/releases/download/v1.0.0/TIFA-1.0-ST.zip";
 const ENGINE: &str = "TIFA/32a0a13-source-word-v2";
-const EXPERIMENTAL_ENGINE: &str = "TIFA+Demucs+Kim+MMS+RomajiASR+Whisper/sung-reading-v1+vowel-extension-v1+singing-word-recovery-v1+source-reading-v1+spoken-pronunciation-v1";
+const EXPERIMENTAL_ENGINE: &str = "TIFA+Demucs+Kim+MMS+RomajiASR+Whisper/sung-reading-v1+vowel-extension-v2+singing-word-recovery-v1+source-reading-v1+spoken-pronunciation-v1";
 const ASSETS: &str = include_str!("../../refinement/refinement-model-files.json");
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Method {
