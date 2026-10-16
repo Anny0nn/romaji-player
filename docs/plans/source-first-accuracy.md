@@ -791,6 +791,31 @@ labels. Keep calibration withheld; any duration-insensitive sequence diagnostic
 is descriptive and cannot authorize edits. Continue with the frozen song pilot
 and independently trained recognizers while retaining the closed corpus scores.
 
+Repeat the fixed 14-crop reading pilot on Kim-isolated vocals as a waveform-only
+comparison. Keep the original Rust sample bounds, all 78 context owners and all
+167 rival paths in 24 comparisons. Separate newly closed stem-generation runs
+from historical stems whose recipe provenance was reconstructed. Collect fresh
+Phonsa phone observations and transcripts, then independent HuBERT and original
+TIFA scores on the same stems. A better reading nomination still needs fresh
+boundary and context checks; shared training or shared encoders do not become
+independent witnesses by changing the waveform.
+
+Test [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) as a distinct audio-only
+candidate generator. Its official model supports Japanese and song audio;
+that support is not evidence of accuracy on this suite. Start with pinned
+1.7B 8-bit MLX weights, the installed model implementation and a pinned research
+decoder, with verified assets and built-in tokenizer loading. This extends the
+earlier automatic-language BF16 English-context trial within the same model
+family; runtime variants do not provide independent votes. Freeze Japanese
+language selection, greedy
+decoding and a token cap before the first pass; record actual termination and
+withhold capped output. Reuse the original and vocal pilot manifests, then the
+existing regression crops. Supply no lyric prompts, reference text or saved
+word clocks. Compare candidate availability and verified reading preservation
+before expanding to further crops from the frozen ten songs. Published
+song-specific furigana may contribute additional source-owned candidates, but
+it cannot replace acoustic verification or supply timestamps.
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,

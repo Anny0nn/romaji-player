@@ -2468,6 +2468,62 @@ are retained. Its 13 useful unique spectrograms and candidate scoring take
 comparison does not use the adapted checkpoint or introduce word clocks.
 Saved app coverage remains **2,210/2,927**.
 
+## Vocal isolation and further transcription candidates
+
+The fixed reading pilot is repeated on Kim-isolated vocals with the same 14 Rust
+sample windows, 78 original owners, 24 comparisons and 167 candidate paths.
+Eight crops use three newly closed separation runs; six use byte-verified older
+stems with reconstructed recipe provenance. Separation takes 84, 73 and 108
+seconds for the three full recordings, with 2.32 GB peak MLX allocation.
+Phonsa transcription now terminates naturally on all 14 crops, versus 13 on
+mixture audio. Changing the waveform changes some reading rankings, but is not
+an independent model vote.
+
+Four gap targets have the same nominee under Phonsa, HuBERT and original TIFA
+on both waveforms. Two are unchanged-current controls. Fresh TIFA timing and
+independent HuBERT word observations retain all 88 context-owner observations
+across the 16 current/nominee/waveform conditions. **No changed nominee passes
+the complete admission rule.** One candidate's target boundaries pass on vocals,
+but only two of its eight source groups have qualifying timing pairs; four are
+required. Qualification also keeps HuBERT's 0.45 probability minimum. The shorter
+Just Awake reading remains vetoed. One unchanged-current
+control qualifies; this is not a new reading repair.
+
+A separate published-furigana audit exactly maps 540 of 1,756 original owners
+across the five pilot songs. After excluding already tested dictionary/provider
+alternatives, only two new gap readings remain. They are tested with two timed
+controls, all 24 rival paths and all 17 owners in their two original cues.
+Neither published reading wins HuBERT or TIFA on mixture or vocals. A different
+dictionary alternative shared by Phonsa and TIFA is contradicted by HuBERT.
+No correction or timing recovery is admitted from this source audit.
+
+The Japanese transcription follow-up uses the pinned MLX 8-bit conversion of
+[Qwen3-ASR-1.7B](https://huggingface.co/mlx-community/Qwen3-ASR-1.7B-8bit/tree/a8379a2e2f9e313c9292cdf1af4055ab56d50d55).
+Assets are verified locally, custom tokenizer code is disabled, and decoding is
+greedy Japanese with no lyric prompt or saved clocks. The installed model code
+needs two research-only decoder dependencies: mlx-lm 0.31.1 and SentencePiece
+0.2.1. The app runtime is unchanged.
+
+| Batch                                | Clip runs | Natural termination | Time after loading | Peak MLX allocation |
+| ------------------------------------ | --------: | ------------------: | -----------------: | ------------------: |
+| Original mixture pilot               |        14 |                  14 |             5.63 s |             3.46 GB |
+| Corresponding Kim vocals             |        14 |                  14 |             4.91 s |             3.46 GB |
+| Existing regression/hypothesis crops |        15 |                  15 |             5.93 s |             3.54 GB |
+
+These are processing runs, not 43 independent examples: waveform counterparts
+and three regression/pilot crops overlap. Loading takes 0.43–0.91 seconds;
+process peak RSS ranges from 1.49 to 3.01 GB. RSS and GPU allocation overlap.
+The earlier 172-view English-context trial already used the same Qwen3-ASR
+family with a BF16 Transformers backend and automatic language selection.
+The MLX backend and language routing are changed factors, not a new model family.
+Likewise, RomajiASR names the already tested singing HuBERT checkpoint, and
+Phonsa's transcription and phone outputs share an encoder.
+
+The frozen owner extractors add five distinct ASR candidate paths while
+preserving every original path, producing a 172-path follow-up. These are
+candidate-availability and acoustic-ranking results, with TIFA and admission
+checks still required. Saved app coverage remains **2,210/2,927**.
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue
