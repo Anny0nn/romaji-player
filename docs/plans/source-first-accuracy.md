@@ -741,8 +741,12 @@ Retain the existing singer/title folds and shared-title exclusions.
 Audit the model's actual 48 kHz, 10 ms-hop feature geometry and all frame masks
 before fitting. Keep short phones that receive no frame center explicit; verify
 the official loss behavior on empty spans before choosing a fitting rule. First
-run a short whole-clip forward/gradient/memory check on the M2 Pro. Use batch one,
-gradient accumulation and no concatenation or truncation. Disable the auxiliary
+run a short whole-clip forward/gradient/memory check on the M2 Pro, including a
+disposable optimizer step with the intended accumulation count. If activation
+recomputation is needed, verify identical outputs and numerical gradient parity
+with CPU and MPS random-state preservation before fitting. Report process RSS
+and GPU-driver allocations separately. Use batch one, gradient accumulation and
+no concatenation or truncation. Disable the auxiliary
 semi-supervised stream and EMA for this labeled-data-only trial. Freeze a bounded
 schedule and validation selection, including the unchanged checkpoint, before
 fitting. No private song enters training, and improved training loss alone does

@@ -2162,6 +2162,73 @@ has not qualified those proposals. This isolates a real pronunciation-routing
 restriction, but the current physical checks do not establish a substantial
 saved-coverage gain.
 
+A broader language-routing ablation tests 150 reversible ASCII-to-kana candidate
+inputs across five Japanese-labeled Spotify sources, including 58 saved gaps.
+It retains all 589 original owners in 98 affected cues. The unchanged English
+routing retains 415 words; the kana condition retains only 227, in 8.91 seconds
+after loading. A song-level Japanese label and dictionary roundtrip do not certify
+that its Latin words are Japanese. This broader rule is withheld; it does not
+expand the separately qualified Uso source mapping.
+
+## Supervised TIFA adaptation
+
+The next controlled trial adapts the conditional TIFA aligner itself. A strict
+mapping to its existing vocabulary admits 1,043 complete Japanese GTSinger clips;
+957 unsupported clips remain accounted for. The first fold trains on 215 eligible
+clips from one singer and selects on 40 eligible clips from 57 fixed validation
+clips. All 1,359 opposite-singer recordings remain outside fine-tuning and model
+selection. Shared normalized song titles are excluded from fitting.
+
+The adapter uses the pinned upstream frame-alignment, span-contrastive,
+token-identity and frame-identity losses, including its sequence-edit and
+masked-token input policy. It preserves gap class zero, sub-grid phone spans and
+actual 48→16→48 kHz frontend geometry. Four input-contract tests and synthetic
+loss/gradient fixtures pass before fitting. A 16-clip no-update profile takes
+14.43 seconds, including the longest clip and both eligible right-edge frame
+cases.
+
+The first fit exceeds the 0.65 MPS memory guard once optimizer state is present.
+Its partial outputs remain separate. Training-only activation checkpointing
+reduces memory, but ordinary checkpointing initially changes dropout gradients:
+the installed Torch 2.14.1 checkpoint code does not capture the MPS random state.
+Explicit per-layer MPS state preservation restores identical losses, with relative
+gradient L2 error of 1.3e-9 on the longest clip. Four accumulated longest-clip
+gradients and a real optimizer step then fit with 2.64 GB observed GPU-driver
+memory; those profile weights are discarded.
+
+The corrected run keeps the original folds, seeds, objective and optimizer:
+AdamW at 1e-5, betas (0.9, 0.98), no weight decay, norm clip one, whole-clip batch
+one and accumulation four. It finishes three epochs in 308 seconds. Clean
+validation loss falls from 3.405 to 2.090, selecting epoch three; this is a
+selection statistic, not word-timing accuracy. Peak process RSS is 2.79 GB and
+the largest sampled MPS-driver allocation is 4.88 GB. These memory measures
+include different allocations and should not be added together.
+
+The frozen source-word replay compares the original and selected checkpoints
+on all 1,359 excluded recordings. It uses the original converter-owned words and
+kana, not human reference phone sequences as model input. Its population has
+11,747 displayed words and 11,754 source-ledger groups; 11,722 displayed words
+have known reference intervals and 25 do not. The 16-record original replay
+reproduces every cached source owner and clock exactly. Both full prediction sets
+close before the reference join.
+
+| Same 11,722 reference-known words | Original correct / wrong | Adapted correct / wrong |
+| --------------------------------- | -----------------------: | ----------------------: |
+| Raw observed intervals            |            10,037 /1,576 |           10,131 /1,525 |
+| Retained intervals                |             9,827 /1,324 |            9,898 /1,248 |
+
+Correctness requires both endpoints within 150 ms. Retained timing gains 216
+correct intervals and loses 145 previously correct intervals, a net increase of 71. Of the newly retained observations, 58 are correct and 54 are wrong. Total
+retention falls from 11,174 to 11,169, including 23 reference-unknown observations
+in each condition. All four structurally withheld contexts and 30 unsupported
+words remain explicit. There are no collector errors.
+
+This is a small controlled timing improvement without a completeness gain. It
+does not justify replacing the original model or accepting its new retentions
+unconditionally. The opposite training fold remains a separate test of the same
+frozen fitting recipe. No adapted model has changed app state or private-song
+saved coverage.
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue
