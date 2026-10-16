@@ -1577,6 +1577,200 @@ are identical to the automatic-language baseline and the contextual witness
 sets are unchanged. This does not establish that the native frontend is broken.
 The factors remain separate and no per-clip best result is selected.
 
+The three opened reading examples supply a separate bounded check on both the
+mixture and isolated vocals. Ordinary Japanese transcription nominates the
+verified departure! reading `hoshi` on the isolated vocals only, withholds both
+Tabi alternatives, and nominates no wrong fixed candidate. Raw kanji output
+does not establish its pronunciation. A generic hiragana-only prompt fails to
+remove kanji from all six real clips and loses the sole correct nomination.
+The added five-second zero-audio control emits `/sil`, a marker-like string;
+the frozen alphanumeric-hallucination diagnostic flags it, without treating it
+as a fluent invented lyric. Neither condition supplies timestamps or app edits.
+
+A source-only English follow-up selects 48 original gaps in 35 cues across six
+low-set songs, with eight targets per song and at most two per cue. All 192
+original context groups remain. The 70 mixture/vocal requests take 118.5 seconds
+after loading with 4.09 GB peak process RSS. Two reach the token limit and
+abstain. Complete unique context matches with whole-BPE ownership and actual
+free-decoder probability qualify ten missing owners on each view and eight in
+both; the twelve-owner union remains diagnostic. There are no new human labels
+or false-positive estimates in this real-song cohort.
+
+The physical follow-up obtains all missing observations for those 35 cues.
+On isolated vocals, 28 selected gaps have retained interior TIFA intervals,
+38 have valid native intervals and fourteen have paired clocks. Requiring
+independent lexical matches on both audio views and coherent original context
+leaves one ordered-overlay hypothesis. Its whole observed TIFA interval is
+800–1,210 ms and native is 800–1,200 ms relative to its crop; no existing clock
+moves. The original-mixture TIFA paths are rejected by the unchanged filters.
+This is one research hypothesis, with no new reference label or Fun-ASR mismatch
+calibration, and is not an app admission.
+
+A separate generic kana-only logits constraint bypasses kanji-to-dictionary
+reinterpretation without supplying source lyrics. Its reversible byte-token
+filter preserves partial UTF-8 and permits EOS only after a complete character;
+raw full-vocabulary scores stay separate from the constrained distribution.
+On the same three known readings in both audio views, it nominates `hoshi` and
+`yukou` correctly on both views, withholds `yamiyo`, and nominates no wrong fixed
+candidate: four of six role-specific nominations versus one with ordinary
+transcription. The isolated-vocal `yamiyo` transcript lacks enough of its source
+context for the frozen 65% envelope rule. The zero-audio control emits a short
+Japanese word, so unrestricted automatic repair is not established.
+
+The bounded expansion preserves the eighteen earlier Japanese cues, all 150
+original owners and both audio views. Thirty-six requests take 91.1 seconds
+after 3.4 seconds loading with 4.20 GB peak RSS. Two hit the token cap and
+abstain. The mixture yields no changed-reading nominations; isolated vocals
+yield two, one already timed and one missing. The same-wave constrained Kotoba
+baseline already nominates the former; the latter is new. Both agree with a
+provider annotation, which is candidate agreement rather than a correctness
+label. Neither replicates on the mixture. No reading or timing is saved.
+
+## Complete physical census of the frozen gaps
+
+The earlier cache audit had both physical families for only 131 of the 714
+low-set gaps. Completing the census preserves 299 gap-containing Rust cues and
+all 1,700 original context groups. It reuses exact closed observations, adds
+275 TIFA cue calls and 280 native calls including the English follow-up, and
+retains every unsupported or rejected owner. The 714 low-set gaps use their
+authenticated Kim stems. The three high-set gaps lack authenticated stems in
+this cache and remain a separate original-mixture stratum; none pairs.
+
+| Mutually exclusive restriction, low-set gaps | Original gaps /714 |
+| -------------------------------------------- | -----------------: |
+| No retained, strictly interior TIFA interval |                416 |
+| TIFA valid, native interval invalid          |                 70 |
+| Both valid, endpoints disagree beyond 150 ms |                135 |
+| Both physical clocks qualify                 |                 93 |
+
+Even granting perfect lexical evidence, the unchanged research context gate
+leaves 33 targets and its strict immutable ordered overlay leaves ten, including
+one unresolved romanized-source owner. At most nine have usable ownership under
+that recipe. This is a ceiling for that fixed research rule, not an impossibility
+result for the app: existing storage can preserve overlapping observations, and
+a separately validated automatic-region repair could choose different clocks.
+
+English spelling accounts for 490 low-set gaps. Ordinary TIFA retains 238,
+including 22 at a crop edge; of the 252 internal rejections, 233 are token
+agreement, fourteen incomplete paths, three duration and two similarity.
+Among 130 Japanese-source gaps, 47 of 59 internal rejections are token agreement.
+The statistic is a mean conditional input-token probability, not literal token
+equality. This identifies a research restriction; existing Experimental already
+has a separately verified recovery stage with a 0.90 threshold. Removing the
+ordinary action's 0.99 filter alone is not a new validated recovery policy.
+
+The missing English observations take 6.5 seconds for 67 TIFA calls and 5.7
+seconds for 67 native calls. The remaining census takes 14.7 seconds for 208
+TIFA calls and 17.8 seconds for 213 native calls. TIFA peak process RSS is
+1.04 and 1.11 GB respectively. No new separation, recording or ASR is performed
+for this physical census, and no source or saved result changes.
+
+## Contraction spelling reaches the pronunciation dictionary
+
+The audit finds a real source-to-model defect: the punctuation filter strips
+internal English apostrophes. Eight CMU-supported missing words then reach
+different dictionary paths: four `Don't`, three `I'm` and one `what's`. Forty-three
+context owners are affected. Two additional nonstandard contractions lack a
+supported source dictionary entry and remain diagnostic. There are no curly
+apostrophe or hyphen input occurrences in this cohort; those hypothetical
+normalization defects do not explain its gaps.
+
+The fix preserves internal ASCII apostrophes between English letters in the
+acoustic spelling and updates Rust's matching validation rule. Nine Python
+regressions and cross-language target/validation checks retain original source
+spans, displayed text and all five modes. The converter signature changes with
+the transformation; no saved clocks are rewritten.
+
+Forty-two exact affected cues compare old and corrected acoustic inputs with
+unchanged first-pronunciation selection. Source-owned native observations are
+identical and reused. The fresh TIFA run takes 6.0 seconds with 0.86 GB peak RSS.
+It changes 25 context intervals, seventeen on neighbors whose spelling did not
+change, but the eight supported gaps retain one physical pair before and after.
+Both ordered overlays add zero. The bug fix corrects dictionary input without
+establishing a timing-coverage improvement, and none of the provisional clocks
+are saved into the app.
+
+## Complete paths and alternative physical observers
+
+A separate recipe replaces the ordinary TIFA token-confidence filter with
+independent lexical qualification while retaining complete observed paths,
+finite positive similarity, strict crop interior, at least 80 ms duration and
+150 ms agreement at both native endpoints. Fresh diagnostics for the same 62
+PJS recordings reproduce all 949 earlier retained intervals exactly. The
+390-word development comparison still qualifies the same 303 physical pairs
+and 257 CTC-qualified pairs: it supplies no newly rescued low-agreement target
+whose accuracy can be measured there. Wrong-verse physical pairs rise from six
+to seven of 143, with zero after full context.
+
+On the 96 opened English words, raw-complete physical pairs add three correct
+observations to the 49 retained pairs. Two additions also satisfy source-blind
+Qwen and both CTC-view word matches. Five existing strict timing errors remain;
+the new complete set is not universally accurate. In the frozen song census,
+raw-complete physical pairs rise from 93 to 133 and generous context-qualified
+targets from 33 to 59. Strict ordered geometry leaves eighteen hypothetical
+targets before lexical evidence and unresolved-source exclusions. Dual-view
+Fun-ASR evidence in the English48 cohort still yields only the same earlier
+hypothesis. These are research-policy comparisons, not increased app coverage.
+
+A further cached comparison replaces the primary clock itself. Source-blind
+Qwen matches and native endpoint agreement check whole MFA-SI observations;
+the same full-source context gate applies. Proposals close before reusing the
+same 96 development labels. A first context implementation is preserved as an
+invalid comparator; the corrected rule counts all original groups, including
+the target and unsupported owners.
+
+| Primary whole interval + native corroboration | Qualified /96 | Strict correct | Historical correct |
+| --------------------------------------------- | ------------: | -------------: | -----------------: |
+| MFA, speaker adaptation disabled              |            33 |             31 |                 31 |
+| MFA, separate speaker-adapted arm             |            43 |             38 |                 40 |
+| HFA control                                   |            31 |             26 |                 27 |
+
+No priority or timestamp winner is chosen from these labels. The MFA-SI arm
+also has a 29-word adjacent-candidate subset with 28 correct intervals; that
+subset is not a full protected-baseline overlay. These error rates do not
+justify integration.
+
+An onset-only diagnostic keeps the same structural and lexical checks but
+corroborates starts alone. It accepts 46 starts, 43 within 150 ms of the human
+onset; the two-endpoint comparator has 32 correct starts of 33. An advancing
+marker simulation on 32 consecutive qualified edges matches the source word
+for 85.6% of the measured 11.2 seconds, shows the wrong word for 9.4% and is
+unmarked for 5.0%. This selected development subset is not full-song coverage.
+No new word ends, saved events or app behavior are introduced.
+
+## Runtime Whisper head selection
+
+The [stable-ts implementation](https://github.com/jianfch/stable-ts/blob/e312072cc024ae9fceb25b057d7d18524873a02b/stable_whisper/timing.py)
+selects attention heads per token from the audio-conditioned forced transcript,
+then repeats selection around its first DTW path. It reads no reference clocks.
+This trial fixes six heads and two passes before inference. The old MLX path
+normalizes full queries before trimming and floors the frame crop; stable-ts
+normalizes trimmed queries and rounds it. A fixed-head stable-ts control keeps
+those changes separate from dynamic head selection.
+
+One forward per each of the same sixteen English cues preserves all 640 raw
+attention heads. Proposals and exact source ownership close before joining the
+same 96 opened references. All 96 old word clocks reproduce exactly; the CPU
+replay and exact MLX control have identical frame jumps on every cue.
+
+| Complete original words /96          | Strict 150/150 ms correct | Historical 150/200 ms correct |
+| ------------------------------------ | ------------------------: | ----------------------------: |
+| Original MLX fixed ten heads         |                        14 |                            17 |
+| Stable fixed ten heads               |                        15 |                            18 |
+| Stable dynamic six heads, two passes |                        20 |                            23 |
+
+Dynamic selection gains seven correct words and loses one versus the old rule.
+It still produces 76 incorrect strict intervals. Restricting to the 88 words
+matched by the fixed source-blind Qwen gate leaves only 17 strict correct clocks.
+One correct clock is new relative to the union of earlier clock families, but
+identifying it uses reference labels; it is not a selectable admission rule.
+This result does not justify expanding or integrating the method.
+
+The capture takes 17.0 seconds after loading, plus 2.4 seconds loading. Peak
+process RSS is 1.65 GB and MLX reports 4.58 GB peak allocation; these are distinct
+measures of shared unified memory, not additive memory totals. No timing shift,
+duration clamp, silence suppression or reference-informed head search is applied.
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue

@@ -63,6 +63,12 @@ piece and display token exactly through normalization, with unique UTF-8 boundar
 otherwise retain the existing line fallback. Keep existing displayed groups and original
 denominators. Do not merge syllables or remove troublesome groups to improve percentages.
 
+Preserve internal apostrophes in an original English contraction's acoustic
+spelling. The current punctuation filter turns `Don't` into the different G2P
+input `Dont`; audit original-versus-target dictionary paths and replay affected
+cues without changing their source spans, displays or saved clocks. Cover
+contractions and surrounding quotation punctuation with regressions.
+
 ### Canonical readings and source language
 
 Represent original spelling, selected kana, acoustic pronunciation and provenance
@@ -509,6 +515,29 @@ duration. First audit the physical/ordered-overlay ceiling before expanding a
 cohort whose clocks remain fixed. Test English gaps separately from romanized
 Japanese, since treating every Latin source as English repeats the existing bug.
 
+Complete a missing-observation census for all 717 frozen gaps before extrapolating
+from selected probes. Keep every original group in each gap-containing Rust cue,
+reuse exact closed observations and collect only missing ordinary-current TIFA
+and native clocks. The seven difficult songs use their authenticated Kim stems;
+the three high-set gaps without authenticated stems remain a separate original-
+mixture stratum. A missing cached observation is unknown, not model failure.
+Keep the separately frozen English cohort and its dual-view free-transcription
+matches separate from this physical census. Calibrate any proposed replacement
+lexical observer on the same opened references and mismatch controls before
+considering app admission; do not substitute its decoder confidence for CTC
+emission probability.
+
+The complete census also permits a separate filter experiment: TIFA's 0.99
+token-agreement threshold is a mean conditional token probability, not proof
+that a path is structurally complete. Keep the original action and current
+retained-path policy unchanged. Test complete raw observations with finite
+positive similarity and the same strict duration/interior/paired-clock rules,
+using independently qualified lexical evidence in place of that one confidence
+filter. First close proposals on the opened PJS/English references and existing
+mismatch controls, then join their labels and report wrong readings, errors and
+lost correct intervals. Missing complete-path proof abstains. This is a new
+research recipe, not permission to treat every rejected raw path as a word.
+
 Test a different boundary factor rather than repeating the failed preset-head
 Whisper run. Port the pinned stable-ts runtime head selection with six heads per
 token and two selection/DTW passes. Keep the same forced text and acoustic
@@ -535,6 +564,16 @@ observed frames, using wrong-verse controls and protected-neighbor checks. Never
 copy a source timestamp or linearly stretch it onto the target; a source-only
 repeat count is not recovered coverage. Record this ceiling before collecting
 the small additional acoustic observations the existing caches lack.
+
+Test the initial Music Flamingo checkpoint as a music-trained alternative to
+speech ASR. Use a pinned Q4_K_M text model, its matched F16 audio projector and
+an isolated current llama.cpp build with explicit Music Flamingo audio support.
+Keep these research assets outside the app and Git. Freeze one generic lyric
+transcription prompt, decoding settings and the same eight audio-only pilot
+windows; preserve sample identity through WAV encoding. Strictly validate model,
+projector, runtime and frontend provenance before interpreting output. Japanese
+lyric quality and M2 memory/latency are measurements to make, not established
+capabilities. No integration or larger replay follows an unvalidated pilot.
 
 ## Out of scope
 
