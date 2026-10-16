@@ -1914,9 +1914,9 @@ one byte-identical five-word context reuses its authenticated observation. Fresh
 35-cue TIFA takes 3.20 seconds after loading, plus 0.86 seconds loading, with
 1.20 GB peak process RSS. These timings exclude cached vocal isolation.
 
-## Dense Japanese phone occupancy: pipeline check
+## Supervised Japanese phone occupancy
 
-The next trial fits a small linear phone head over the frozen singing-HuBERT
+A separate trial fits a small linear phone head over the frozen singing-HuBERT
 encoder, using [GTSinger](https://huggingface.co/datasets/AaronZ345/GTSinger/tree/d78cd68d00135b1995da03f25fccb3a221efd8c1)
 Japanese recordings with corrected phone intervals. The 2,000 singing clips total
 3,343,442,192 bytes; speech clips are excluded. This tests supervised sustained
@@ -1925,8 +1925,7 @@ phone occupancy rather than another CTC clock or free-transcription prompt.
 The bounded 16-clip pilot verifies every WAV's pinned hash, PCM24 decoding,
 48-to-16 kHz resampling and all 8,737 native feature frames. Frozen final-layer
 features take 1.43 seconds after loading, plus 0.51 seconds loading, with 0.67 GB
-peak process RSS. No head has been trained in this pipeline check, and it says
-nothing about word accuracy.
+peak process RSS. This initial check measures frontend correctness and speed.
 
 The dataset's Japanese text owners are mostly single characters. They must be
 aggregated through exact converter-owned spans before measuring displayed words.
@@ -1934,6 +1933,86 @@ Marker/unknown phones and ambiguous or discontinuous ownership stay explicit.
 Two singer-disjoint head folds keep all title variants grouped; the encoder's
 unpublished training list means these are not certified encoder-unseen tests.
 All data and trained products stay outside Git; no private song enters training.
+
+The complete run extracts 1,159,240 native frames in 234.2 seconds after loading,
+with 2.49 GB peak process RSS. Two fixed linear-head folds, including test-posterior
+collection, take 33.6 seconds and 3.17 GB peak process RSS. A pre-fit review finds
+one shared title differing only in capitalization; its normalized title is excluded
+from both fitting pools. Validation selects epochs 13 and 29 within each training
+singer. No test timing chooses a checkpoint.
+
+All 2,000 test posteriors and three source-condition proposal sets close before
+joining references. Of 17,110 displayed words, 17,061 have continuous usable
+references assembled from phone intervals and 49 remain unscored; seven non-display placeholders stay in
+the separate source ledger. TIFA receives the app's written readings on identical
+resampled waveforms. Its 1,996 calls and 2,000 statuses finish without errors in
+297.3 seconds after loading, with 2.40 GB peak process RSS.
+
+Strict correctness below requires both endpoints within 150 ms of their reference.
+
+| Qualified clocks, known references   | Strict correct | Wrong | Correct fraction of scored clocks |
+| ------------------------------------ | -------------: | ----: | --------------------------------: |
+| Retained TIFA                        |         13,876 | 2,147 |                             86.6% |
+| Dense head, supplied phone oracle    |         12,337 | 2,379 |                             83.8% |
+| Dense head, written readings         |          5,107 | 1,039 |                             83.1% |
+| Dense head, dictionary pronunciation |          4,959 | 1,466 |                             77.2% |
+| TIFA/written-head endpoint agreement |          4,872 |   348 |                             93.3% |
+
+The supplied-phone condition isolates boundary estimation by providing annotated
+lexical phone identities. The app must select a pronunciation separately. It fixes 441
+TIFA errors but damages 798 correct TIFA clocks among shared observations. On
+previously TIFA-withheld words, the written head offers 89 correct intervals and
+139 incorrect ones. Neither direct replacement nor model agreement is safe enough
+for automatic repair. No app timing is changed.
+
+Source mapping also limits this trial: the provisional kana mapper requests
+palatalized labial classes never observed in the corpus, affecting hundreds of
+words. Those abstentions do not establish wrong kanji readings. Official
+[MFA Japanese dictionaries](https://mfa-models.readthedocs.io/en/latest/dictionary/Japanese/Japanese%20MFA%20dictionary%20v2_0_1a.html)
+retain palatalized labial distinctions; an unconditional alias would conflate
+different source sounds. Keep unknown representations unsupported while testing
+a separate, training-only kana-to-corpus-phone mapping. The corpus's exact MFA
+version is undocumented, and its [repository](https://github.com/AaronZ345/GTSinger)
+still lists Japanese annotation refinement as unfinished. These are additional
+limitations of the benchmark, not grounds to discard its unfavorable results.
+
+A separate decoder fits literal-phone duration distributions using only each
+fold's training singer and training titles. It permits explicitly recorded
+zero-frame phones, while an entirely unobserved word abstains. On the same
+supplied-phone oracle, it produces 11,977 correct and 2,283 wrong qualified
+intervals, fewer correct intervals than the original decoder. Its 2,103 qualified
+words containing a skipped phone are only 60.7% correct; complete-phone words
+are 88.0% correct. Compared with the original oracle, it gains 117 correct
+intervals and loses 477, including newly withheld words. The duration recipe is
+not adopted. These follow-ups reuse opened development references and are not
+new held-out validation.
+
+The fixed midpoint-layer trial also loses correct intervals: its supplied-phone
+oracle has 12,023 correct and 2,511 wrong qualified words; written readings have
+5,015 and 1,051, respectively. Feature grids and resampled audio are identical to
+the final-layer trial. The result does not support changing encoder layers.
+Feature collection takes 301.8 seconds, and both head folds with test-posterior
+collection take 33.6 seconds with 2.96 GB peak process RSS.
+
+A nine-frame temporal filter followed by the original linear classifier also fails
+to improve timing. Its supplied-phone oracle has 12,033 correct and 2,523 wrong
+qualified intervals; written readings give 4,991 /1,104. The temporal head gains
+165 correct written-reading intervals and loses 281 relative to the original
+linear head. It takes 167.9 seconds for both folds and test-posterior collection,
+with 3.10 GB peak process RSS. Its median clock change is zero; improved mean
+signed errors conceal worse absolute errors. No constant offset is fitted.
+
+A training-only mapping audit finds that this corpus labels simple kana `mi` and
+`bi` with its unpalatalized labial classes. Applying that convention to those
+selected-reading morae, while leaving yōon and unsupported gemination unchanged,
+restores 716 source-word class mappings. Written-reading qualified results increase
+from 5,107 correct /1,039 wrong to 8,217 /1,706; every baseline-observed clock is
+preserved. This repairs a representation restriction, without choosing a different
+kanji reading. Among 1,038 words without retained TIFA clocks, the revised head
+offers 136 correct and 212 wrong intervals. Agreement with a rejected raw TIFA
+interval retains 97 words: 75 are correct in both models, 20 wrong in both and
+two correct in only one model. The mapping helps, but neither its raw coverage nor
+agreement with TIFA justifies automatic admission.
 
 ## Remaining work
 

@@ -628,6 +628,33 @@ endpoint accuracy, unsupported labels, skipped phones, runtime and memory on the
 public held-singer folds before considering a frozen private-song trial. No private
 song-suite recording or lyric enters training, and no encoder fine-tuning is planned.
 
+The first final-layer linear head fails even with supplied pronunciations. Keep
+its results and test two separate factors rather than promoting its raw coverage:
+a train-only zero-inflated geometric phone-duration decoder on the same posteriors,
+and the same linear head over the frozen encoder's midpoint layer six. Fit duration
+parameters only on training-singer training titles; zero-frame phones remain explicit
+and an entirely unobserved word abstains. Preserve observed frame-cell clocks and
+report complete-phone versus skipped-phone words separately. Keep the midpoint
+head's architecture, fitting splits, hyperparameters and source/metric gates fixed;
+this is one feature-layer hypothesis, not a search for the best test-layer score.
+The public corpus is now development evidence, not a new holdout for these follow-ups.
+
+Both the duration decoder and midpoint-layer head lose correct intervals. Test one
+small temporal head on the original final-layer features: a nine-frame per-channel
+filter, initialized as the identity, followed by the original linear classifier.
+It can learn local context within 80 ms on either side while retaining the baseline
+hypothesis. Context indices stay inside each recording; no extra acoustic frames
+or timestamps are created. Keep the same title splits, loss, training schedule,
+validation checkpoint selection and original decoder. Evaluate the source-phone
+mapping change separately before combining factors.
+
+Check transfer separately on the existing PJS development subset. Fit the original
+linear head on all 2,000 public training clips for a fixed 21 epochs, the mean of
+the two original validation-selected epochs. Freeze that recipe before PJS
+inference. Preserve its 390 focal words, all 949 context owners and original audio
+origins; unsupported source phones remain explicit. This is external development
+evidence, not an unseen-corpus claim or a reason to skip the wrong-lyric controls.
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,
