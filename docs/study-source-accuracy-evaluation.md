@@ -1771,6 +1771,71 @@ process RSS is 1.65 GB and MLX reports 4.58 GB peak allocation; these are distin
 measures of shared unified memory, not additive memory totals. No timing shift,
 duration clamp, silence suppression or reference-informed head search is applied.
 
+## Music-trained lyric transcription
+
+The initial [Music Flamingo model](https://research.nvidia.com/labs/adlr/MF/)
+offers a different training domain from speech recognition. This bounded trial
+uses the third-party Q4_K_M text model and matching F16 audio projector from
+[`mradermacher/music-flamingo-hf-GGUF`](https://huggingface.co/mradermacher/music-flamingo-hf-GGUF/tree/39c453b1d6714c4de87293050661e97a6011af84),
+6,005,627,616 bytes in total. Their exact files are hashed before inference. The
+quantizer does not document the originating base-checkpoint commit; this is a
+pinned derivative trial, not a claim of official checkpoint parity.
+
+An isolated [llama.cpp runtime](https://github.com/ggml-org/llama.cpp/tree/620d2225cc436ab0b001e3200e590e3b286ef9ab)
+supports the explicit Music Flamingo projector. A private observer records sampled
+tokens, real end-of-generation versus the token cap, and the decoder's actual
+float samples. All eight pilot inputs reproduce the earlier waveforms byte for
+byte. The runtime's different mel floor has no surviving effect after Whisper
+clamping on these eight windows; complete feature-tensor parity is not established.
+
+Both conditions use the same eight clips, automatic language, greedy decoding,
+256 tokens, 4,096 context and four CPU threads with Metal. The first prompt is the
+official structured-lyric-sheet example. A separately frozen prompt-only trial
+asks for the sung lyrics in their original language, without headings, timestamps
+or commentary. Whole assistant outputs are scored; headers and repetitions are
+not removed after seeing results.
+
+| Same fixed pilot                          | Structured prompt | Plain prompt |
+| ----------------------------------------- | ----------------: | -----------: |
+| Completed outputs /8                      |                 3 |            7 |
+| Japanese contextual owner witnesses /51   |                 8 |           13 |
+| Japanese missing-owner witnesses /26      |                 2 |            3 |
+| English insertions, eight reference words |               186 |            2 |
+| Wall seconds, including eight model loads |              95.9 |         50.5 |
+| Peak process RSS, GB                      |              6.28 |         6.38 |
+
+The plain prompt retains the structured condition's witnesses and adds one gap
+already recognized by Fun-ASR. Across both conditions, just one gap witness is
+new versus all available exact-wave baselines. Its raw TIFA interval ends at the
+crop boundary, is rejected by the ordinary filter, and has no native corroborator.
+Neither condition supplies a selectable timing addition or a reading correction.
+Japanese transcription accuracy remains unmeasured; these are source-match
+opportunities, not an accuracy percentage. Do not expand this recipe merely for
+its improved completion rate.
+
+## Closing one source-reading hypothesis
+
+The source-blind kana experiment nominates あま for a source-owned 天 group.
+Existing singing-CTC evidence prefers that reading over all six frozen dictionary
+competitors, both locally and across the full cue. A fresh Qwen six-way whole-cue
+comparison also nominates it, with real-versus-control margins of 7.353 and 7.962
+nats. The original word-token comparison remains withheld because a competitor
+crosses a BPE boundary; it is not relabeled as a successful word-level result.
+
+Fresh candidate-specific clocks confirm that changing the reading changes its
+alignment: TIFA gives 2340–2690 ms and native Qwen 2320–2720 ms, agreeing within
+20/30 ms. The chosen TIFA interval fits before the protected following word
+without moving it. The old original-kanji native clock is not reused as the
+candidate's observation. Fresh Whisper attention disagrees with the physical
+pair and is reported separately.
+
+This is stronger reading and boundary evidence, but the unchanged research rule
+still qualifies only three of the cue's eight original groups, below its four-
+group context requirement. Reading nomination: one; target physical pair: one;
+selectable additions under that policy: zero. No saved reading or clock changes.
+The rule's abstention is not evidence that the candidate is wrong, and this
+development example does not establish a replacement admission rule.
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue

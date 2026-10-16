@@ -575,6 +575,21 @@ projector, runtime and frontend provenance before interpreting output. Japanese
 lyric quality and M2 memory/latency are measurements to make, not established
 capabilities. No integration or larger replay follows an unvalidated pilot.
 
+Test a singing-conditioned boundary model rather than another speech recognizer:
+the released Schulze-Forster lyrics-aligner jointly learns phone alignment and
+lyric-conditioned vocal separation. Freeze its pinned checkpoint, canonical CMU
+dictionary and all 39 phones before the same sixteen Jamendo development cues.
+The model receives supplied phones, so this is source-conditioned alignment.
+Start with the original mixtures; isolated vocals are a separate condition.
+Use deterministic evaluation mode, no VAD threshold, an explicit Torch STFT
+compatibility change and no additional padding. Retain complete attention/DTW
+paths. Measure first-phone onsets as the primary endpoint and its observed
+separator-state word ends as a separate full-interval comparison; neither is
+ground truth merely because the model produces it. Reject skipped or incomplete
+owners, preserve all original denominators, and close proposals before joining
+reference clocks. Disclose training-domain overlap checks. Expand to the frozen
+song gaps only if reference/control results justify it.
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,
