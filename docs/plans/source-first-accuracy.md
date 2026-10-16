@@ -496,6 +496,30 @@ recorded, not interpolated; missing, nonmonotone or ambiguous pieces abstain.
 Original word denominators and display groups remain unchanged. Evaluate this
 condition on the same references and controls before considering it for songs.
 
+Test Fun-ASR-Nano as a different source-blind lexical observer. Its model card
+lists Japanese and music-background lyric recognition, but does not establish
+Japanese singing accuracy. Use the official pinned native checkpoint, a separate
+local research environment and saved audio. Freeze language routing, frontend,
+decoding and complete-source-owner matching before each comparison. Keep generic
+automatic-language and upstream-amplitude conditions separate; do not choose a
+different winner for each clip. Compare only authenticated identical waveforms
+with earlier free transcription, retaining missing comparisons explicitly.
+Transcription matches nominate reading or timing checks; they never supply word
+duration. First audit the physical/ordered-overlay ceiling before expanding a
+cohort whose clocks remain fixed. Test English gaps separately from romanized
+Japanese, since treating every Latin source as English repeats the existing bug.
+
+Test a different boundary factor rather than repeating the failed preset-head
+Whisper run. Port the pinned stable-ts runtime head selection with six heads per
+token and two selection/DTW passes. Keep the same forced text and acoustic
+features; the selector sees no reference timestamps. This is source-conditioned
+alignment, not source-blind recognition. Start with the already opened sixteen
+English cues and unchanged controls. Retain attention/head selections and both
+paths, and compare endpoint error and independently qualified intervals. Exclude
+refinement, silence suppression, duration clamps and timing shifts. Do not sweep
+head counts or iterations against these labels; a null result does not justify
+choosing the best head retrospectively.
+
 Test direct source-blind kana decoding as a separate acoustic representation:
 ordinary Japanese transcripts can hide a sung pronunciation behind kanji. A
 UTF-8 token-state constraint may emit kana without supplying the target lyrics;

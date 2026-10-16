@@ -1509,6 +1509,74 @@ also overlaps an old automatic neighbor by 30 ms; no unsupported neighbor move
 is made to hide that conflict. The reference improvement therefore supplies no
 additional song timings in this closed trial.
 
+## Character timestamp slots
+
+The separate character-slot comparison preserves all original words and exact
+waveforms. It aligns auxiliary CJK characters or Latin runs, then reconstructs
+an original word only when its pieces tile the source span exactly and have
+complete, bounded, monotone observations. Its first observed start and last
+observed end belong to that same word. No missing point is interpolated. The
+official Python Japanese path uses Nagisa morphemes; this is an experimental
+granularity factor, not a claim to reproduce the training frontend.
+
+The 123 requests take 36.7 seconds. On the same 390 opened PJS references,
+character slots reduce physical pairs from 303 to 289, lexical-and-physical
+qualifications from 257 to 254, context qualifications from 208 to 163, and
+ordered drop-one insertions from 170 to 138. Every admitted TIFA interval is
+correct under both reference tolerances. The earlier single word-level
+wrong-verse admission is withheld, leaving zero of 143; both versions already
+withheld all controls after context. Requiring strictly positive duration for
+every internal slot reduces qualifications further. Zero-duration points and
+nonmonotone paths are retained in the private diagnostics.
+
+On the 48 missing song words, both character profiles reproduce the earlier
+five physical pairs, four joint qualifications, one context qualification and
+zero insertions. Some already-timed neighbors change qualification, but no
+missing target improves. This factor is not adopted.
+
+## A different free-transcription architecture
+
+[Fun-ASR-Nano](https://huggingface.co/FunAudioLLM/Fun-ASR-Nano-2512) lists Japanese
+support and music-background lyric recognition. The published lyric result is
+not a Japanese-specific accuracy guarantee. The local pilot uses the official
+native checkpoint at `d93b302ee7fd505e1b3576120fc142fc6f7820e1`, strict loading,
+CPU float32, greedy decoding and at most 256 new tokens. Its 1.66 GB weights and
+matching Torch/Torchaudio research environment remain outside the app and Git.
+No lyric prompt, keywords or source-conditioned transcription are supplied.
+
+Eight saved windows are identical to the earlier Qwen2-Audio pilot: six
+isolated-vocal Japanese-song cues and two already opened English reference
+clips. Complete matching source words must belong to a unique exact phonetic
+block containing at least two adjacent original words. Unsupported owners stay
+in the denominator. These are source-candidate witnesses, not Japanese accuracy
+labels or timing admissions.
+
+| Same six song cues                                         | Contextual owners /51 | Missing-word witnesses /26 |
+| ---------------------------------------------------------- | --------------------: | -------------------------: |
+| Qwen2-Audio, earlier generic instruction                   |                     6 |                          1 |
+| Fun-ASR, fixed Japanese language                           |                    10 |                          3 |
+| Fun-ASR, automatic language                                |                     8 |                          2 |
+| Fun-ASR, automatic language with upstream amplitude factor |                     8 |                          2 |
+
+All outputs finish with EOS. The three Fun-ASR runs take approximately 14–17
+seconds after loading and peak at approximately 3.9–4.0 GB process RSS. They
+share two missing-word witnesses; the fixed-language condition supplies one
+more. Exact-wave earlier free Qwen3 results exist for only three of the six
+Japanese clips and already attest one of those words. The other comparisons
+remain missing, so the two gains against Qwen2 are not established gains against
+the complete existing ensemble.
+
+The two English clips contain only eight human-reference words. Fun-ASR makes
+one insertion, Qwen2 makes seven errors, and existing same-wave free Qwen3 makes
+none. This tiny comparison does not establish a better general recognizer.
+
+The upstream-amplitude factor reproduces the original Kaldi/LFR calculation in
+a feature-only check. Much of its uniform log-power shift cancels in the first
+encoder LayerNorm; quiet clipped bins still differ. Seven of eight transcripts
+are identical to the automatic-language baseline and the contextual witness
+sets are unchanged. This does not establish that the native frontend is broken.
+The factors remain separate and no per-clip best result is selected.
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue
