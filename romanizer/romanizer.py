@@ -56,6 +56,20 @@ def katakana(text):
     return "".join(chr(ord(ch) + 0x60) if "ぁ" <= ch <= "ゖ" or ch in "ゝゞ" else ch for ch in text)
 
 
+def alignment_spelling(text):
+    """Remove punctuation without turning an English contraction into another word."""
+    return "".join(
+        char
+        for i, char in enumerate(text)
+        if char.isalnum()
+        or (
+            char == "'"
+            and 0 < i < len(text) - 1
+            and all(c.isascii() and c.isalpha() for c in (text[i - 1], text[i + 1]))
+        )
+    )
+
+
 def boundary_map(raw, normalized):
     """Only independently reconstructible boundaries are exact. Never round."""
     associations = []
@@ -347,10 +361,8 @@ class Converter:
             word["reading"] = {
                 "written": written,
                 "romaji": slice_bytes(output, word["output_span"]),
-                "alignment_text": "".join(
-                    c
-                    for c in (source if not written or "？" in written else written)
-                    if c.isalnum()
+                "alignment_text": alignment_spelling(
+                    source if not written or "？" in written else written
                 ),
                 "pronunciation": spoken if written else None,
                 "origin": origin if written else "unavailable",

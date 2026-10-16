@@ -69,6 +69,33 @@ def test_pronunciation_is_inflected_and_keeps_written_orthography(converter):
 
 
 @pytest.mark.parametrize(
+    "text", ["Don't", "I'm", "what's", "We're", "can't", "isn't", "rock'n'roll", "an'ya"]
+)
+def test_contraction_acoustic_spelling_keeps_its_source_and_display(converter, text):
+    response = convert(converter, text)
+    assert len(response["words"]) == 1
+    word = response["words"][0]
+    assert word["raw_span"] == [0, len(text.encode())]
+    assert word["expected_text"] == text
+    assert word["reading"]["alignment_text"] == text
+    assert word["reading"]["written"] == text
+    assert slice_bytes(response["romaji"], word["output_span"]) == text
+    assert slice_bytes(response["hiragana"], word["hiragana_span"]) == text
+    assert slice_bytes(response["katakana"], word["katakana_span"]) == text
+
+
+def test_contraction_keeps_internal_apostrophe_without_attaching_quotation_marks(converter):
+    raw = "'Don't' stop!"
+    response = convert(converter, raw)
+    assert [(w["expected_text"], w["raw_span"]) for w in response["words"]] == [
+        ("Don't", [1, 6]),
+        ("stop", [8, 12]),
+    ]
+    assert [w["reading"]["alignment_text"] for w in response["words"]] == ["Don't", "stop"]
+    assert response["romaji"] == raw
+
+
+@pytest.mark.parametrize(
     "raw,kana", [("闇夜", "やみよ"), ("行こう", "ゆこう"), ("闇夜", "やみ よ")]
 )
 def test_sung_correction_never_inherits_the_wrong_dictionary_pronunciation(converter, raw, kana):

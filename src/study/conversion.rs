@@ -125,6 +125,21 @@ pub fn katakana(text: &str) -> String {
         })
         .collect()
 }
+fn alignment_spelling(text: &str) -> String {
+    let bytes = text.as_bytes();
+    text.char_indices()
+        .filter(|(i, c)| {
+            c.is_alphanumeric()
+                || (*c == '\''
+                    && *i > 0
+                    && *i + 1 < bytes.len()
+                    && bytes[*i - 1].is_ascii_alphabetic()
+                    && bytes[*i + 1].is_ascii_alphabetic())
+        })
+        .map(|(_, c)| c)
+        .collect()
+}
+
 impl Response {
     pub fn display_text<'a>(&'a self, raw: &'a str, mode: super::LyricMode) -> &'a str {
         match mode {
@@ -221,11 +236,7 @@ impl Response {
                 .filter(|text| !text.contains('？'))
                 .unwrap_or(word.expected_text.as_deref().unwrap_or(""));
             if span(&self.romaji, &word.output_span) != Some(word.reading.romaji.as_str())
-                || word.reading.alignment_text
-                    != selected
-                        .chars()
-                        .filter(|c| c.is_alphanumeric())
-                        .collect::<String>()
+                || word.reading.alignment_text != alignment_spelling(selected)
             {
                 bail!("alignment target differs from selected reading");
             }
@@ -745,6 +756,12 @@ mod tests {
         assert!(response.validate(&request).is_err());
         response = original;
         response.protocol_version = 1;
+        assert!(response.validate(&request).is_err());
+
+        let mut request = fixture(&helper);
+        request.raw_line = "Don't".into();
+        let mut response = helper.convert(&request).unwrap();
+        response.words[0].reading.alignment_text = "Dont".into();
         assert!(response.validate(&request).is_err());
     }
     #[test]
