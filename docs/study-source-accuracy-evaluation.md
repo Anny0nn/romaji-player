@@ -2170,6 +2170,13 @@ after loading. A song-level Japanese label and dictionary roundtrip do not certi
 that its Latin words are Japanese. This broader rule is withheld; it does not
 expand the separately qualified Uso source mapping.
 
+The reduction includes context damage: retention falls from 117 to 30 among
+the 150 changed candidates and from 298 to 197 among their 439 unchanged
+neighbors. The 58 original saved-gap candidates go from 37 to 13 fresh
+retentions. These are output-availability counts; none establishes an accurate
+new clock. Changing only selected model text can still move or suppress its
+neighbors' alignments.
+
 ## Supervised TIFA adaptation
 
 The next controlled trial adapts the conditional TIFA aligner itself. A strict
@@ -2223,11 +2230,132 @@ retention falls from 11,174 to 11,169, including 23 reference-unknown observatio
 in each condition. All four structurally withheld contexts and 30 unsupported
 words remain explicit. There are no collector errors.
 
-This is a small controlled timing improvement without a completeness gain. It
-does not justify replacing the original model or accepting its new retentions
-unconditionally. The opposite training fold remains a separate test of the same
-frozen fitting recipe. No adapted model has changed app state or private-song
-saved coverage.
+The opposite fold fits 560 eligible clips and selects on 139 eligible clips,
+keeping all 641 recordings of the other singer outside fitting and selection.
+The unchanged three-epoch recipe takes 827 seconds, selecting epoch three;
+validation loss falls from 3.527 to 1.860. Peak process RSS is 2.14 GB and the
+largest sampled MPS-driver allocation is 3.88 GB.
+
+Its paired holdout has 5,363 original displayed/source groups, including 5,339
+reference-known words and 24 unknowns. Original-model pilot parity matches all
+145 source owners and clocks before the full replay.
+
+| Same 5,339 reference-known words | Original correct / wrong | Adapted correct / wrong |
+| -------------------------------- | -----------------------: | ----------------------: |
+| Raw observed intervals           |             4,240 /1,045 |            4,206 /1,124 |
+| Retained intervals               |               4,049 /823 |              4,003 /813 |
+
+Retained timing gains 133 correct intervals but loses 179, a net loss of 46.
+Newly retained observations include 58 correct and 48 wrong intervals. Total
+retention falls from 4,888 to 4,833, including 16 and 17 reference-unknown
+observations respectively. All seven unsupported words remain accounted for,
+and neither collector reports an error. Original/adapted replay takes 71.4/64.8
+seconds after loading, with 1.80/2.51 GB peak process RSS.
+
+The first singer's small timing improvement does not generalize to the second.
+This recipe does not justify replacing the original model or accepting new
+retentions unconditionally. No adapted model has changed app state or
+private-song saved coverage.
+
+### Reading discrimination after adaptation
+
+A separate closed comparison keeps 15 original cue contexts and 66 fixed
+pronunciation paths, changing only the checkpoint. Predictions close before
+the reading-label join. Nine competitions have previously verified sung-reading
+labels: the six Tabi regression examples plus three earlier fixtures. Six other
+competitions contain unverified transcription hypotheses and supply no accuracy
+labels.
+
+Original and adapted TIFA each choose the verified reading in 7/9 labeled cases,
+with one gain and one loss among the earlier three fixtures. Both choose all six
+verified Tabi readings, although adaptation narrows the winning margin in five.
+This supports testing bounded reading alternatives with original TIFA, but
+provides no reading-quality reason to replace it. Source-reading preference on
+the six unverified cases is not evidence that the singing matches that reading.
+These regression clips are separate from the fixed ten-song coverage test;
+neither this comparison nor the controlled-corpus timing gain changes saved
+app coverage.
+
+The fixed PJS control adds 390 current-reading versus one-phone-fault pairs on
+62 previously opened recordings. Both checkpoints score all pairs before the
+manual-phone reference join. A reference-only expansion of the written
+long-vowel mark identifies one matching reading in 376 pairs; neither matches
+in 14, which remain unscored for accuracy. Original TIFA chooses that reading
+in 372/376 (98.9%); adaptation chooses it in 367/376 (97.6%), with five losses
+and no gains. This is reading identity, not exact equality between encoded
+model phones and annotated phones: the scorer drops `ー`, whereas reference
+matching expands it. Among the 369 pairs with no `ー` in either candidate,
+original/adapted correctness is 367/365, with two losses and no gains. PJS
+training overlap for TIFA is unknown; this is a controlled development test,
+not a new holdout or proof that natural alternative readings will be equally
+easy to distinguish. No reference expansion creates or supplies a timestamp.
+
+## Japanese singing-phone challenger
+
+[Phonsa's released Japanese model](https://huggingface.co/Lonian/Phonsa/tree/cdfcedcaa44d8ba47a659acd29ed7b3b7a46c244)
+offers a different acoustic observer: source-free phone, boundary and silence
+logits on a 20 ms grid. The 3.073 GB checkpoint passes its published LFS hash,
+restricted loading, finite-tensor checks and strict full-model shape/key loading.
+The test uses pinned upstream source and its expected Whisper implementation;
+it downloads no second base Whisper checkpoint and changes no app environment.
+Upstream's published Mandarin accuracy is not a Japanese result.
+
+A one-record CPU/Metal comparison has relative logit L2 difference 3.3e-6 and
+identical raw top classes on all 452 frames. Metal conversion changes only an
+unused nonpersistent sparse decoder-head lookup; pretrained attention behavior
+and weights stay intact. The fixed 16-record pass takes 6.28 seconds after
+4.81 seconds loading, with 6.51 GB peak process RSS and 4.39 GB largest sampled
+MPS-driver allocation. These memory measurements overlap and must not be added.
+
+All 129 original source owners remain in the pilot. Both pronunciation inputs
+close before inspecting predictions: native Phonsa kana conversion and a
+separate existing-helper expansion. Nine particles use the unchanged app's
+source-reading handling. Only one owner differs between the two phone arms;
+there is no long-vowel-mark difference in this pilot. Mora groups preserve the
+upstream internal-silence rule, then aggregate back to the original display
+owners. Eleven owners contain the released inventory's ambiguous `I`/`s` class;
+their output cannot establish a unique source-free phone identity. Forced
+boundary proposals are evaluated separately and cannot verify their own lyrics.
+
+The closed reference join covers all 129 owners, each with a known reference.
+Both pronunciation arms produce the same word-accuracy counts:
+
+| Same 129 source owners                   | Correct | Observed wrong | Missing or outside qualification |
+| ---------------------------------------- | ------: | -------------: | -------------------------------: |
+| Original TIFA raw intervals              |     116 |             13 |                                0 |
+| Phonsa raw intervals                     |     105 |             24 |                                0 |
+| Original TIFA retained, physical profile |     109 |             11 |                                9 |
+| Phonsa with the same physical profile    |     105 |             22 |                                2 |
+
+Raw correctness uses bounded observed clocks and both endpoint errors within
+150 ms. The physical profile additionally requires at least 80 ms and strict
+recording interior. Phonsa loses 11 raw-correct TIFA words and gains none. The
+qualified comparison gains five correct words but loses nine; among nine new
+qualified observations, five are correct and four wrong. Six synthetic scoring
+fixture groups check short words, recording edges, invalid bounds, missing and
+unknown references, and the endpoint tolerance before the join.
+
+Complete proposal availability therefore does not make this a better timing
+model. Do not replace TIFA or expand a whole-corpus boundary trial from this
+pilot. Reading selection is tested separately on the same frozen 15 cue
+competitions used above. The audio-only model pass keeps their exact Rust
+float32 crops; all 66 candidate paths and complete cue contexts are unchanged.
+The native phone decoder scores each full-context candidate before opening
+labels. No word-window search, phone-length normalization, alternative pruning
+or model-score threshold tuning is used.
+
+Phonsa chooses the verified reading in all **9/9 labeled regression cases**,
+versus **7/9 for original TIFA** and 7/9 for adapted TIFA. It keeps all six Tabi
+examples correct and gets all three earlier known-reading fixtures correct,
+where each TIFA condition gets one. The six unverified hypothesis competitions
+remain excluded from accuracy. These are fixed development examples, with
+shared recordings and some repeated crops, not nine independent songs.
+
+This is evidence for investigating the phone model as a reading checker while
+TIFA retains timing responsibility. It does not establish general correction
+accuracy, safe automatic source changes, or a saved-coverage increase. Test
+broader positive and false-reading controls before integrating it. Conditional
+path-score magnitudes from different model families are not comparable.
 
 ## Remaining work
 

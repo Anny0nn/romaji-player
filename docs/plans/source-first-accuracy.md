@@ -752,6 +752,20 @@ schedule and validation selection, including the unchanged checkpoint, before
 fitting. No private song enters training, and improved training loss alone does
 not authorize app promotion.
 
+Test a different source-free Japanese phone encoder as a separate challenger:
+[Phonsa](https://github.com/YatingMusic/Phonsa/tree/8c6abaa82a77a71738698bce745243121484654a)
+has released Japanese singing weights and explicit phone/boundary classes. Its
+published Mandarin results are not Japanese accuracy evidence. Pin the released
+checkpoint and config, verify restricted strict loading, and start with the
+existing 16-record Japanese pilot on CPU before measuring Metal. No second base
+Whisper checkpoint should be needed. Preserve the trained attention behavior
+and the released inventory's ambiguous classes rather than silently repairing
+them. Freeze canonical-source-to-phone proposals before opening predictions or
+reference clocks; unsupported owners remain barriers and stay in denominators.
+Report source-free phone discrimination separately from conditional boundary
+accuracy. One model's two outputs do not provide independent verification. PJS
+is named in its training configuration and cannot serve as an unseen test.
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,
