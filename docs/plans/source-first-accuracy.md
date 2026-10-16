@@ -626,7 +626,7 @@ spans before reporting displayed-word accuracy; never call character coverage wo
 coverage. Report complete word
 endpoint accuracy, unsupported labels, skipped phones, runtime and memory on the
 public held-singer folds before considering a frozen private-song trial. No private
-song-suite recording or lyric enters training, and no encoder fine-tuning is planned.
+song-suite recording or lyric enters training. The initial encoder stays frozen.
 
 The first final-layer linear head fails even with supplied pronunciations. Keep
 its results and test two separate factors rather than promoting its raw coverage:
@@ -654,6 +654,68 @@ the two original validation-selected epochs. Freeze that recipe before PJS
 inference. Preserve its 390 focal words, all 949 context owners and original audio
 origins; unsupported source phones remain explicit. This is external development
 evidence, not an unseen-corpus claim or a reason to skip the wrong-lyric controls.
+
+The frozen-feature heads also fail the external PJS comparison. Test a bounded
+adaptation of only the final two encoder blocks to the dense phone-occupancy
+objective. Cache block-ten outputs on the same authenticated public waveforms;
+verify that replaying the unmodified final blocks reproduces the original output.
+Keep earlier blocks frozen, initialize each fold from its original trained linear
+head, and retain the same singer/title exclusions. Freeze five epochs, an encoder
+learning rate of 0.00001 and head rate of 0.0003 before fitting; select the original
+epoch-zero model or an adapted checkpoint using only training-singer validation
+loss. Preserve whole recordings and mask padded features in attention and loss.
+Close all test posteriors before the unchanged source/clock evaluation. Report
+runtime and peak memory, including the cost of the new feature cache. This changes
+the earlier frozen-encoder assumption because smaller heads failed; it does not
+authorize training on private songs or treating training loss as singing accuracy.
+
+Test source pronunciation alternatives as a separate factor on the original head.
+The first lattice covers only literal source `っ`/`ッ` followed by a mora whose
+closure variants occur at least three times across two training titles in that
+fold. Keep every original word, choose one complete nonempty variant per source
+slot, and allow pauses only between words. Normalize repeated identical annotation
+labels only inside the same original character owner. Unobserved contexts remain
+unsupported. The fixed portions must reproduce the earlier source mapping exactly;
+selected variants supply the actual phone identities for the unchanged timing
+qualifiers. Test branch selection exhaustively, including long leading/trailing
+pauses, before reading cached posteriors. This changes the phone representation,
+without choosing a different kanji reading or changing an original word's ownership.
+
+A label-free feature diagnostic finds larger per-record channel-mean shifts for
+the held singer, without a matching increase in within-record channel spread.
+Test per-record mean centering on the original final-layer features before fitting
+the same linear head. Use only real frames, retain the original training-fold
+channel scale, and apply the identical transformation to training, validation and
+test clips. Do not normalize each recording's variance. Keep the original fitting
+schedule, title splits, validation selection and decoder unchanged. This tests a
+possible voice/content shift; the diagnostic alone establishes no accuracy gain.
+
+The supervised heads and their agreement tests still do not justify app admission.
+Test a separate source route: existing word- or syllable-timed lyrics, including
+sung romanization, from open-source clients and community karaoke catalogs.
+Start with the same ten frozen songs. Authenticate title, artists, release/version
+and actual recording duration from public catalog metadata; processing time in
+our evaluation tables is not song duration. A matching title or nearby duration
+alone is insufficient to transplant clocks between recordings.
+
+Preserve the original provider response, its hash, parser revision, complete text,
+raw clock units and session state privately. Respect provider errors and quotas;
+do not rotate sessions to get around them. Inspect the existing raw Spotify/LRCLIB
+payloads before implementing another fetcher. Compare Karaoke Mugen ASS, QQ QRC
+and romanization, NetEase YRC, and Musixmatch richsync only where actually returned.
+Reject wrong-recording matches even if the provider labels them successful. A
+romanization sidecar is a candidate reading, not proof of acoustic correctness.
+
+Close source-only mapping proposals before joining saved coverage or model clocks.
+Keep every original word owner and map only complete contiguous supplied chunks
+that exactly tile its text under a stated normalization. Do not split a chunk,
+fill a rest, distribute line time, or invent a word end from an onset-only field.
+Resolve repeated text only through unambiguous source order; preserve ambiguity
+when multiple mappings remain. Report source eligibility, old-gap overlap and
+recording/endpoint verification separately. Supplied clocks from another version
+must not overwrite the active source. Validate promising proposals against the
+authorized recording and the existing negative controls before considering app
+integration; retain previous sources, readings and user edits.
 
 ## Out of scope
 

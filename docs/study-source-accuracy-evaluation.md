@@ -2014,6 +2014,91 @@ interval retains 97 words: 75 are correct in both models, 20 wrong in both and
 two correct in only one model. The mapping helps, but neither its raw coverage nor
 agreement with TIFA justifies automatic admission.
 
+An external development comparison fits the original linear head on all 2,000
+public clips for a fixed 21 epochs, chosen before PJS inference from the earlier
+validation epochs. No PJS or private song is a training input. The PJS trial keeps
+390 focal words and 949 full-context owners across 62 recordings. All waveforms
+match the earlier native benchmark bit for bit. Unsupported neighboring phones
+withhold 228 focal words; missing trained classes restrict the remainder further.
+The head returns 123 qualified focal intervals: 108 correct and 15 wrong. TIFA
+already has 389 correct of 390. Endpoint agreement keeps 109 TIFA intervals,
+including the existing error. This does not justify adding the head to the app.
+The all-public fit takes 33.7 seconds and 3.65 GB peak process RSS; PJS feature
+collection takes 5.71 seconds after loading and head inference takes 0.39 seconds.
+
+A separate support cutoff is fitted only on each head's training-singer validation
+titles, using actual-frame source-versus-rival phone margins and fixed one-vowel
+counterfactuals. Thresholds close before the full held-singer proposals. It retains
+89 raw TIFA intervals, 80 correct and nine wrong, from 8,390 physical pairs. None
+of the TIFA-withheld words passes the cutoff; no complete context or ordered gap
+addition survives. The cutoff's apparent validation precision does not transfer
+reliably across singers. It is not adopted or retuned against these test outcomes.
+
+The bounded final-two-block adaptation also selects both original epoch-zero
+models: all five adapted epochs have worse training-singer validation loss. The
+trial keeps its FP32 replay condition separate from the earlier stored-FP16 head.
+Caching block-ten features takes 269.3 seconds, with exact unmodified-tail and
+old-final-output reproduction on all 2,000 recordings. Fitting and collecting both
+posterior conditions takes 355.9 seconds, 3.28 GB peak process RSS and sampled MPS
+maxima of 1.83 GB current allocation /6.60 GB driver allocation. These samples do
+not guarantee the true GPU peak. No adapted checkpoint is promoted.
+
+Per-record mean centering on the original final-layer features is also mixed.
+Keeping the original training-fold scale, written-reading qualified intervals gain
+253 correct and lose 250, while spoken readings gain 349 and lose 293. New false
+TIFA agreement admissions increase. Training and posterior collection take 43.8
+seconds with 2.40 GB peak process RSS. The feature-shift diagnostic motivates the
+test but does not justify promoting this normalization.
+
+The source-owned geminate lattice gives a larger representation gain on the
+original head: 9,778 correct /2,009 wrong qualified intervals, versus fixed
+Scope-B's 8,217 /1,706. It adds 1,561 correct intervals and loses no previously
+correct fixed-path interval, while adding 303 wrong intervals. Fully representable
+source contexts rise from 1,448 to 1,767; the older aggregate's 1,451 count disagrees
+with its own rows, so comparisons use the authenticated per-record data. On the
+1,038 reference-eligible words without retained TIFA, the lattice supplies 155
+correct /229 wrong clocks versus 136 /212 for the fixed path. This is useful
+representation work, with no demonstrated app gain yet.
+
+## Existing fine-timed lyric sources
+
+An audit of the ten frozen recordings finds no overlooked provider word clock in
+their saved source payloads. Nine Spotify responses are `LINE_SYNCED`; their
+`syllables` arrays are empty and their `words` fields contain whole lines. The
+LRCLIB source also has only line timestamps. Existing automatic fragments came
+from TIFA rather than a missed provider schema.
+
+The next comparison uses actual fine-timed alternative sources. Public Spotify
+embed metadata supplies titles, artists and recording durations independently of
+our model processing times. [Karaoke Mugen](https://github.com/karamoe/karaokebase)
+has a full Japanese Just Awake candidate
+at 219 seconds, close to Spotify's 218.573 seconds. A source-only proposal, frozen
+before inspecting saved timing membership, maps 181 of the 306 original words
+through complete ASS karaoke chunks. It offers clocks for 75 of the 123 saved
+gaps. Those are candidate counts, not verified additions. Independent parser review
+finds that a combined override block's leading `\k90` rest was missed, making every
+proposed clock 900 ms early. Those clocks are invalid and remain unadopted; a
+corrected parser must precede endpoint comparison. A separate all-optimal-path
+whole-song text mapping finds 292 candidate word owners, resolving many line
+segmentation and repeat ambiguities. Its timing fields inherit the same parser
+bug and are also withheld pending regeneration.
+
+The same rule maps 48/377 words for 天天天国地獄国, including four old gaps;
+its normalized lyric stream differs substantially. The other full-length catalog
+candidates map only words that already have saved clocks. The parser correction
+must be applied to these files too. A QQ pilot for 嘘 finds
+the same title, artist and album with a whole-second duration consistent with the
+public catalog, and returns original and romanization QRC tracks with 36 timed
+lines and 364 chunks each, using the pinned
+[LDDC client and parser](https://github.com/chenmozhijin/LDDC/tree/84631e8cd011fcc3f71ca0ae017e2c9758958ffc).
+The first availability probe discarded its payload. A subsequent one-shot lookup
+preserves the encrypted response, decoded tracks and anonymous session privately.
+Matching chunk counts alone do not establish original/romanization ownership or
+correct clocks on the Spotify recording; those checks remain separate.
+Musixmatch's anonymous macro endpoint returns HTTP/API success for Just Awake but
+identifies an unrelated Drake recording; that response is rejected. No candidate
+from this source comparison has changed app state or saved coverage.
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue
