@@ -2651,10 +2651,17 @@ edges, impossible paths and point-slot abstentions. The normal alignment test
 runtime runs them without a neural model or new dependency.
 
 All 210 records and eight decoder conditions close before joining word-boundary
-references. Exact source/WAV/span matching finds 1,687 supplied annotation-derived
-renderer boundaries; three owners remain unscored. These references aggregate
+references. Exact record ID, WAV hash, original line bytes/hash and ordered
+source spans/surfaces find 1,687 supplied annotation-derived renderer boundaries;
+three owners remain unscored. These references aggregate
 corrected lexical-phone durations through the original source groups, rather
 than a new listening audit. Agreement requires both endpoint errors within 150 ms.
+An audit caught a WAV-only lookup selecting a duplicate recording's sibling
+annotations for four records, changing 26 reference intervals. The exact-ID
+rerun changes no endpoint-correct classification at this tolerance. The old
+artifacts remain superseded. Independently aggregating `word_durs` agrees with
+the phone-derived references within floating-point precision for all 1,687
+owners; these two metadata fields are not independent validation.
 
 The table keeps TIFA's actual retained interval. Native predictions only provide
 the independent boundary comparison: both intervals must be at least 80 ms,
@@ -2662,30 +2669,74 @@ strictly inside the recording and within 150 ms at each endpoint. Complete cues
 need at least two and at least half their original owners to pair. All source
 owners remain in the denominator; unavailable references cannot count as correct.
 
-| Native boundary condition             | Paired TIFA clocks | Within reference tolerance | Complete cues |
-| ------------------------------------- | -----------------: | -------------------------: | ------------: |
-| Independent raw argmax                |                559 |                        512 |            49 |
-| Min 80 ms, unrestricted               |                612 |                        561 |            59 |
-| Min 80 ms, peak drop 0                |                 33 |                         29 |             5 |
-| Min 80 ms, peak drop ln(2)            |                 97 |                         85 |            11 |
-| Min 80 ms, peak drop ln(10)           |                296 |                        268 |            32 |
-| Point slots allowed, unrestricted     |                596 |                        545 |            56 |
-| Point slots allowed, peak drop 0      |                 58 |                         53 |             8 |
-| Point slots allowed, peak drop ln(2)  |                126 |                        112 |            14 |
-| Point slots allowed, peak drop ln(10) |                299 |                        271 |            31 |
+| Native boundary condition             | Paired TIFA clocks | TIFA clocks within reference tolerance | Complete cues |
+| ------------------------------------- | -----------------: | -------------------------------------: | ------------: |
+| Independent raw argmax                |                559 |                                    516 |            49 |
+| Min 80 ms, unrestricted               |                612 |                                    566 |            59 |
+| Min 80 ms, peak drop 0                |                 33 |                                     29 |             5 |
+| Min 80 ms, peak drop ln(2)            |                 97 |                                     85 |            11 |
+| Min 80 ms, peak drop ln(10)           |                296 |                                    272 |            32 |
+| Point slots allowed, unrestricted     |                596 |                                    551 |            56 |
+| Point slots allowed, peak drop 0      |                 58 |                                     54 |             8 |
+| Point slots allowed, peak drop ln(2)  |                126 |                                    114 |            14 |
+| Point slots allowed, peak drop ln(10) |                299 |                                    275 |            31 |
 
 The unrestricted 80 ms arm gains 67 paired owners and loses 14, with ten more
-complete cues and none lost. The correct paired-clock count rises by 49, but
-about 92% reference agreement remains below the quality target. Standalone native
+complete cues and none lost. Among those changes, 63 gained and 13 lost TIFA
+clocks meet the reference tolerance: a net increase of 50. The previous report
+put native-clock correctness in this TIFA-clock column; the table now scores
+the actual interval the policy would retain. For comparison, native-clock
+correctness among the same pairs is 512 versus 561. Standalone native
 prediction is weaker: raw argmax has 531 correct intervals among 1,331
 reference-known physical observations; the unrestricted path has 618 among all
 1,687 reference-known owners. TIFA itself has 1,273 correct among 1,457 retained
-physical observations. No decoder condition is selected per word or promoted.
+physical observations. Forty-six of the 612 paired TIFA clocks still fail the
+reference tolerance. No decoder condition is selected per word or promoted.
 
-The next input comparison retains the same audio, original glyph ownership and
-decoder conditions while supplying the converter's already-frozen
-`reading.alignment_text` to native alignment. This separates the source's writing
-from its phonetic model input without changing the displayed words or references.
+The second input comparison retains the same audio, original glyph ownership,
+TIFA observations and decoder conditions while supplying the converter's
+already-frozen `reading.alignment_text` to native alignment. All 210 cues and
+1,690 owners close before references are joined; independent argmax parity
+holds for all owners. Processing takes 102.60 seconds including repeated helper
+loading. This separates writing from phonetic input without changing displays.
+
+| Native input and boundary condition | Paired TIFA clocks | Correct TIFA clocks | Complete cues |
+| ----------------------------------- | -----------------: | ------------------: | ------------: |
+| Original glyphs, raw argmax         |                559 |                 516 |            49 |
+| Converter kana, raw argmax          |                640 |                 587 |            71 |
+| Original glyphs, min 80 ms path     |                612 |                 566 |            59 |
+| Converter kana, min 80 ms path      |                690 |                 633 |            80 |
+
+Under the same unrestricted 80 ms path, kana gains 145 paired owners and loses
+67 relative to glyph input. Of these, 131 gained and 64 lost clocks are correct;
+14 gained and three lost clocks are incorrect. This is a useful input factor,
+with 57 errors still remaining among 690 pairs.
+
+Adding the frozen 0.70 word-presence rule and requiring joint support across at
+least two and half the complete cue retains 64 glyph-input clocks (58 correct)
+or 106 kana-input clocks (92 correct). Allowing complete-region membership as
+lexical evidence retains 200 (181 correct) or 245 (224 correct). The kana
+evaluation partition has 29 correct and four incorrect word/context clocks,
+or 55 correct and nine incorrect region/context clocks. Recognizing a phrase
+does not establish its internal word boundaries.
+
+All eight decoder arms also run against the 143 existing negative-control
+owners: none produces a lexical-plus-physical nomination or final insertion.
+Four silent owners have no raw ledger because the native helper returns before
+inference; they remain withheld, alongside nine structurally unsupported
+owners. Negative-control success does not erase the positive-reference errors.
+The app and its **2,210/2,927** saved coverage remain unchanged.
+
+A separate endpoint-mass diagnostic sums each native marker's full-vocabulary
+probability within 150 ms of the actual TIFA endpoint. It does not choose or
+move a timestamp. Six frozen mass thresholds are compared before calibration;
+the zero-known-error, minimum-25-correct rule selects 0.75 for twelve word-level
+conditions and withholds all eighteen complete-context conditions. At that
+threshold, the kana/native-path condition has thirteen correct and zero wrong
+clocks in the already-opened evaluation partition, but only four survive word
+recognition. The separate smoke partition still contains an incorrect clock
+among three selections without lexical checks. Posterior mass therefore adds
+no promotable complete-context recipe.
 
 ## Remaining work
 

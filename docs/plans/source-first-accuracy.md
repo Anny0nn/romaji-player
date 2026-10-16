@@ -884,6 +884,37 @@ references. Store source surfaces separately from model text, authenticate both,
 and retain unsupported outputs explicitly. This distinguishes writing from
 pronunciation without letting the display mode choose model input.
 
+Transfer the comparison to all 518 authenticated Rust crops in the frozen ten
+only after the source-complete corpus runs and argmax checks close. Preserve all
+2,927 original owners. Compare original source slices with the exact saved Rust
+target text; do not replace that frozen text with a newer converter's output.
+Keep corpus converter-kana and commercial frozen-target conditions distinct.
+Materialize each cue's exact existing float32 sample slice with no padding or
+normalization, record its global sample origin, and keep missing ledgers or
+unsupported cues in the denominator. Authenticate any reused TIFA observation
+against its own audio crop, source snapshot and ordered owner spans; a matching
+track or occurrence alone is insufficient. Collect fresh observations where
+those identities differ, without modifying the saved app version.
+
+The posterior-mass diagnostic sums the full-vocabulary probability of actual
+native timestamp classes within 150 ms of each observed TIFA endpoint. It neither
+chooses a native timestamp nor changes the TIFA clock. Freeze both-endpoint
+thresholds of 0.25, 0.50, 0.75, 0.90, 0.95 and 0.99 before computation; keep raw
+argmax pairing, unrestricted 80 ms pairing and an explicitly unpaired diagnostic
+separate. Within each fixed input, physical and lexical condition, calibration
+may select the most retained clocks with zero known endpoint errors and at least
+25 correct candidates, breaking ties toward the higher threshold; otherwise it
+abstains. Close that choice before its evaluation. The evaluation references
+are already opened development data, so this is not a new holdout claim or
+permission to promote a condition by selecting its best evaluation result.
+
+Reference joins require exact record ID, WAV hash, original line bytes/hash and
+ordered source spans/surfaces. Duplicate audio can have different annotations;
+never resolve references through a WAV-only dictionary. Keep native-clock and
+retained-TIFA-clock correctness separately named in every report. Metadata
+`word_durs` and phone-derived durations agree numerically in this corpus and
+must not be represented as independent boundary checks.
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,
