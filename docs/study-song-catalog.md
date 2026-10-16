@@ -55,6 +55,7 @@ import, not automatic source discovery. User app data and caches were not modifi
 
 Audio, full lyrics, source snapshots, per-word observations and model files remain
 outside Git. URLs below identify the exact tested recording.
+The Seconds column reports processing time, not the recording's duration.
 
 | Recording                                                                                  | Retained / total | Coverage | Seconds | Trial set      |
 | ------------------------------------------------------------------------------------------ | ---------------: | -------: | ------: | -------------- |

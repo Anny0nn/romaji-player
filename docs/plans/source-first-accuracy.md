@@ -454,6 +454,19 @@ where the source does not define a usable rule. Alternative forced paths nominat
 boundaries, not verified lyric spelling; compare them against canonical paths,
 independent lexical evidence, physical clocks and wrong-audio controls.
 
+Keep natural source script and phonetic input separate in the verifier too. Compare
+unchanged original-script neighbors with all-kana contexts, reusing only byte-identical
+closed inputs. A separate mixture-versus-vocals comparison holds the complete
+candidate sets and source context fixed; agreement on a distorted consonant must
+not become a displayed reading correction. Likewise, local boundary comparisons
+must keep the old waveform role before attributing a difference to context alone.
+
+Measure the oracle availability of correct existing intervals as a diagnostic,
+separate from a label-free interval selector. A whole-interval consensus may choose
+only measured original-word observations; report introduced errors, lost correct
+words and source-order overlaps, not just added words. It remains a research recipe
+until correctness and ordered-region checks pass together.
+
 A corrected reading can restore a paired target while the old automatic neighbors
 still overlap it. Test a separate bounded automatic-region solver using only
 observed endpoints belonging to the same original word and waveform. An old

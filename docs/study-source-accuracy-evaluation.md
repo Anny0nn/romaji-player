@@ -1196,10 +1196,12 @@ fresh physical word clocks remain necessary.
 
 Current-reading winners matter too: of 29 current winners in the original 72-group
 trial, seven are original timing gaps. A fully extended competitor set withholds
-one. Twelve of all 29 have fresh TIFA/HFA clock agreement, but ten already have
+one. Twelve of all 29 have fresh TIFA/native-Qwen forced-clock agreement, but ten already have
 saved timings. The two remaining groups are isolated under the earlier overlay's
 adjacency rule and add zero through that unchanged rule. These are opportunities
 for testing a different contextual verifier, not impossible words or counted gains.
+The legacy private join calls the second observer `fresh_hfa`; its authenticated
+runner is the native Qwen forced aligner, not the English HubertFA model.
 
 Two further acoustic alternatives fail their small pilots. Granite Speech CTC
 makes 45 reference-word edit errors across the same 96 English development words,
@@ -1314,11 +1316,131 @@ Whisper check retains only one safe, already-correct target. A separate dropped-
 diagnostic recovers three gaps with two correct intervals and one incorrect.
 Neither model agreement nor endpoint feasibility is sufficient for promotion.
 
+A separate second version restores strict crop-interior observations, an existing
+plan requirement, without changing thresholds or hiding the first version. Both
+proposals and comparisons remain recorded as development data. The primary profile
+then has two feasible replacements, both correct, with no old errors fixed and no
+regressions across three changed preexisting word observations. Its dropped-word
+diagnostic proposes two correct intervals and one safe collateral neighbor move.
+The corrected-reading ten-word cue keeps exactly the same successful repair. This
+removes the observed edge bug but still does not establish broad accuracy gains.
+
 An independent SOFA Japanese duration probe uses three audio posteriors to decode
 the six unchanged/current-versus-candidate sequences. It does not corroborate the
 two difficult corrected-reading targets: one collapses below the duration floor,
 and the other disagrees with the TIFA/Whisper envelope. These conditional forced
 paths supply no new lexical evidence or saved words.
+
+## Testing context, pronunciation and interval selection
+
+The English follow-up keeps all twelve reference targets, twelve hard gaps and
+twelve independent negatives. A three-source-group text window over the old full
+audio loses reference recall. Matching that text with measured local audio improves
+lexical nominations, but the primary cross-family rule still supplies no additional
+correct reference timing or hard-set overlay insertion. It also makes one false
+lexical nomination on the independent negatives; paired clocks withhold it. Two
+negative targets lack complete neighboring observations and remain explicit
+structural abstentions in the twelve-target denominator.
+
+Fresh local alignment retains all 92 source-group observations from 34 eligible
+windows, including rejected paths. It provides 26 valid pairs. On the twelve
+reference targets, paired clocks alone worsen from seven correct of eight to six
+of eight. The hard-set physical comparison changes vocal-isolated audio to the
+original mixture as well as context, so it does not isolate a crop effect. Keep
+that result and test the old waveform role separately before drawing that conclusion.
+
+A pronunciation pilot tests ten gaps across four songs with complete captured
+canonical English paths and documented Japanese-English substitutions. Twenty
+candidate paths are measured by each aligner; the canonical paths reproduce the
+cached observations exactly. Six alternatives improve the changed phone's HFA
+conditional score, but zero recover a paired target. Neighbor pairs gain one and
+lose four. Improved path scores alone cannot authorize a pronunciation or timing.
+
+A separate cached 96-word audit asks whether correct clocks exist outside the
+original AND gate. With source-blind Qwen qualification, the original 52 pairs have
+49 correct intervals under the historical onset-150/end-200 ms metric, or 46 under
+strict 150/150 ms. The frozen observed-whole-interval consensus selects 69, with
+63 and 58 correct respectively. It gains correct words but also introduces errors
+and overlapping intervals, so it is withheld. The oracle finds a correct existing
+clock for 78 qualified words under the strict metric; that is an upper bound using
+labels, not an admission rule. Future selection work must improve correctness and
+source-order geometry together.
+
+Original Japanese script is also kept separate from phonetic alignment input.
+Replacing only the candidate span with kana while leaving every neighbor byte in
+its original script preserves nine complete competitions and 54 candidates. One
+competition is already text-identical and reuses its closed observations. This
+changes some scores but does not solve reading selection: a voiced-consonant
+variant conflicting with the published reading remains a joint winner. Two raw
+Japanese Whisper boundary probes also fail to corroborate the missing targets.
+Neither a new representation nor recognizer agreement is sufficient evidence on
+its own; the next comparison keeps the candidate text fixed and changes the audio
+view to check separation artifacts.
+
+Holding that candidate text fixed across the mixture and isolated vocals leaves
+two joint reading nominations. Fresh native forced-alignment clocks corroborate
+one target, but disagree with its following neighbor; they supply no complete
+region repair. A separate comparison restoring the English local windows' old
+waveform role recovers more paired neighbors than the confounded mixture trial,
+but still adds zero primary-policy hard targets. These remain separate factors.
+
+Published Japanese loanword readings also underperform the canonical English
+paths: target retention falls from 15 to 10 of 21 gaps. A separately frozen small
+vowel hypothesis raises that to 11, with no verified additions. Scoring alternate
+dictionary paths changes six choices but leaves canonical retention at 15/21.
+Published pronunciation and a higher conditional score cannot replace acoustic
+verification.
+
+The same audit exposes a concrete frontend bug: the existing vowel fallback
+handles `あぁ` but misses mora endings such as `さぁ` and `ねぇ`. The corrected
+fallback preserves valid digraphs, script, original words and UTF-8 ownership.
+Twenty new regressions cover those rules. Four fresh calls retain both previously
+unsupported targets; one agrees with native clocks within 150 ms at both ends,
+and the other's ending disagrees by 590 ms. The four-call test takes 3.0 seconds
+including loading, with 0.74 GB peak process RSS. This fixes Experimental's
+phonetic-input fallback and versions its engine identity; it does not establish
+two independently verified additions or change the original TIFA action.
+
+An exact replay of the existing Experimental repair policy admits neither
+target. Fresh MMS observations fail probability, endpoint and line-context
+requirements. The kana change therefore fixes unsupported model input but adds
+zero saved timings under the current policy. Native forced-clock agreement is
+not substituted for that policy. The two source-free MMS calls take 2.6 seconds
+including loading; process RSS peaks at 0.51 GB, with a 2.24 GB after-crop MPS
+driver sample rather than a measured allocation peak.
+
+## An authentic Japanese alternative for 嘘
+
+An authenticated [Japanese source with furigana](https://utaten.com/lyric/jb10904545/)
+provides an alternative to the frozen romanized source. Complete artist and song
+credits are checked against the released recording. The saved PCM's 205.973-second
+duration matches its LRCLIB source; the catalog's Seconds column measures processing
+time, not track length. Original HTML bytes, annotations and correspondence live
+outside Git.
+
+Exact complete-cue phone correspondence identifies fifteen unique source spans.
+The candidate replaces those fifteen cues, preserves the other twelve acoustic
+cues verbatim and retains all 32 original source occurrences and line timestamps.
+Repeated or unmatched passages stay unchanged. No word clock is transferred.
+Rust import, snapshot validation, published-reading overrides and all five display
+representations pass offline checks. The alternative remains a separate private
+version, with the original still active.
+
+| Same full-song waveform and fresh model runs | Original romaji | Composite Japanese candidate |
+| -------------------------------------------- | --------------: | ---------------------------: |
+| Source groups                                |             167 |                          168 |
+| TIFA retained                                |              99 |                          128 |
+| Retained with strict interior /80 ms bounds  |              87 |                          111 |
+| Retained and native-clock paired ≤150 ms     |              24 |                           23 |
+
+The unchanged twelve cues give exactly identical observations in both model
+families. The replaced cohort accounts for the retention increase: 55/88 becomes
+84/89. Its second-clock pairs fall from 11 to 10, so the result does not establish
+improved timing accuracy. The earlier saved Experimental result of 116/167 uses
+another recipe and remains a separate baseline. Fifty-four TIFA calls take 7.9
+seconds with 0.94 GB peak RSS; 54 native forced-aligner calls take 7.9 seconds.
+Twenty-two private source/import/join regressions pass. Neither the alternative
+source feature nor a new accuracy recipe is integrated from this trial alone.
 
 ## Remaining work
 
