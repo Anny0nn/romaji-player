@@ -766,6 +766,31 @@ Report source-free phone discrimination separately from conditional boundary
 accuracy. One model's two outputs do not provide independent verification. PJS
 is named in its training configuration and cannot serve as an unseen test.
 
+Separate candidate generation from reading selection. Test the released model's
+audio-only Japanese transcription decoder without lyric prompts or prior text.
+When a unique transcript difference exactly covers an original source owner,
+convert the replacement into a reading candidate attached to that owner's
+unchanged source span. Keep the current reading and every dictionary rival;
+ambiguous, crossing or incomplete mappings remain withheld. An ASR spelling is
+not a replacement source snapshot or a verified reading. Its decoder and phone
+head share an encoder, so agreement between them is not independent evidence.
+TIFA remains responsible for any fresh timing proposal.
+
+Before integration, test actual converter alternatives on a source-selected
+Japanese singing control set: 100 Soprano calibration clips, 100 Tenor evaluation
+clips with disjoint normalized song titles, and ten smoke clips. Deduplicate
+exact audio and exclude conflicting source metadata before selection. Freeze
+all candidate paths, source ownership, confidence features and the calibration
+rule before model outputs or reference joins. Report correct changes, wrong
+changes, preserved correct readings, missing true candidates and unknown
+references separately. Overall nomination accuracy cannot substitute for enough
+evidence about changed readings; the known regressions do not set thresholds.
+The GTSinger trial exposes repeated phone-interval labels without reliable
+lexical-fragment identity, so its raw sequence join cannot supply those reading
+labels. Keep calibration withheld; any duration-insensitive sequence diagnostic
+is descriptive and cannot authorize edits. Continue with the frozen song pilot
+and independently trained recognizers while retaining the closed corpus scores.
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,

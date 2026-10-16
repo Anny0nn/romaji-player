@@ -2357,6 +2357,117 @@ accuracy, safe automatic source changes, or a saved-coverage increase. Test
 broader positive and false-reading controls before integrating it. Conditional
 path-score magnitudes from different model families are not comparable.
 
+### Actual dictionary candidates and audio-only proposals
+
+The earlier 15 competitions include deliberately supplied reading alternatives.
+A separate test captures the converter's real candidate lists for the nine
+verified fixtures, preserving every alternative and the full original cue.
+With the current song-specific defaults, Phonsa selects the verified reading
+in 9/9: eight changes to dictionary defaults and preservation of one already
+correct song default. With song defaults disabled, it selects 8/9 correctly.
+The missing case is departure!'s sung `hoshi` for `地球`: that reading is absent
+from the generated dictionary list. The wrong winner still has a positive
+5.64-nat path-score margin. A positive margin alone cannot authorize a change.
+
+The released transcription decoder then runs on the same 15 audio crops,
+without source lyrics, prompts or prior transcript history. All terminate
+naturally. The departure! transcript differs from the source only by `星` in
+place of `地球`; the surrounding text matches exactly. Converting that unique
+replacement can supply `hoshi` without a song override or a manually inserted
+candidate. Adding the two uniquely mapped ASR proposals to the actual dictionary
+lists gives 57 paths. All 55 original path scores reproduce exactly. The
+departure! proposal ranks first; an incorrect Tabi proposal ranks second and
+leaves that fixture's correct winner intact. Across the same nine labeled
+regressions, selection improves from **8/9 to 9/9**, with one gain and no losses.
+The earlier 66-path test already included `hoshi` as a supplied candidate; this
+new comparison tests its generation from audio. The ASR decoder and phone
+scorer share an encoder, so this is a candidate-generation cascade, not two
+independent acoustic confirmations or a saved timing gain.
+
+Transcription takes 11.77 seconds after 4.75 seconds loading, with
+6.62 GB peak process RSS and 4.39 GB largest sampled MPS-driver allocation.
+The first three transcripts and token sequences reproduce the earlier smoke
+pass exactly; those repeats are not additional accuracy observations.
+
+Broader dictionary controls use 210 unique audio clips: ten smoke clips, 100
+Soprano calibration clips and 100 Tenor evaluation clips, with no normalized
+song-title overlap between calibration and evaluation. Selection excludes
+previously opened pilot audio, clips over 30 seconds and duplicate audio with
+conflicting source metadata. All 1,690 original context owners remain present.
+Every one of 950 candidate paths and its conditional phone-confidence features
+is closed before reference labels are joined. The model pass takes 74.53
+seconds after 4.75 seconds loading, with 4.86 GB peak RSS and 4.40 GB largest
+sampled MPS-driver allocation. Memory measurements overlap.
+
+There are 38 changed-reading nominations before reference checks. Only 13
+calibration nominations could qualify as changed readings even with the lowest
+confidence threshold; this cohort therefore cannot meet the frozen requirement
+of at least 25 accepted calibration changes for an automatic-edit evidence
+claim.
+
+The attempted reading-reference join finds a more fundamental representation
+problem. GTSinger stores separate annotated phone intervals, including repeated
+identical labels within a word. For example, a three-phone candidate can face
+six annotation entries with repeated vowels and consonants. The serialized
+labels, durations and word owners provide no fragment identity that proves
+which repetitions form one lexical phone. The
+[official conversion code](https://github.com/AaronZ345/GTSinger/blob/main/Data-Process/process/gen_final_json.py)
+preserves the individual phone intervals. Raw sequence mismatch therefore
+cannot establish that a reading is wrong. No confidence threshold is fitted
+and no reading-accuracy claim is made from this join.
+
+A separate post hoc diagnostic ignores adjacent identical-label repetitions
+and explicitly discards duration distinctions. Current readings match the
+reference skeleton in 115/210 cases; Phonsa nominees match in 109/210, with
+13 and 18 unsupported comparisons respectively. These are descriptive phone
+skeleton correspondences, not reading accuracy or a justified lexical merge.
+They provide no basis to promote standalone Phonsa ranking.
+
+The frozen-song source audit preserves all 518 original cues, 2,927 owners and
+717 missing-word flags. Complete Japanese contexts with actual converter
+alternatives cover 46 missing words across five low-set songs and one high-set
+song. A fixed pilot selects 12 gaps and 12 timed controls across five low songs,
+sharing 14 original audio crops. All 167 candidate paths close before quality
+checks. Phonsa nominates a changed reading for seven gap targets and eight
+timed controls; those are proposals, not verified repairs. Saved timing alone
+is not a correct-reading label. Independent singing-model and original-TIFA
+checks use the same original crops and all rival candidates.
+
+The independent singing HuBERT pass collects 26 fresh unique crops covering
+the 14-cue pilot and the earlier 15 regression/hypothesis cues. It takes 1.62
+seconds after 3.87 seconds loading, with 0.49 GB peak RSS and 1.15 GB largest
+sampled MPS-driver allocation. The 167 pilot paths remain in the denominator;
+three complete comparisons are withheld because required phone paths are
+unsupported. Of Phonsa's seven changed gap nominees, two also win under
+HuBERT. One of those passes the unchanged non-veto and phone-count-ratio check;
+the other fails its ratio rule. One changed timed control also agrees and
+passes non-veto. Passing a non-veto is not positive proof of a correct reading.
+
+The known nine-case comparison is Phonsa 9/9, independent HuBERT 5/9, and
+original TIFA 7/9. The recovered `hoshi` candidate wins under both Phonsa and
+HuBERT. Requiring their winners to agree would also withhold four verified
+Phonsa readings in this small regression set. These fixed examples cannot
+establish a production voting rule.
+
+Audio-only transcription of the 14 pilot crops takes 17.83 seconds after 5.18
+seconds loading, with 4.92 GB peak RSS. Thirteen cues terminate naturally;
+one capped cue is excluded, leaving 23 of 24 target comparisons eligible.
+Exact source-owner extraction adds no candidates, including a separately
+frozen punctuation/whitespace-tolerant arm. The existing two-sided phonetic
+anchor mapper also adds none when restricted to one observed converter word.
+A separate correction allows up to four observed words inside one unchanged
+original owner, preserving spaces as the product already permits. This admits
+one proposal. It wins the full-context Phonsa comparison, but includes a
+one-frame `w` observation with only 0.022 mean posterior. It remains unverified.
+This structural follow-up is post hoc and supplies no new independent audio.
+
+Original TIFA separately scores the same complete rival sets: 21 comparisons
+run and three remain wholly withheld. All 24 rows and 167 candidate identities
+are retained. Its 13 useful unique spectrograms and candidate scoring take
+0.20 and 1.40 seconds respectively after 0.53 seconds model loading. The
+comparison does not use the adapted checkpoint or introduce word clocks.
+Saved app coverage remains **2,210/2,927**.
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue
