@@ -717,6 +717,37 @@ must not overwrite the active source. Validate promising proposals against the
 authorized recording and the existing negative controls before considering app
 integration; retain previous sources, readings and user edits.
 
+Test a source-language input repair separately from supplied clock transfer.
+Pre-romanized Japanese currently enters TIFA's English pronunciation path.
+Use an authenticated Japanese alternative to qualify exact phoneme mappings,
+then change only those original words' model input to Japanese kana. Preserve
+the original display words, UTF-8 owners, complete cue context and original Rust
+audio windows. First require whole alternative-source word ownership; test an
+additional kana-mora-boundary arm separately. The latter permits a reading split,
+never a split or copied timing. Keep unmappable words as explicit unchanged
+fallbacks. Compare original, qualified-kana and original-Japanese model text on
+identical mixture audio, then repeat on the production vocal stem. Count actual
+saved-gap recoveries and preservation separately from fresh TIFA retention.
+
+The next supervised model comparison adapts TIFA itself, rather than an
+unconditional classifier over another encoder. Its existing supervised objective
+uses frame-to-phone alignment, annotated phone spans, token identity and frame
+identity. Preserve the cached checkpoint's exact vocabulary IDs and strict tensor
+loading; equal vocabulary sizes do not establish equal token semantics. Start
+with the conservative subset of the approved Japanese corpus whose phone labels
+map to existing tokens. Unsupported clips remain in evaluation denominators.
+Retain the existing singer/title folds and shared-title exclusions.
+
+Audit the model's actual 48 kHz, 10 ms-hop feature geometry and all frame masks
+before fitting. Keep short phones that receive no frame center explicit; verify
+the official loss behavior on empty spans before choosing a fitting rule. First
+run a short whole-clip forward/gradient/memory check on the M2 Pro. Use batch one,
+gradient accumulation and no concatenation or truncation. Disable the auxiliary
+semi-supervised stream and EMA for this labeled-data-only trial. Freeze a bounded
+schedule and validation selection, including the unchanged checkpoint, before
+fitting. No private song enters training, and improved training loss alone does
+not authorize app promotion.
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,

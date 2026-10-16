@@ -2099,6 +2099,69 @@ Musixmatch's anonymous macro endpoint returns HTTP/API success for Just Awake bu
 identifies an unrelated Drake recording; that response is rejected. No candidate
 from this source comparison has changed app state or saved coverage.
 
+The corrected whole-song karaoke mapping offers clocks for 119 of Just Awake's
+123 saved gaps. Existing authenticated acoustic caches cover every nominee.
+Only one gap agrees with both timing models within 150 ms at both ends; its
+original context and neighboring saved clock prevent admission. NetEase returns
+word-timed YRC for LOST IN PARADISE: 437 of 476 original owners map through whole
+chunks, including 132 of 146 saved gaps. Its cached checks find two three-way gap
+agreements, also withheld by their original context. Neither case justifies more
+inference under the unchanged admission rule.
+
+QQ's supplied Uso clocks are also inconsistent with the local observations.
+On the separate 170-owner Japanese source, dictionary TIFA retains 155 words and
+roundtrip-guarded provider readings retain 156. Only 11 and 12 respectively agree
+with the supplied intervals within 150 ms at both ends. Native alignment supplies
+122 positive bounded observations, only two agreeing with QRC. Each reading arm
+has 19 strict TIFA/native pairs; one also agrees with QRC. Those are consistency
+measurements, not reference accuracy. Possible title/credit lines and a clipped
+long cue remain separately reported. Supplied coverage alone is not promoted.
+
+## Source-qualified Japanese pronunciation input
+
+The source comparison exposes a separate input issue: TIFA routes ASCII lyric
+text through its English pronunciation converter. The frozen romaji-only Uso
+source has 158 English-routed words and nine unresolved words, despite being
+Japanese lyrics. An exact whole-song phoneme reconciliation with the Japanese
+candidate qualifies 137 original words; allowing complete kana-mora edges
+qualifies another 14 without requiring a complete alternative-source word.
+That second rule supplies reading text only, never a cut or copied word clock.
+
+The fixed comparison retains all 167 original owners, original displayed romaji,
+UTF-8 spans and 27 original Rust audio windows. Unqualified words keep their
+original model input. No QQ word clock or QQ line window enters either repaired
+condition.
+
+| Same 167 original owners                 | TIFA retained, mixture | TIFA retained, production vocals | Paired clocks, mixture / vocals |
+| ---------------------------------------- | ---------------------: | -------------------------------: | ------------------------------: |
+| Original romaji input                    |                     96 |                               99 |                          21 /24 |
+| 137 source-qualified kana inputs         |                    137 |                              132 |                          36 /30 |
+| 151 inputs with complete kana-mora edges |                    144 |                              140 |                          35 /31 |
+
+Paired clocks require the unchanged native aligner and both physical endpoints
+within 150 ms, with the existing duration and crop-interior rules. They are
+consistency counts, not acoustic lexical verification or reference accuracy.
+On the vocal stem only one complete original cue meets the minimum-two/half-cue
+physical context rule in each arm. Changing the native model's input to Japanese
+glyphs or kana does not improve the mixture comparison, so the vocal comparison
+keeps its original input and reuses its authenticated cache.
+
+The paired original/whole-owner mixture run takes 5.55 seconds after loading;
+the kana-mora run takes 3.34 seconds, with 950 MB peak process RSS. The three-arm
+production-vocal comparison takes 6.39 seconds after 0.91 seconds loading, with
+1.02 GB peak process RSS. These are fresh retention counts, not verified saved
+recoveries. The existing 116/167 Experimental result also includes additional
+processing. Compare original saved gaps, preserved clocks and independently
+supported additions separately before integrating this language repair.
+
+Joining the original 116 saved intervals leaves 51 original gaps. Each vocal
+condition has three gap-level physical pairs, two with sufficient cue context.
+The immutable interval check permits one original-input candidate versus two in
+each kana condition, preserving every saved interval exactly. Lexical evidence
+has not qualified those proposals. This isolates a real pronunciation-routing
+restriction, but the current physical checks do not establish a substantial
+saved-coverage gain.
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue
