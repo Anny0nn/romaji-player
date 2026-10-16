@@ -590,6 +590,44 @@ owners, preserve all original denominators, and close proposals before joining
 reference clocks. Disclose training-domain overlap checks. Expand to the frozen
 song gaps only if reference/control results justify it.
 
+Test complete multi-line contexts as an explicit structural factor. The sixteen
+existing Jamendo cues form two consecutive source passages under thirty seconds;
+validate that no intervening source line is skipped. Join their complete source
+texts and original word owners, align each contiguous original-audio passage
+jointly, and map observed clocks back through exact sample origins. Keep all 96
+focal owners and their references unchanged. Compare the singing-conditioned
+model, TIFA and native forced alignment on these same passages before expanding
+to songs. Do not confuse additional context with a timing correction, omit words
+to fit a crop, introduce synthetic padding, or select a different recipe per word.
+Keep admission context attached to the complete original source cue, independently
+of the larger inference window. Report the initial whole-window confidence test
+separately; extending audio must not silently change the source-context denominator.
+
+Test a Japanese singing duration head as a separate supervised approach. Use the
+pinned [GTSinger Japanese singing subset](https://huggingface.co/datasets/AaronZ345/GTSinger/tree/d78cd68d00135b1995da03f25fccb3a221efd8c1),
+with human-corrected phone/word boundaries, to fit a small dense phone-occupancy
+head over frozen, already cached Japanese-singing HuBERT features. This learns
+sustained phone frames rather than reusing CTC emission spikes as word clocks.
+Keep corpus, features and trained products private during the trial. The source
+dataset is CC BY-NC-SA 4.0; clean studio singing and only two Japanese singers are
+important domain limitations.
+
+Freeze the feature layer, phone inventory and title-grouped splits before training.
+Use two singer-disjoint outer folds, retaining every technique variant of a title
+in its singer's partition; internal validation uses only training-singer titles.
+These singers are held out from the new head. The cached encoder's unpublished
+training list prevents a claim that they are unseen by the encoder.
+Authenticate the frontend's frame origin and receptive field. Rasterize reference
+phone intervals by fractional overlap with real feature cells; preserve unknown
+labels and sub-frame phones explicitly. Test kana-to-inventory conversion and
+complete word ownership with fixtures before decoding. Japanese annotation text
+units are individual characters, so group them through exact source-owned converter
+spans before reporting displayed-word accuracy; never call character coverage word
+coverage. Report complete word
+endpoint accuracy, unsupported labels, skipped phones, runtime and memory on the
+public held-singer folds before considering a frozen private-song trial. No private
+song-suite recording or lyric enters training, and no encoder fine-tuning is planned.
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,

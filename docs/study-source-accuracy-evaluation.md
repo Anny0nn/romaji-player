@@ -1836,6 +1836,105 @@ selectable additions under that policy: zero. No saved reading or clock changes.
 The rule's abstention is not evidence that the candidate is wrong, and this
 development example does not establish a replacement admission rule.
 
+## Singing-conditioned boundaries and longer source context
+
+A separate [lyrics-aligner](https://github.com/schufo/lyrics-aligner/tree/72be8a14b9126c201e0b8920513764c44ccd3f9e)
+jointly learns lyric-conditioned vocal separation and phone alignment. Its pinned
+40.4 MB checkpoint loads strictly with restricted tensor loading. The pilot uses
+the official CMU phone inventory, deterministic evaluation mode, no extra STFT
+padding and one explicit Torch compatibility change. Upstream's CLI omits evaluation
+mode, so these results do not claim stock-CLI parity. Word ends are observed
+separator-state onsets from its DTW path, not reference labels.
+
+On the same sixteen opened English development cues, all 96 original word owners
+remain in the denominator. Original mixes give 57 correct onsets and 46 correct
+complete intervals at 150 ms per endpoint; isolated vocals give 65 and 54. Each
+condition still admits two incorrect unprotected additions through its tested
+pairing rule. No correct interval is new relative to the earlier clock-family
+union. This does not justify expanding that model. Mix processing takes 1.17
+seconds after loading, with 0.33 GB peak process RSS on the M2 Pro.
+
+A separate structural comparison joins these sixteen consecutive source cues
+into two complete original-audio passages, 29.0 and 25.0 seconds. All intervening
+source lines, original word groups and UTF-8 ownership survive. Clocks map back
+through exact sample origins, without clamping or padding. TIFA's short-cue
+baseline is rerun with the same helper and runtime as the longer condition;
+only 70/96 endpoint pairs reproduce the historical cache exactly, so that cache
+cannot isolate the context factor.
+
+| Same 96 original words                      | Short cues: retained / strict correct | Long passages: retained / strict correct |
+| ------------------------------------------- | ------------------------------------: | ---------------------------------------: |
+| Singing-conditioned DTW model, original mix |                               96 / 46 |                                  96 / 35 |
+| Fresh TIFA                                  |                               91 / 65 |                                  86 / 71 |
+| Native Qwen alignment                       |                               92 / 56 |                                  94 / 69 |
+| TIFA/native pair plus fixed lexical screen  |                               46 / 41 |                                  53 / 51 |
+
+Strict correctness requires both endpoints within 150 ms. The lexical screen is
+the unchanged, earlier short-cue source-blind Qwen observation; it is not a new
+long-passage transcription. TIFA gains thirteen correct intervals and loses seven;
+native alignment gains seventeen and loses four. Simply replacing every saved
+clock would therefore introduce regressions.
+
+An initial selection incorrectly enlarged the confidence unit from the original
+lyric cue to the entire passage. It leaves three correct immutable additions.
+A separately labeled **post-hoc** comparison keeps the complete original cue as
+the confidence unit, while both aligners hear the longer passage. The same
+minimum-two/half-cue context rule then selects eight additions, all eight correct,
+versus two correct and one incorrect short-cue additions. It gains six correct
+owners, loses no correct owner, and preserves all 52 existing clocks exactly.
+This is promising development evidence, not prospective validation or an app
+coverage gain. Freeze that distinction before the difficult-song pilot.
+
+The prospective pilot covers 48 previously missing English-spelling groups from
+six low-set songs, with 192 focal source groups in 35 original cues. Complete
+multi-line contexts bring 605 original groups into 13 windows; auxiliary groups
+remain separate from the 48-gap denominator. TIFA target text and romaji remain
+unchanged. The native aligner receives the original source surfaces.
+
+Fresh short-cue versus longer-passage runs retain 29 versus 34 of the 48 targets;
+paired clocks increase from 14 to 15, gaining seven owners and losing six. Six
+targets in each condition also have the fixed, earlier Fun-ASR lexical witness.
+Neither condition yields an immutable insertion. Even perfect lexical evidence
+cannot overcome the longer condition's 33 missing physical pairs, six failed
+original-cue contexts, one missing adjacent qualifier and eight interval collisions.
+These are overlapping-model agreement opportunities, not singing accuracy labels.
+
+A separately frozen bounded-region trial allows automatic neighbors to move only
+with paired fresh observations contradicting the old clocks, at most four groups,
+verified unchanged outer anchors and complete nonoverlapping observed intervals.
+All 48 targets still fail: 33 lack a physical pair, six lack context, two have an
+unsupported region member, five lack a verified outer anchor, and two have an
+observed interval overlap. All saved origins are explicitly automatic; user-edit
+protection is not the cause of this null result. Do not spend more recognition
+calls on the same clocks in the hope that lexical evidence alone will fix them.
+
+The 13 TIFA passages take 4.37 seconds after loading, plus 0.99 seconds loading,
+with 0.91 GB peak process RSS. Twelve new native contexts take 12.42 seconds;
+one byte-identical five-word context reuses its authenticated observation. Fresh
+35-cue TIFA takes 3.20 seconds after loading, plus 0.86 seconds loading, with
+1.20 GB peak process RSS. These timings exclude cached vocal isolation.
+
+## Dense Japanese phone occupancy: pipeline check
+
+The next trial fits a small linear phone head over the frozen singing-HuBERT
+encoder, using [GTSinger](https://huggingface.co/datasets/AaronZ345/GTSinger/tree/d78cd68d00135b1995da03f25fccb3a221efd8c1)
+Japanese recordings with corrected phone intervals. The 2,000 singing clips total
+3,343,442,192 bytes; speech clips are excluded. This tests supervised sustained
+phone occupancy rather than another CTC clock or free-transcription prompt.
+
+The bounded 16-clip pilot verifies every WAV's pinned hash, PCM24 decoding,
+48-to-16 kHz resampling and all 8,737 native feature frames. Frozen final-layer
+features take 1.43 seconds after loading, plus 0.51 seconds loading, with 0.67 GB
+peak process RSS. No head has been trained in this pipeline check, and it says
+nothing about word accuracy.
+
+The dataset's Japanese text owners are mostly single characters. They must be
+aggregated through exact converter-owned spans before measuring displayed words.
+Marker/unknown phones and ambiguous or discontinuous ownership stay explicit.
+Two singer-disjoint head folds keep all title variants grouped; the encoder's
+unpublished training list means these are not certified encoder-unseen tests.
+All data and trained products stay outside Git; no private song enters training.
+
 ## Remaining work
 
 The first experiments do not satisfy the plan's multi-song integration target. Continue
