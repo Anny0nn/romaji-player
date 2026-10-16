@@ -2510,8 +2510,9 @@ needs two research-only decoder dependencies: mlx-lm 0.31.1 and SentencePiece
 | Corresponding Kim vocals             |        14 |                  14 |             4.91 s |             3.46 GB |
 | Existing regression/hypothesis crops |        15 |                  15 |             5.93 s |             3.54 GB |
 
-These are processing runs, not 43 independent examples: waveform counterparts
-and three regression/pilot crops overlap. Loading takes 0.43–0.91 seconds;
+These are processing runs, not 43 independent examples: repeated regression
+cases share audio, and mixture/vocal views share recordings. There are 40 unique
+waveforms. Loading takes 0.43–0.91 seconds;
 process peak RSS ranges from 1.49 to 3.01 GB. RSS and GPU allocation overlap.
 The earlier 172-view English-context trial already used the same Qwen3-ASR
 family with a BF16 Transformers backend and automatic language selection.
@@ -2523,6 +2524,168 @@ The frozen owner extractors add five distinct ASR candidate paths while
 preserving every original path, producing a 172-path follow-up. These are
 candidate-availability and acoustic-ranking results, with TIFA and admission
 checks still required. Saved app coverage remains **2,210/2,927**.
+
+### Language routing and source ownership
+
+A paired language comparison uses the same 28 mixture/vocal views of 嘘 with
+the same MLX model, changing only automatic versus explicit Japanese routing.
+All 167 original owners remain represented, including 51 saved gaps. Japanese
+routing terminates naturally in 28/28 views; automatic routing does so in 26/28,
+with two capped outputs. Processing takes 26.0 versus 29.6 seconds after loading,
+with 3.92 GB peak MLX allocation. Peak process RSS is 2.29 versus 2.80 GB;
+these memory measurements overlap.
+
+A separately frozen lexical diagnostic uses 137 source-proved Japanese aliases;
+the other 30 owners remain barriers. It requires complete BPE ownership,
+qualifying token probabilities, unique neighboring source context and agreement
+between the mixture and vocal views. It supplies word-presence evidence,
+without establishing a particular kanji reading or either word boundary.
+
+| Same 167 owners /51 saved gaps | Owners with lexical witnesses | Saved gaps with lexical witnesses |
+| ------------------------------ | ----------------------------: | --------------------------------: |
+| Automatic language routing     |                            28 |                                 7 |
+| Explicit Japanese routing      |                            78 |                                24 |
+
+Japanese routing adds 50 witnesses, including 17 gaps, with no lost witnesses.
+These are **not 17 recovered timings**. Only one of the newly witnessed gaps
+also passes the earlier physical-context and immutable-order checks. Requiring
+joint lexical and physical support across half its complete cue would withhold
+it. The new alias-based lexical rule remains uncalibrated, so neither result
+authorizes an app insertion.
+
+The complete 172-path reading union also receives fresh TIFA scores. All 167
+original paths survive; 42 of 48 comparison/waveform conditions are complete,
+and six are explicitly unsupported. One changed candidate wins TIFA, Phonsa
+and HuBERT on vocals, but fails the subsequent physical checks: mixture TIFA
+withholds it, and its vocal interval touches the crop edge and disagrees with
+HuBERT's onset by 160 ms. No correction qualifies.
+
+That cue's Rust crop includes 800 ms of the preceding cue. The proposed reading
+adds a phone prefix that exactly matches the preceding source owner's suffix.
+This is a plausible ownership error, not a verified sung reading. Three acoustic
+rankings can agree while attaching neighboring singing to the wrong source
+owner. A private audit preserves that ambiguity; four synthetic boundary cases
+check it without rejecting legitimate alternate readings automatically.
+
+### Constraining transcription to kana
+
+A separate Phonsa decoder trial permits kana, punctuation and whitespace while
+retaining valid partial UTF-8 BPE tokens. It supplies no lyrics or reading prompt.
+Selected-token probabilities are captured before all masks; constrained
+probabilities are never treated as lexical confidence. CPU fixtures cover UTF-8
+prefix viability, kanji rejection, attached voicing marks and natural termination.
+
+All 15 existing regression/hypothesis crops terminate naturally. The pass takes
+34.94 seconds after 4.99 seconds loading, with 4.91 GB peak process RSS and
+4.40 GB largest sampled MPS-driver allocation. No output supplies a unique
+eligible source-owned reading candidate. Replaying all 99 prior candidate paths
+reproduces every score and nominee: the nine verified selections remain correct,
+and the six unlabelled hypotheses remain excluded from accuracy. This variant
+adds no candidate or timing and is not expanded unchanged.
+
+### Testing complete-word and complete-phrase recognition
+
+The same source-free Japanese Qwen recipe runs on the frozen 210 GTSinger clips.
+Every original 24-bit WAV and its exact prior 48-to-16 kHz float32 conversion
+are authenticated. All 210 outputs terminate naturally, taking 88.62 seconds
+after 0.83 seconds loading. Peak process RSS is 1.67 GB and peak MLX allocation
+is 3.77 GB; these measurements overlap.
+
+The source protocol preserves 1,690 original word owners and 2,750 contiguous
+two/three-owner regions. Matching and different-title audio queries reuse those
+210 outputs. Complete BPE tokens may support a whole region even when a token
+crossing its internal boundary cannot support either word individually. Region
+probabilities remain attached to complete regions; they are not divided among
+words. Repeated source/observed text and incomplete byte ownership abstain.
+
+All outputs and every query at four thresholds close before presence labels
+are joined. The 100 Soprano calibration clips choose each unit's threshold from
+0.70, 0.80, 0.90 and 0.95: require zero known-absent false witnesses and at least
+25 positive witnesses, then maximize positive count, breaking ties toward the
+higher threshold. Both units select 0.70. This choice closes before opening the
+100 Tenor evaluation clips, whose ten normalized song titles are disjoint from
+the twenty calibration titles. The ten smoke clips remain separate.
+
+| Fixed 0.70 rule  | Calibration positive witnesses | Calibration false witnesses | Evaluation positive witnesses | Evaluation false witnesses |
+| ---------------- | -----------------------------: | --------------------------: | ----------------------------: | -------------------------: |
+| Original words   |                        443/815 |                       0/715 |                       317/793 |                      0/731 |
+| Complete regions |                      665/1,330 |                     0/1,329 |                     451/1,286 |                    0/1,286 |
+
+Known-absent word controls exclude 100 calibration and 62 evaluation strings
+that also appear in the wrong recording's annotations. An absent phrase does
+not make each of its words absent. One shared calibration region is also
+unknown. Two word witnesses and one region witness occur in these calibration
+unknowns; none of the evaluation unknown words is witnessed.
+
+The evaluation word and region rules produce witnesses in 75 and 73 of 100
+clips respectively. These are exact written-presence results for one held
+singer, with overlapping queries and reused wrong audio. They do not establish
+independent hundreds-of-word trials, disputed kanji readings, word-clock
+accuracy or production confidence. Seven model-free proposal fixtures and four
+WAV frontend fixtures cover the source/byte/negative-control contracts.
+
+### Keeping native boundary alternatives
+
+The native Qwen alignment model predicts 5,000 timestamp-class scores for each
+word's start and end. Its current helper retains only the top class. An isolated
+research build now records all raw scores before that unchanged selection,
+along with the model's actual timestamp step and zero crop-relative origin.
+The app and distribution helper are unchanged.
+
+The 210 full GTSinger clips produce 1,690 original word observations in 110.67
+seconds, including repeated helper loading. Reconstructing argmax from the saved
+scores exactly reproduces all **1,690/1,690** existing helper outputs, including
+invalid intervals. The native helper returns valid intervals for 1,472 owners;
+this is availability, not reference accuracy. This trial uses original Japanese
+glyphs with explicit word segmentation, separately from the app's hiragana input.
+
+[`native_timestamp_posterior.py`](../scripts/native_timestamp_posterior.py) compares
+the independent top choices with a complete monotonic maximum-score path. It
+keeps every original owner and both observed markers, uses model classes without
+interpolation, and receives neither TIFA clocks nor references. Four fixed
+peak-drop conditions are evaluated with two source-duration profiles; point
+slots in the second profile remain invalid word timings. All probabilities use
+the complete class vocabulary before constraints. Thirteen numerical regression
+tests include 144 exhaustive comparisons, byte-format checks, ownership, crop
+edges, impossible paths and point-slot abstentions. The normal alignment test
+runtime runs them without a neural model or new dependency.
+
+All 210 records and eight decoder conditions close before joining word-boundary
+references. Exact source/WAV/span matching finds 1,687 supplied annotation-derived
+renderer boundaries; three owners remain unscored. These references aggregate
+corrected lexical-phone durations through the original source groups, rather
+than a new listening audit. Agreement requires both endpoint errors within 150 ms.
+
+The table keeps TIFA's actual retained interval. Native predictions only provide
+the independent boundary comparison: both intervals must be at least 80 ms,
+strictly inside the recording and within 150 ms at each endpoint. Complete cues
+need at least two and at least half their original owners to pair. All source
+owners remain in the denominator; unavailable references cannot count as correct.
+
+| Native boundary condition             | Paired TIFA clocks | Within reference tolerance | Complete cues |
+| ------------------------------------- | -----------------: | -------------------------: | ------------: |
+| Independent raw argmax                |                559 |                        512 |            49 |
+| Min 80 ms, unrestricted               |                612 |                        561 |            59 |
+| Min 80 ms, peak drop 0                |                 33 |                         29 |             5 |
+| Min 80 ms, peak drop ln(2)            |                 97 |                         85 |            11 |
+| Min 80 ms, peak drop ln(10)           |                296 |                        268 |            32 |
+| Point slots allowed, unrestricted     |                596 |                        545 |            56 |
+| Point slots allowed, peak drop 0      |                 58 |                         53 |             8 |
+| Point slots allowed, peak drop ln(2)  |                126 |                        112 |            14 |
+| Point slots allowed, peak drop ln(10) |                299 |                        271 |            31 |
+
+The unrestricted 80 ms arm gains 67 paired owners and loses 14, with ten more
+complete cues and none lost. The correct paired-clock count rises by 49, but
+about 92% reference agreement remains below the quality target. Standalone native
+prediction is weaker: raw argmax has 531 correct intervals among 1,331
+reference-known physical observations; the unrestricted path has 618 among all
+1,687 reference-known owners. TIFA itself has 1,273 correct among 1,457 retained
+physical observations. No decoder condition is selected per word or promoted.
+
+The next input comparison retains the same audio, original glyph ownership and
+decoder conditions while supplying the converter's already-frozen
+`reading.alignment_text` to native alignment. This separates the source's writing
+from its phonetic model input without changing the displayed words or references.
 
 ## Remaining work
 

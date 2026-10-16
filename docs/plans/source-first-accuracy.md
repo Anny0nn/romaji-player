@@ -877,6 +877,13 @@ more complete monotonic path is not accuracy evidence. As a second, separate
 diagnostic, measure native posterior mass near TIFA's actual observed endpoints;
 it must not select the native path or authorize admission without reference tests.
 
+Compare original glyph versus the converter's already-frozen
+`reading.alignment_text` as a separate native-model input factor. Keep the same
+recordings, all original owner spans, TIFA observations, decoder conditions and
+references. Store source surfaces separately from model text, authenticate both,
+and retain unsupported outputs explicitly. This distinguishes writing from
+pronunciation without letting the display mode choose model input.
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,
