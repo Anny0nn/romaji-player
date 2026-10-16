@@ -816,6 +816,67 @@ before expanding to further crops from the frozen ten songs. Published
 song-specific furigana may contribute additional source-owned candidates, but
 it cannot replace acoustic verification or supply timestamps.
 
+Separate language routing from model identity on the source-qualified Japanese
+romanized recording. Compare Japanese versus automatic routing on identical
+mixture/vocal windows, retaining capped outputs as explicit abstentions. Source
+aliases must be proved before transcript matching. Whole, unsplit BPE ownership
+and unique adjacent source context provide lexical witnesses, not reading labels
+or boundaries. Keep physical-context rules explicit when joining these witnesses;
+do not silently replace a physical-only context rule with a joint lexical rule.
+
+Test source-free kana-constrained Phonsa decoding separately from ordinary ASR.
+Its byte-BPE filter must preserve semantically viable UTF-8 prefixes, valid voicing
+marks and natural termination without permitting kanji. Capture chosen-token
+probabilities before all masks. Preserve every old candidate and score before
+joining the nine verified reading cases; do not expand a zero-candidate variant
+unchanged. Neighboring-cue phone overlap remains an ownership ambiguity even when
+several scorers prefer a candidate.
+
+The Japanese GTSinger phone labels cannot calibrate exact reading selection, but
+its original written words can test orthographic presence. Freeze separate
+whole-word and complete two/three-owner region queries, with source-matched and
+different-title audio controls. A region-negative example does not establish
+absence of each constituent word. Preserve repeated/ambiguous regions and shared
+negative strings as unknown; never divide a region token probability among its
+words. Use the existing 100-clip calibration and title-disjoint 100-clip evaluation
+partitions, keeping the ten smoke clips separate. Close all audio-only outputs
+and source proposals before label joins, freeze any calibration choice before
+opening the evaluation results, and report denominators by words, regions and
+recordings. This tests lexical evidence, without certifying disputed sung readings
+or accurate clocks.
+
+Test the native forced aligner's timestamp posterior as a distinct boundary
+representation. Its current adapter discards all but the highest-scoring class
+for each source-word start/end marker. Add a research-only observer in a separate
+build that preserves the exact unmodified logits, model timestamp step and
+source-marker ownership. Require old argmax parity before evaluating another
+decoder; keep the shipped helper and app unchanged during the experiment.
+
+Decode complete source sequences with a monotonic maximum-score path over the
+observed timestamp classes. Preserve every word and both markers, allow pauses
+between words, require at least 80 ms per word and strict crop interior, and
+abstain on impossible or unsupported inputs. Do not interpolate, skip a word,
+copy a neighboring boundary, average clocks or condition the native path on
+TIFA clocks. Retain full-vocabulary probabilities before any constraints. Compare
+the unrestricted path with separately frozen peak-relative logit-drop limits
+of zero, ln(2) and ln(10); a failed limit withholds the complete cue.
+
+Keep a second source-complete arm that permits a native start/end point in one
+timestamp bin. Such a point preserves its two observed markers and original
+owner but remains invalid for word timing; it never passes the unchanged 80 ms
+physical minimum. This separates a short auxiliary word from a missing source
+word without forcing its neighbors apart. Report both duration arms and all
+four peak-drop conditions separately, without selecting a recipe per word.
+
+Check dynamic-programming parity against exhaustive small examples before
+inference. Close the GTSinger 210-clip native observations and all decoder arms
+before joining existing word-boundary references; keep the earlier calibration,
+evaluation and smoke partitions. Report raw predictions, physical qualifications,
+TIFA endpoint agreement, gains/losses and wrong-audio controls separately. A
+more complete monotonic path is not accuracy evidence. As a second, separate
+diagnostic, measure native posterior mass near TIFA's actual observed endpoints;
+it must not select the native path or authorize admission without reference tests.
+
 ## Out of scope
 
 Manual timing, fabricated/interpolated timestamps, mobile ports, new lyric views,
