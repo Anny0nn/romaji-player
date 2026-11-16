@@ -100,6 +100,9 @@ finish reason, usage, latency and recipe hashes. Hosted weights cannot be pinned
 like local files; identify missing version metadata explicitly. Redact credentials
 before saving errors; keep lyric-bearing payloads outside Git in restricted files.
 Malformed, blocked, truncated or timed-out replies remain explicit failures.
+An invalid candidate remains a rejected observation while collection proceeds to
+the next preselected crop; network/quota failures stop collection. This allows the
+offline timing comparison to retain zero-duration predictions without accepting them.
 
 Respect Retry-After and provider retry metadata with bounded backoff. Daily quota
 exhaustion leaves work resumable; cancellation stops further requests. Do not
@@ -165,6 +168,12 @@ and save only complete source-validated versions with provider/model provenance.
 Update implemented design and setup documentation only as behavior lands.
 
 ## Steps
+
+Implementation checkpoint (2026-11-16): the collector and offline tests are
+implemented. The [partial pilot report](../study-google-api-evaluation.md) records
+all four model trials, rejected zero-duration word annotations and the provider's
+quota stop until at least 2026-11-17 07:59:59 UTC. Remaining controls, accuracy
+evaluation and conditional app integration are unfinished; no backend is promoted.
 
 1. Review this draft, then record direct implementation approval in its own commit.
 2. Add the bounded API collector, neutral candidate contract and offline fixtures;

@@ -115,7 +115,7 @@ def main():
                 encoded
             ):
                 raise SystemExit("Cached observation identity changed.")
-            if cached["status"] != "received":
+            if cached["status"] not in ("received", "invalid_or_incomplete_response"):
                 raise SystemExit(
                     "Prior failed observation requires an explicit new trial."
                 )
@@ -125,8 +125,9 @@ def main():
         if result["status"] == "received":
             try:
                 result["candidates"] = candidates(result["response"], duration)
-            except (ValueError, TypeError, KeyError):
+            except (ValueError, TypeError, KeyError) as error:
                 result["status"] = "invalid_or_incomplete_response"
+                result["validation_error"] = str(error).replace(key, "[REDACTED]")[:200]
         save(
             target,
             {
@@ -144,7 +145,7 @@ def main():
             json.dumps({"status": result["status"], "completed": target.name}),
             flush=True,
         )
-        if result["status"] != "received":
+        if result["status"] not in ("received", "invalid_or_incomplete_response"):
             raise SystemExit(
                 "Collection stopped; inspect private receipt before retry."
             )

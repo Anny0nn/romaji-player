@@ -80,13 +80,26 @@ class GoogleAudioTests(unittest.TestCase):
                 collector.main()
                 collector.main()
                 self.assertEqual(send.call_count, 1)
+                argv[3] = str(root / "rejected")
+                send.return_value = {
+                    "status": "received",
+                    "response": self.response(status="incomplete"),
+                }
+                collector.main()
+                collector.main()
+                rejected = root / "rejected" / (api.digest(b"synthetic") + ".json")
+                self.assertEqual(
+                    json.loads(rejected.read_text())["status"],
+                    "invalid_or_incomplete_response",
+                )
+                self.assertEqual(send.call_count, 2)
                 audio.write_bytes(b"changed audio")
                 with (
                     patch.object(sys, "stderr", io.StringIO()),
                     self.assertRaises(SystemExit),
                 ):
                     collector.main()
-                self.assertEqual(send.call_count, 1)
+                self.assertEqual(send.call_count, 2)
 
     def response(self, annotations=None, status="completed"):
         return {
