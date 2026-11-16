@@ -178,6 +178,10 @@ Update implemented design and setup documentation only as behavior lands.
 
 ## Tests and checks
 
+The initial pre-push run exposed a branding fixture inheriting Git hook repository
+variables and modifying the caller's index/configuration. Isolate its Git commands
+from those variables so subsequent required checks cannot alter the real checkout.
+
 Add network-free fixtures for provider response parsing, Unicode source ownership,
 ambiguous repeats, absent confidence, segment-versus-word timestamps, invalid clocks,
 truncation, refusal, quota/backoff, bounded retries, resume identity and secret

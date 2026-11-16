@@ -3,6 +3,43 @@ use std::process::Command;
 
 const COMMAND: &str = env!("CARGO_BIN_EXE_spotifast");
 
+fn local_git(root: &Path) -> Command {
+    let mut command = Command::new("git");
+    command.current_dir(root);
+    // Hooks export repository paths. A scratch `git init` must not reinitialize
+    // the caller's real repository or add fixture files to its index.
+    for name in [
+        "GIT_DIR",
+        "GIT_COMMON_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_IMPLICIT_WORK_TREE",
+        "GIT_PREFIX",
+    ] {
+        command.env_remove(name);
+    }
+    command
+}
+
+#[test]
+fn scratch_git_explicitly_removes_hook_repository_paths() {
+    let command = local_git(Path::new("."));
+    for name in [
+        "GIT_DIR",
+        "GIT_COMMON_DIR",
+        "GIT_INDEX_FILE",
+        "GIT_WORK_TREE",
+    ] {
+        assert!(
+            command
+                .get_envs()
+                .any(|(key, value)| key == name && value.is_none())
+        );
+    }
+}
+
 struct Scratch(PathBuf);
 
 impl Scratch {
@@ -58,8 +95,7 @@ fn files_carrying_name(root: &Path, old: &str) -> Vec<String> {
         Path::new("docs/_guide/using-spotifast.md"),
         Path::new("docs/_guide/what-is-spotifast.md"),
     ];
-    let output = Command::new("git")
-        .current_dir(root)
+    let output = local_git(root)
         .args([
             "ls-files",
             "--cached",
@@ -101,8 +137,7 @@ fn branding_checks_tracked_and_new_source_without_reading_ignored_local_files() 
     let scratch = Scratch::new();
     let root = &scratch.0;
     assert!(
-        Command::new("git")
-            .current_dir(root)
+        local_git(root)
             .args(["init", "--quiet"])
             .output()
             .unwrap()
@@ -115,8 +150,7 @@ fn branding_checks_tracked_and_new_source_without_reading_ignored_local_files() 
     std::fs::write(root.join(".venv/third-party.txt"), &old).unwrap();
     std::fs::write(root.join("tracked.txt"), &old).unwrap();
     assert!(
-        Command::new("git")
-            .current_dir(root)
+        local_git(root)
             .args(["add", "tracked.txt"])
             .output()
             .unwrap()
