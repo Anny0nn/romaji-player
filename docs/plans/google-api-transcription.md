@@ -1,6 +1,6 @@
 # Free Google API transcription and singing timing trial
 
-Status: Draft
+Status: Approved (2026-11-16; maintainer directly approved implementation)
 
 ## Goal
 
