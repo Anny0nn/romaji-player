@@ -88,14 +88,18 @@ class GoogleAudioTests(unittest.TestCase):
                     collector.main()
                 self.assertEqual(send.call_count, 1)
 
-    def response(self, annotations=(), status="completed"):
+    def response(self, annotations=None, status="completed"):
         return {
             "status": status,
             "steps": [
                 {
                     "type": "model_output",
                     "content": [
-                        {"type": "text", "text": "あ", "annotations": annotations}
+                        {
+                            "type": "text",
+                            "text": "あ",
+                            "annotations": [] if annotations is None else annotations,
+                        }
                     ],
                 }
             ],
@@ -130,6 +134,23 @@ class GoogleAudioTests(unittest.TestCase):
         response["steps"][0]["finish_reason"] = "MAX_TOKENS"
         with self.assertRaises(ValueError):
             candidates(response, 2)
+
+    def test_malformed_provider_shapes_remain_explicit_failures(self):
+        for response in (
+            [],
+            {"status": "completed", "steps": "invalid"},
+            {"status": "completed", "steps": [None]},
+            {
+                "status": "completed",
+                "steps": [{"type": "model_output", "content": None}],
+            },
+            self.response(annotations="invalid"),
+        ):
+            with (
+                self.subTest(response=response),
+                self.assertRaises((ValueError, TypeError)),
+            ):
+                candidates(response, 2)
 
     def test_no_unknown_or_paid_model_and_no_invented_clock_prompt(self):
         with self.assertRaises(ValueError):
