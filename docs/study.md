@@ -7,6 +7,43 @@ does not change a lyric version or saved timings.
 Line timing remains available when individual word timing is missing. Timed words use
 a distinct marker without changing font metrics or wrapping.
 
+Hiragana and katakana lyric rows use bundled **Klee One SemiBold**, including the
+hiragana row above romaji. Its き/ぎ and さ/ざ have separated lower strokes; Latin
+text retains Inter. The [upstream font](https://github.com/google/fonts/tree/main/ofl/kleeone)
+is distributed under SIL OFL 1.1; its license is included in app notices. Both Macs
+use the same font bytes rather than depending on installed Japanese faces.
+
+## Supplied karaoke lyrics
+
+Options → **Find karaoke lyrics** looks for QQ candidates by title, artist and
+duration. Preview and select the version that matches the recording; it never
+silently replaces saved lyrics. QQ supplies character/token timing and sometimes
+counted kana. UtaTen ruby supplements readings when automatic page discovery,
+page title/artist checks and exact written-text ownership succeed. Matching may
+ignore whitespace, but never substitutes spelling, chooses conflicting repeats
+or interpolates word clocks. Unsupported kana maps retain dictionary readings.
+
+Successful responses, search results, furigana pages and processed candidates are
+stored durably under the app's state directory in `supplied-lyrics/`. There is no
+automatic expiry. Normal lookups read this store first, including confirmed
+missing-song results. Right-click **Find karaoke lyrics** → **Refresh stored
+karaoke lyrics** explicitly contacts the sources again; earlier response bodies
+remain stored. Network/service failures do not become permanent missing results.
+Ordinary cache cleanup leaves this store and saved song versions intact.
+Spotify/LRCLIB answers also no longer expire automatically; their existing
+**Refresh** action explicitly bypasses saved answers.
+
+Only supplied fragments that exactly tile a complete source word provide word
+timing; real gaps remain gaps. TIFA fills missing QQ words while preserving
+complete QQ word clocks and withholding new intervals that overlap a disjoint
+supplied word. The existing TIFA behavior for other sources is unchanged.
+Supplied readings are persisted with written UTF-8 anchors and applied to complete
+existing converter groups without regrouping. Saved, curated and acoustically
+checked readings take precedence; source readings clear stale dictionary
+pronunciation shadows. A helper version acknowledgement prevents an old bundled
+romanizer from silently ignoring this input. These are optional candidate sources,
+not an automatically selected or acoustically qualified replacement backend.
+
 ## Source identity and readings
 
 Rust retains immutable provider/import snapshots. Occurrences have recording-specific

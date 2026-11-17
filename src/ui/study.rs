@@ -97,6 +97,12 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, fullscreen: bool) {
                 {
                     app.study.import(path);
                 }
+                let find=ui.add_enabled(now.is_some() && !app.offline && !matches!(app.lyrics, Loadable::Loading),egui::Button::new("Find karaoke lyrics"));
+                let find=find.on_hover_text("Uses saved downloads. Right-click to refresh stored sources.");
+                if find.clicked() {app.find_karaoke_lyrics(false);}
+                find.context_menu(|ui| {
+                    if ui.button("Refresh stored karaoke lyrics").clicked() {app.find_karaoke_lyrics(true);ui.close();}
+                });
                 ui.checkbox(&mut app.study.show_original, "Original Japanese");
                 if ui
                     .add_enabled(now.is_some(), egui::Button::new("Refresh"))
@@ -104,10 +110,11 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, fullscreen: bool) {
                 {
                     app.refresh_lyrics();
                 }
-                if app.study.busy {
+                if app.study.busy || matches!(app.lyrics, Loadable::Loading) {
                     ui.spinner();
                 }
             });
+            if let Loadable::Failed(error) = &app.lyrics { ui.small(error); }
             let alternatives = match &app.lyrics {
                 Loadable::Loaded(Some(lyrics)) => lyrics.candidates.clone(),
                 _ => Vec::new(),
@@ -116,7 +123,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, fullscreen: bool) {
                 egui::CollapsingHeader::new("Choose the matching recording’s lyrics")
                     .default_open(app.study.document.is_none())
                     .show(ui, |ui| {
-                        ui.small("Several recordings match. Preview and select the one you hear.");
+                        ui.small("Preview the lyrics and select the version that matches this recording.");
                         for source in alternatives {
                             egui::CollapsingHeader::new(&source.source.candidate).show(ui, |ui| {
                                 for line in source.occurrences.iter().take(5) {

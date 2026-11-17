@@ -783,6 +783,8 @@ pub struct LyricsRequest {
     pub uri: String,
     pub query: crate::lyrics::Query,
     pub refresh: bool,
+    pub karaoke: bool,
+    pub generation: u64,
 }
 
 pub enum Event {
@@ -838,6 +840,7 @@ pub enum Event {
     /// Track lyrics, or `None` when unavailable.
     Lyrics {
         uri: String,
+        generation: u64,
         result: Result<Option<crate::lyrics::Lyrics>, String>,
     },
     /// The account's playlist tree, folders and all, and which of its
@@ -3624,8 +3627,30 @@ impl Worker {
         let events = self.events.clone();
         let waker = self.waker.clone();
         let cache_dir = self.dirs.lyrics_cache_dir();
+        let supplied_dir = self.dirs.state.join("supplied-lyrics");
         let engine = self.engine.clone();
         tokio::spawn(async move {
+            if request.karaoke {
+                let result = match http {
+                    Ok(http) => crate::lyrics::karaoke::fetch(
+                        &http,
+                        &supplied_dir,
+                        &request.query,
+                        request.refresh,
+                    )
+                    .await
+                    .map_err(|e| e.to_string()),
+                    Err(error) => Err(error),
+                };
+                let result = result.and_then(|found|found.map(Some).ok_or_else(||"No karaoke lyrics matched this title, artist and duration. Existing lyrics and TIFA timing remain available.".to_string()));
+                let _ = events.send(Event::Lyrics {
+                    generation: request.generation,
+                    uri: request.uri,
+                    result,
+                });
+                waker.wake();
+                return;
+            }
             // Spotify's own words go first: they follow the recording
             // exactly. Everything else, a signed-out session included,
             // falls back to LRCLIB.
@@ -3645,6 +3670,7 @@ impl Worker {
                     },
                 };
             let _ = events.send(Event::Lyrics {
+                generation: request.generation,
                 uri: request.uri,
                 result,
             });

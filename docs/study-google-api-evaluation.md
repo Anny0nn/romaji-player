@@ -1,6 +1,7 @@
 # Free Google audio API pilot
 
-The API collector is implemented; the app migration is **not implemented**. The
+The API collector and optional native supplied-source candidate lookup are
+implemented. The cloud-model backend migration is **not implemented**. The
 2026-11-16 pilot establishes working free-project access and exposes recognition,
 timing and service limitations. It does not establish improved singing accuracy
 or qualify a replacement for the shipped transcription/alignment pipeline.
@@ -461,6 +462,99 @@ paired acoustic timing checks before app integration. Any unresolved mapping
 keeps the existing version; earlier source snapshots and timings remain durable.
 The raw responses, HTML, decoded lyrics, small audit scripts, upstream decoder
 reference and source/recipe hashes remain private outside Git.
+
+## Native candidate reader and durable source store (2026-11-17)
+
+The maintainer approved continuing the lookup-first direction. Options now has
+**Find karaoke lyrics**, using the existing native candidate preview and saved
+source-version workflow. Nothing is automatically selected or copied onto the
+earlier source. QQ search filters title, artist and duration (within three seconds)
+and presents up to three candidates. This is a metadata filter, not proof of an
+identical recording/master. Aliases that cannot be matched remain withheld.
+
+The native modified-DES decoder retains the upstream MIT notice. The QRC parser
+preserves written UTF-8 spans, line events and explicit token starts/durations.
+Zero-duration tokens do not gain timing; malformed clocks are rejected and
+overlapping/out-of-line clocks withhold timing for their line. Complete QQ word
+clocks survive TIFA fallback; newly aligned missing words cannot overlap a
+disjoint supplied QQ interval. No clock is interpolated or globally shifted.
+
+Counted kana needs a complete, consistent source map. UtaTen discovery now uses
+its full search-form parameters, rather than the earlier incomplete request that
+returned an empty body. A real HTML parser checks page title/artist and extracts
+only the hiragana ruby body. Ruby joins preserve exact spelling, allowing only
+whitespace changes, and withhold conflicting repeated matches, including overlaps.
+Supplied readings keep the converter's existing word groups and clear dictionary
+pronunciation shadows. Saved, curated and acoustic corrections retain precedence.
+Earlier documents still load; new supplied readings persist in their source
+snapshot, and the bundled-helper smoke exercises the new input acknowledgement.
+
+### Cached replay and live smoke
+
+Replay all ten previously selected QQ candidates through the native decoder,
+converter, exact word-fragment mapper and save/reopen path. **All ten reopen
+successfully**, yielding **2,010 structurally timed owners /3,061 owners** and
+**728 words using supplied readings**. The final replay took **1.77 seconds** on
+M2 Pro /16 GiB, including persistent converter initialization, excluding compilation.
+Process-tree peak memory was not measured. These are full candidate-source
+counts, including retained source credit lines; they do not share the earlier
+66-owner crop denominator and are not a correctness rate. The frozen cached
+candidates were supplied to the replay: this is not ten fresh automated lookups.
+
+Seven selected candidates pass the prototype's strict queries from the audit
+metadata. Three have unresolved artist/title aliases or translated labels;
+these remain withheld by the automatic path. The audited pages/candidates can
+still be replayed explicitly without pretending those joins were discovered.
+For example, the current reader withholds a title labelled with an unmatched
+translated parenthetical rather than silently declaring it the same recording.
+
+Two explicit native live smokes for Just Awake completed in **8.90 and 10.22
+seconds**, both returning QQ timing plus automatically discovered UtaTen readings.
+They preceded the maintainer's request for the expanded durable store. No further
+live provider call was made after that request. Neither smoke used Google, Spotify
+login, Keychain, a password, new audio or local alignment/transcription models.
+
+A separate cached boundary diagnostic authenticates the earlier verifier receipts
+and uses only unique exact crop joins with identical acoustic targets. Across
+**23 such owners**, seven QQ intervals and four earlier TIFA intervals pass the
+existing independent-model endpoint diagnostic (probability ≥0.45, duration ≥80 ms,
+both endpoints within 150 ms). Repeated/changed-target joins are withheld and no
+offset is fitted. These cached model observations are **not listening references,
+verified master matches or correct-boundary rates**. They support further testing,
+not automatic promotion. The original app lyrics/timings were not modified.
+
+### Local storage and validation
+
+The maintainer requested local reuse instead of repeated API requests. The native
+store keeps successful response bodies by content hash, request-to-response
+indexes and validated processed lookup results under **state/supplied-lyrics**.
+Nothing expires automatically. It stores confirmed empty searches and absent QRC
+as misses; transport/HTTP/service errors do not become stored missing results.
+Ordinary cache cleanup does not remove this state. Spotify/LRCLIB cached answers
+also no longer expire automatically; their existing explicit Refresh remains
+available. The normal Options action
+reuses it; a context-menu **Refresh stored karaoke lyrics** explicitly bypasses
+stored responses, retaining previous bodies and saved source versions. Concurrent
+lookups are serialized so simultaneous misses do not all issue duplicate requests.
+
+Tests exercise old modification times, positive and negative reuse, integrity
+checks, retained bodies after refresh and a client routed to an unreachable local
+proxy. A previously fetched Just Awake candidate was migrated into the new store
+and successfully reopened by the explicit offline smoke with that blocked client;
+this is cache reuse, **not another provider observation**. Parsing/mapping tests
+use synthetic text; hooks never call these services or load the recording corpus.
+The relocated signed ARM64 helper also passes with a clean environment.
+
+The maintainer separately requested clearer kana glyphs. Hiragana/katakana rows
+now use bundled Klee One SemiBold, whose detached き/ぎ and さ/ざ strokes were
+visually checked from the actual font; Latin retains Inter. Its original SIL OFL
+license is packaged with the app. Font SHA-256:
+`b031ec426c23ca1143ef1f7d58bee7a79efe119ed654152f121c922202b303fd`.
+
+The candidate reader is implemented; lyric/recording identity and acoustic timing
+quality still need broader qualification before making it the default backend.
+The source API is unofficial and discovery can fail; the existing saved source
+and TIFA remain available. Optional Gemini reading work remains deferred.
 
 ## Collector reuse and offline checks
 

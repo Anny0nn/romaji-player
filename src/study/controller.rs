@@ -799,6 +799,7 @@ fn worker_with(
                         expected_conversion_signature: converter.signature.clone(),
                         raw_line: line.raw_line.clone(),
                         overrides: document.current().overrides(&document.track_id, line.id),
+                        supplied_readings: document.current().snapshot.readings_for(line.id),
                     };
                     match converter.convert(&request) {
                         Ok(output) => {
@@ -856,6 +857,7 @@ mod tests {
                 expected_conversion_signature: helper.signature.clone(),
                 raw_line: line.raw_line.clone(),
                 overrides: document.current().overrides(&document.track_id, line.id),
+                supplied_readings: document.current().snapshot.readings_for(line.id),
             };
             study
                 .converted

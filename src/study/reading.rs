@@ -87,6 +87,7 @@ fn conversion_request(request: &Request, output: &Response) -> ConversionRequest
             .raw_line
             .clone(),
         overrides: overrides(output),
+        supplied_readings: request.source.readings_for(output.occurrence_id),
     }
 }
 pub fn write_input(request: &Request, path: &Path, model: &str, audio: &str) -> Result<()> {
@@ -351,6 +352,10 @@ pub fn admit(
     derived.readings.extend(package.readings);
     derived.text_repairs.extend(package.text_repairs);
     source.derivation = Some(derived);
+    // A changed line gets a new source owner; do not move its old ruby by offset.
+    source
+        .readings
+        .retain(|r| occurrences.iter().any(|line| line.raw_line == r.raw_line));
     let snapshot = Snapshot::new(source, occurrences)?;
     let bundle = Bundle {
         snapshot: snapshot.clone(),
@@ -363,6 +368,7 @@ pub fn admit(
         .map(|old| {
             let mut input = conversion_request(request, old);
             input.raw_line = snapshot.occurrences[old.occurrence_id].raw_line.clone();
+            input.supplied_readings = snapshot.readings_for(old.occurrence_id);
             input.overrides.retain(|o| !o.id.starts_with("automatic:"));
             input
                 .overrides
@@ -425,6 +431,7 @@ mod tests {
                 expected_conversion_signature: helper.signature.clone(),
                 raw_line: line.raw_line.clone(),
                 overrides: vec![],
+                supplied_readings: Vec::new(),
             };
             request.converted.push(helper.convert(&input).unwrap());
         }
@@ -569,7 +576,18 @@ mod tests {
     }
     #[test]
     fn kana_text_repair_versions_the_source_and_reconverts_identical_repeats() {
-        let (request, mut helper) = fixture_text("あおい きみ よ");
+        let (mut request, mut helper) = fixture_text("あおい きみ よ");
+        let mut source = request.source.source.clone();
+        source
+            .readings
+            .push(super::super::snapshot::SuppliedReading {
+                raw_line: "あおい きみ よ".into(),
+                raw_span: [0, 9],
+                expected_text: "あおい".into(),
+                hiragana: "あおい".into(),
+            });
+        request.source = Snapshot::new(source, request.source.occurrences.clone()).unwrap();
+        request.job.snapshot = request.source.id.clone();
         let mut p = package(&request);
         let reading = p.readings.remove(0);
         p.text_repairs.push(TextRepair {
@@ -591,6 +609,7 @@ mod tests {
         assert_eq!(count, 1);
         assert_ne!(snapshot.text_fingerprint, request.source.text_fingerprint);
         assert_eq!(snapshot.source.payload, request.source.source.payload);
+        assert!(snapshot.source.readings.is_empty());
         assert!(
             snapshot
                 .occurrences

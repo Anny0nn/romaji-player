@@ -458,6 +458,7 @@ pub struct App {
     pub softened_covers: crate::images::SoftenedCovers,
     /// The track the lyrics below are for.
     pub lyrics_uri: Option<String>,
+    lyrics_generation: u64,
     /// `Loaded(None)` when no lyrics are available.
     pub lyrics: Loadable<Option<crate::lyrics::Lyrics>>,
     pub study: crate::study::controller::Study,
@@ -927,6 +928,7 @@ impl App {
             lyrics_backdrop: Default::default(),
             softened_covers: Default::default(),
             lyrics_uri: None,
+            lyrics_generation: 0,
             lyrics: Loadable::NotLoaded,
             study: Default::default(),
             lyrics_following: true,
@@ -1982,8 +1984,14 @@ impl App {
                     }
                     Err(error) => log::warn!("rootlist unavailable: {error}"),
                 },
-                Event::Lyrics { uri, result } => {
-                    if self.lyrics_uri.as_deref() == Some(uri.as_str()) {
+                Event::Lyrics {
+                    uri,
+                    generation,
+                    result,
+                } => {
+                    if self.lyrics_uri.as_deref() == Some(uri.as_str())
+                        && self.lyrics_generation == generation
+                    {
                         if let Ok(Some(lyrics)) = &result
                             && let Some(snapshot) = &lyrics.source_snapshot
                             && let Err(error) = self.study.offer(snapshot.clone())
@@ -2942,24 +2950,30 @@ impl App {
     /// Asks for the playing track's lyrics unless they are here or on the
     /// way. Podcasts have no lyrics to ask for.
     pub fn request_lyrics(&mut self) {
-        self.request_lyrics_with(false);
+        self.request_lyrics_with(false, false);
     }
 
     pub fn refresh_lyrics(&mut self) {
-        self.request_lyrics_with(true);
+        self.request_lyrics_with(true, false);
     }
 
-    fn request_lyrics_with(&mut self, refresh: bool) {
+    pub fn find_karaoke_lyrics(&mut self, refresh: bool) {
+        self.request_lyrics_with(refresh, true);
+    }
+
+    fn request_lyrics_with(&mut self, refresh: bool, karaoke: bool) {
         let Some(now) = self.now_playing() else {
             return;
         };
         self.study.activate(now.uri.strip_prefix("spotify:track:"));
         if !refresh
+            && !karaoke
             && self.lyrics_uri.as_deref() == Some(now.uri.as_str())
             && !matches!(self.lyrics, Loadable::NotLoaded | Loadable::Failed(_))
         {
             return;
         }
+        self.lyrics_generation = self.lyrics_generation.wrapping_add(1);
         self.lyrics_uri = Some(now.uri.clone());
         self.lyrics_following = true;
         self.lyrics_line_shown = None;
@@ -2970,7 +2984,9 @@ impl App {
         self.lyrics = Loadable::Loading;
         self.backend.send(Command::Lyrics(Box::new(LyricsRequest {
             uri: now.uri,
+            generation: self.lyrics_generation,
             refresh,
+            karaoke,
             query: crate::lyrics::Query {
                 artist: now
                     .artists
@@ -16968,6 +16984,44 @@ mod tests {
         app
     }
 
+    #[test]
+    fn karaoke_candidates_preserve_saved_lyrics_and_ignore_older_same_song_requests() {
+        use crate::study::{snapshot::Document, source};
+        let mut app = test_app("karaoke-candidates");
+        const TRACK: &str = "0ODOmKxO0CKv4DzoP3HHIC";
+        let uri = format!("spotify:track:{TRACK}");
+        let saved = source::import("[00:01]空", "saved").unwrap();
+        let id = saved.id.clone();
+        app.study.document = Some(Document::new(TRACK, saved).unwrap());
+        app.lyrics_uri = Some(uri.clone());
+        app.lyrics_generation = 2;
+        app.lyrics = Loadable::Loading;
+        app.handle_backend_events(vec![Event::Lyrics {
+            uri: uri.clone(),
+            generation: 1,
+            result: Err("stale failure".into()),
+        }]);
+        assert!(matches!(app.lyrics, Loadable::Loading));
+        let candidate = source::import("[00:02]花", "candidate").unwrap();
+        app.handle_backend_events(vec![Event::Lyrics {
+            uri,
+            generation: 2,
+            result: Ok(Some(crate::lyrics::Lyrics {
+                lines: vec![],
+                synced: true,
+                instrumental: false,
+                source_snapshot: None,
+                candidates: vec![candidate],
+            })),
+        }]);
+        assert_eq!(
+            app.study.document.as_ref().unwrap().current().snapshot.id,
+            id
+        );
+        assert!(app.study.document.as_ref().unwrap().candidate.is_none());
+        assert!(matches!(&app.lyrics,Loadable::Loaded(Some(l)) if l.candidates.len()==1));
+    }
+
     /// Two lookups of one adder can overlap; the one that found nothing
     /// must not turn a shown name back into the bare id.
     #[test]
@@ -17038,6 +17092,7 @@ mod tests {
                 expected_conversion_signature: helper.signature.clone(),
                 raw_line: line.raw_line.clone(),
                 overrides: Vec::new(),
+                supplied_readings: Vec::new(),
             };
             app.study
                 .converted

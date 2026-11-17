@@ -4,6 +4,13 @@ Status: Approved (2026-11-16; maintainer directly approved implementation)
 
 ## Goal
 
+The latest maintainer-directed implementation prioritizes supplied QQ karaoke
+lyrics/timing and UtaTen ruby, with local TIFA fallback. Gemini is deferred rather
+than being required for ordinary readings. The optional native candidate preview
+and durable local source store are implemented; automatic backend promotion still
+requires acoustic qualification. The original API experiments below remain as
+recorded evidence and optional future work.
+
 Use the maintainer's free Google API access to test cloud transcription as the next
 Experimental backend, reducing local model work where measured singing accuracy
 supports it. Compare Japanese, English and mixed singing on the existing recordings;
@@ -156,8 +163,42 @@ granularity, authenticate recording/version and repeated occurrences, and retain
 TIFA fallback. Resolve ruby and counted-kana ownership explicitly; ambiguous joins
 abstain. Never fuzzy-transplant clocks, interpolate finer boundaries, or overwrite
 curated readings. Web-discovered pages are not yet an automated source API.
-Qualify timing acoustically and add mapping/parse regressions before integration.
+Add mapping/parse regressions for native candidate preview. Qualify timing
+acoustically before automatic adoption or replacing the existing backend.
 This is a same-PR experiment update; no backend is promoted by lookup success.
+
+### Native supplied-source adapter (maintainer approved 2026-11-17)
+
+Continue the lookup-first direction in this PR. Reuse the native source-candidate
+preview, persisted snapshots, supplied timing fragments and converter. Add bounded
+QQ metadata search and lyric retrieval on an explicit Options action; present
+matching-artist/title/duration candidates without silently replacing saved lyrics.
+Use a native QRC decoder/parser, preserving real token starts/durations/gaps and
+withholding zero-duration or malformed timing. Supplied counted kana needs a
+complete unambiguous source map or is withheld. Allow UtaTen ruby enrichment only
+through validated page identity and exact text ownership; failed discovery keeps
+the baseline. Saved/curated/acoustically checked readings take precedence. No new
+model or generic correction engine is required. Add `scraper` for HTML parsing
+rather than hand-written markup/entity parsing; all other native dependencies
+are already present. Tests use synthetic provider responses, never live services.
+Validate the adapter against cached ten-song payloads and known-reading fixtures;
+report structural mapping separately from acoustic accuracy. Keep TIFA fallback,
+older saved versions and the two timing actions. Do not call candidate availability
+an automatically qualified timing backend.
+
+The maintainer additionally requested durable storage to avoid repeated API calls.
+Store fetched responses and processed lookups under app state, without expiry;
+cache confirmed misses but not temporary network/service errors. Read locally on
+normal lookup, with an explicit refresh action for querying again. Retain previous
+response bodies across refresh and preserve saved song versions independently.
+Test reuse with an HTTP client that cannot contact the providers. Remove the
+legacy Spotify/LRCLIB answer expiry as well, retaining explicit refresh and
+atomic private cache writes.
+
+The maintainer also requested clearer kana glyphs during implementation. Bundle
+Klee One SemiBold (SIL OFL) for hiragana/katakana lyric rows, including the hiragana
+row above romaji. Use its separated き/ぎ and さ strokes; keep Latin text in Inter.
+Verify the actual glyph rendering and include the font license in app notices.
 
 ### App integration after evidence
 

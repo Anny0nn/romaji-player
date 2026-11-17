@@ -8,8 +8,13 @@
 //! length is the strongest signal for distinguishing versions with the same
 //! title.
 
+pub mod furigana;
+pub mod karaoke;
+mod qq_des;
+pub mod qrc;
+mod store;
+
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use anyhow::{Context, Result};
 use serde::de::DeserializeOwned;
@@ -17,14 +22,12 @@ use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
 
 const API: &str = "https://lrclib.net/api";
-/// Lyrics do not change; a cached answer is good for this long.
-const CACHE_LIFETIME: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 /// A candidate this far from the playing track's length is another
 /// recording, however well the names match.
 const MAX_DRIFT_SECS: f64 = 30.0;
 
 /// Track metadata used for lyrics lookup.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Query {
     pub artist: String,
     pub title: String,
@@ -107,7 +110,7 @@ pub fn from_spotify(json: &serde_json::Value) -> Option<Lyrics> {
     })
 }
 
-/// The cached answer at `path`, while it is fresh.
+/// The saved answer at `path`; only explicit refresh bypasses it.
 pub fn cached(path: &Path) -> Option<Option<Lyrics>> {
     read_cache(&path.to_path_buf())
 }
@@ -662,10 +665,6 @@ fn cache_key(query: &Query) -> String {
 }
 
 fn read_cache(path: &PathBuf) -> Option<Option<Lyrics>> {
-    let modified = std::fs::metadata(path).ok()?.modified().ok()?;
-    if modified.elapsed().unwrap_or(CACHE_LIFETIME) >= CACHE_LIFETIME {
-        return None;
-    }
     let text = std::fs::read_to_string(path).ok()?;
     serde_json::from_str::<Cached>(&text)
         .ok()
@@ -681,7 +680,7 @@ fn write_cache(path: &Path, found: &Option<Lyrics>) {
         schema: 2,
         found: found.clone(),
     }) {
-        let _ = std::fs::write(path, text);
+        let _ = fastframe_file::write_private(path, text);
     }
 }
 
@@ -716,6 +715,24 @@ mod tests {
         .unwrap();
         assert!(result.source_snapshot.is_some());
         assert!(result.candidates.is_empty());
+    }
+
+    #[test]
+    fn saved_lyric_answers_and_confirmed_misses_do_not_expire() {
+        let dir = crate::study::testutil::TestDir::new();
+        let path = dir.path().join("lyrics.json");
+        for found in [record("Song", "Artist", 200.0, true).lyrics(), None] {
+            store(&path, &found);
+            std::fs::File::options()
+                .write(true)
+                .open(&path)
+                .unwrap()
+                .set_times(
+                    std::fs::FileTimes::new().set_modified(std::time::SystemTime::UNIX_EPOCH),
+                )
+                .unwrap();
+            assert_eq!(cached(&path), Some(found));
+        }
     }
 
     #[test]
