@@ -348,6 +348,120 @@ skips quota/auth errors. Twelve network-free tests cover these controls, fixed
 ownership and changed-reading realignment. Private manifests, lyric-bearing raw
 responses, development labels and source snapshots are retained outside Git.
 
+## Supplied karaoke timing and furigana audit (2026-11-17)
+
+The maintainer authorized trying a simpler lookup-first approach after three Luna
+research agents examined existing sources and tools. This is a live source-data
+availability audit, not another model benchmark or an app integration. Use the
+same ten frozen recording IDs and cached provider/source snapshots. No new audio
+was recorded, uploaded or measured, no Google calls were made, and no credentials,
+Spotify/Keychain access or password prompts were required.
+
+### What was fetched
+
+QQ's public-facing search endpoint returned candidates without login. Search by
+song title, inspect artist and duration, and exclude explicit covers/live versions
+when an ordinary matching-artist candidate exists. CROW initially needed correcting
+an artist guess using its Spotify track page: the recording is UPIKO's カラス.
+Refine that query before selecting its lyric candidate. Preserve all search
+responses, the selected IDs and metadata corrections privately.
+
+Request `music.musichallSong.PlayLyricInfo/GetPlayLyricInfo` with QRC, romanization
+and translation enabled. All ten selected candidates returned successful lyric
+responses. Decode privately using the reviewed pure decoding routines from the
+existing [karaoke-video-maker implementation](https://github.com/Mihaly-Ma/karaoke-video-maker/blob/main/backend/kvm/lyrics/qq.py).
+The prototype uses no new installed dependency or production code. QRC is supplied
+character/token timing, not inferred word boundaries. Keep `(start, duration)`
+pairs and real gaps; do not interpolate finer clocks. Strip metadata before
+counting timed body tokens: kana metadata can itself contain timed entries.
+
+Locate matching UtaTen pages by title/artist and extract the first hiragana lyric
+body, preserving each written ruby surface and supplied reading separately.
+Ignore its duplicate romaji display body. A direct search-page request returned
+an empty body; the pages below were discovered through web search, then fetched
+directly. Therefore this proves page/data availability, not a finished automatic
+UtaTen discovery API.
+
+| Song               | QQ timed body tokens | QQ kana track | UtaTen ruby pairs |
+| ------------------ | -------------------: | ------------- | ----------------: |
+| 嘘                 |                  358 | Yes           |                87 |
+| CROW / カラス      |                  498 | Yes           |               111 |
+| Just Awake         |                  447 | Yes           |                51 |
+| 残酷な天使のテーゼ |                  465 | Yes           |                87 |
+| Wild Side          |                  374 | Yes           |                35 |
+| 天天天国地獄国     |                  765 | Yes           |               191 |
+| 狂乱 Hey Kids!!    |                  419 | No            |               153 |
+| たぶん             |                  608 | Yes           |               105 |
+| TEENAGE CITY RIOT  |                  484 | Yes           |                62 |
+| LOST IN PARADISE   |                  583 | Yes           |                34 |
+
+**10/10 candidates contain QRC timing, 9/10 contain a kana track, and 10/10
+matching-song UtaTen pages contain furigana.** These are lookup success counts,
+not 5,001 verified word timings or a singing-accuracy rate. QQ candidate recording
+identity remains unverified: artist/title/duration do not prove the same master,
+and several search results offer covers, live versions, remasters or alternate
+editions. No timing was transferred to saved app data.
+
+### Readings and mapping checks
+
+Two separate existing known-reading development fixtures were checked as text
+lookups, without adding recordings to the frozen ten-song suite:
+
+| Fixture                                                  | Supplied UtaTen ruby | Known fixture reading |
+| -------------------------------------------------------- | -------------------- | --------------------- |
+| [departure!](https://utaten.com/lyric/yl15120426/), 地球 | ほし                 | ほし                  |
+| [SAKURA](https://utaten.com/lyric/jb10604002/), 故郷     | まち                 | まち                  |
+
+Both are explicit written-surface/reading pairs in the fetched page markup. This
+resolves both small development examples through supplied data, whereas the
+hinted Gemini trial preserved only one. It does not validate every UtaTen reading
+or establish a general accuracy rate. The two fixtures were selected because
+their readings were already known, not as a held-out benchmark.
+
+After NFKC/case normalization and removing punctuation/whitespace, nine of the
+ten original crop texts occur in each candidate source's concatenated full
+lyrics. The remaining existing 嘘 source is already romanized, while these
+candidates are Japanese. Two crop texts repeat within each candidate song.
+Some crops cross provider line boundaries, so a single-line match alone would
+incorrectly classify them as missing. Normalized matches are diagnostics only;
+they do not authorize fuzzy source joins or timestamp transplantation.
+
+A conservative exact, same-line prototype finds six crop matches whose token
+boundaries coincide with all **32 source owners** in those crops, without
+interpolation. Repeated occurrences in two of those cases still require recording
+identity and occurrence checks; 32 is structurally mappable, not admitted or
+verified timing. The associated QQ line starts differ from the existing crop
+origins by 299–1,772 ms; another normalized-only line differs by 2,049 ms. These
+are differences between candidate clocks, not measured errors or a correction
+offset to apply globally.
+
+QQ's kana track is a separate counted stream rather than source-anchored ruby.
+A simple CJK-kanji coverage checksum agrees in six of the nine available streams
+and differs in three. This does not prove those three streams wrong: digits and
+other provider conventions need explicit handling. It does establish that blindly
+zipping kana entries onto kanji would be unsafe. UtaTen's explicit ruby pairs are
+an easier reading input for an initial implementation. QQ timestamps remain useful
+only at the supplied boundaries; zero-duration spacing tokens do not become
+positive word intervals.
+
+### Decision
+
+Prioritize supplied source readings and karaoke timing before more inference.
+The smallest next implementation is a candidate-source adapter: retrieve matching
+QQ data, preserve its own original text/clock provenance, map exact complete
+source groups, and use UtaTen's ruby where text ownership is unambiguous. Keep
+existing saved/curated readings protected and retain TIFA when timing or recording
+identity is missing. No confidence in provider data should be invented.
+
+This audit supports pursuing that adapter instead of expanding general Gemini
+transcription/kana orchestration. It does **not** qualify automatic backend
+promotion or removal of alignment. Source lookup needs production error handling,
+reliable discovery, exact recording/occurrence checks, mapping regressions and
+paired acoustic timing checks before app integration. Any unresolved mapping
+keeps the existing version; earlier source snapshots and timings remain durable.
+The raw responses, HTML, decoded lyrics, small audit scripts, upstream decoder
+reference and source/recipe hashes remain private outside Git.
+
 ## Collector reuse and offline checks
 
 The collector accepts a frozen audio-only manifest:

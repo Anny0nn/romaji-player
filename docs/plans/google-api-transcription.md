@@ -139,6 +139,26 @@ Training overlap is acceptable, but these recordings are development data and
 cannot establish unseen-song generalization. The agent owns evaluation; the
 maintainer is not asked to label or time recordings.
 
+### Supplied data before further inference
+
+The maintainer subsequently approved trying the lookup-first recommendation:
+audit QQ QRC timing/kana and UtaTen supplied furigana on the same ten recordings,
+plus existing known-reading text fixtures. This requires no new recording, model
+call or Spotify/Keychain access. The
+[supplied-data audit](../study-google-api-evaluation.md#supplied-karaoke-timing-and-furigana-audit-2026-11-17)
+finds ten QRC candidates, nine kana tracks and ten furigana pages; both known
+exceptional readings are explicitly supplied by UtaTen. These are availability
+results, not verified timing/reading accuracy or exact-master matches.
+
+Prefer testing a small candidate-source adapter over more general Gemini reading
+or transcription machinery. Preserve source-owned text and supplied boundary
+granularity, authenticate recording/version and repeated occurrences, and retain
+TIFA fallback. Resolve ruby and counted-kana ownership explicitly; ambiguous joins
+abstain. Never fuzzy-transplant clocks, interpolate finer boundaries, or overwrite
+curated readings. Web-discovered pages are not yet an automated source API.
+Qualify timing acoustically and add mapping/parse regressions before integration.
+This is a same-PR experiment update; no backend is promoted by lookup success.
+
 ### App integration after evidence
 
 The latest maintainer-directed experiment is provider-first: use the already
