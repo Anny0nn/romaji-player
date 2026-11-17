@@ -215,6 +215,11 @@ pub fn regular(size: f32) -> egui::FontId {
     fastframe_fonts::Weight::Regular.font_id(size)
 }
 
+/// A bundled handwritten kana face with separated き/さ strokes. Latin keeps Inter.
+pub fn kana(size: f32) -> egui::FontId {
+    egui::FontId::new(size, egui::FontFamily::Name("study-kana".into()))
+}
+
 pub fn medium(size: f32) -> egui::FontId {
     fastframe_fonts::Weight::Medium.font_id(size)
 }
@@ -376,6 +381,21 @@ fn install_fonts(ctx: &egui::Context) {
     let mut fonts = fastframe_fonts::FontSetup::default()
         .companion("noto_emoji", std::sync::Arc::new(emoji))
         .definitions();
+    let kana_face =
+        egui::FontData::from_static(include_bytes!("../assets/fonts/KleeOne-SemiBold.ttf"));
+    fonts
+        .font_data
+        .insert("klee-one-semibold".into(), std::sync::Arc::new(kana_face));
+    let mut kana_family = fonts.families[&egui::FontFamily::Proportional].clone();
+    let after_inter = usize::from(
+        kana_family
+            .first()
+            .is_some_and(|name| name == fastframe_fonts::INTER_REGULAR),
+    );
+    kana_family.insert(after_inter, "klee-one-semibold".into());
+    fonts
+        .families
+        .insert(egui::FontFamily::Name("study-kana".into()), kana_family);
     text_rendering().apply_to(&mut fonts);
     ctx.set_fonts(fonts);
 }

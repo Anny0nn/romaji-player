@@ -264,7 +264,12 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, fullscreen: bool) {
                 let scripts = app.settings.lyric_mode.scripts();
                 let mut line_rect = None;
                 for &script in scripts {
-                    let font = theme::regular(size);
+                    let font = match script {
+                        crate::study::LyricMode::Hiragana | crate::study::LyricMode::Katakana => {
+                            theme::kana(size)
+                        }
+                        _ => theme::regular(size),
+                    };
                     let mut job = LayoutJob::default();
                     job.wrap.max_width = ui.available_width();
 
