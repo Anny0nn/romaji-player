@@ -16,8 +16,9 @@ use the same font bytes rather than depending on installed Japanese faces.
 ## Supplied karaoke lyrics
 
 Options → **Find karaoke lyrics** looks for QQ candidates by title, artist and
-duration. Preview and select the version that matches the recording; it never
-silently replaces saved lyrics. QQ supplies character/token timing and sometimes
+duration. Expand a result and click **Preview lyrics & timing**, then confirm
+**Use these lyrics** in the automatically opened preview. Results with timing
+show **Includes karaoke timing**. This never silently replaces saved lyrics. QQ supplies character/token timing and sometimes
 counted kana. UtaTen ruby supplements readings when automatic page discovery,
 page title/artist checks and exact written-text ownership succeed. Matching may
 ignore whitespace, but never substitutes spelling, chooses conflicting repeats
@@ -28,7 +29,11 @@ stored durably under the app's state directory in `supplied-lyrics/`. There is n
 automatic expiry. Normal lookups read this store first, including confirmed
 missing-song results. Right-click **Find karaoke lyrics** → **Refresh stored
 karaoke lyrics** explicitly contacts the sources again; earlier response bodies
-remain stored. Network/service failures do not become permanent missing results.
+remain stored. Responses are validated before storage; invalid older responses
+are retried. Network/service failures do not become permanent missing results.
+When optional furigana fails, usable QQ timing remains available; another normal
+lookup reuses stored QQ data and retries the missing readings. Empty furigana
+search pages remain retryable because they do not confirm that readings are absent.
 Ordinary cache cleanup leaves this store and saved song versions intact.
 Spotify/LRCLIB answers also no longer expire automatically; their existing
 **Refresh** action explicitly bypasses saved answers.

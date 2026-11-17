@@ -78,19 +78,21 @@ pub fn select(payload: &Value, query: &Query) -> Vec<Candidate> {
     out.truncate(3);
     out
 }
-async fn body(store: &Store<'_>, request: reqwest::RequestBuilder) -> Result<String> {
+async fn body<T>(
+    store: &Store<'_>,
+    request: reqwest::RequestBuilder,
+    validate: impl Fn(&str) -> Result<T>,
+) -> Result<T> {
     let (http, request) = request
         .timeout(Duration::from_secs(15))
         .header("User-Agent", "RomajiPlayer/0.12 supplied-lyrics")
         .build_split();
     let request = request?;
-    let qq = request
-        .url()
-        .host_str()
-        .is_some_and(|h| h == "c.y.qq.com" || h == "u.y.qq.com");
     let key = Store::request_key(&request)?;
-    if let Some(body) = store.response(&key) {
-        return Ok(body);
+    if let Some(cached) = store.response(&key)
+        && let Ok(parsed) = validate(&cached)
+    {
+        return Ok(parsed);
     }
     let mut response = http.execute(request).await?.error_for_status()?;
     if response.content_length().is_some_and(|n| n > LIMIT as u64) {
@@ -104,19 +106,22 @@ async fn body(store: &Store<'_>, request: reqwest::RequestBuilder) -> Result<Str
         out.extend_from_slice(&chunk);
     }
     let text = String::from_utf8(out)?;
-    if qq {
-        let value: Value = serde_json::from_str(&text)?;
-        if value["code"].as_i64() != Some(0)
-            || value
-                .get("req")
-                .is_some_and(|req| req["code"].as_i64() != Some(0))
-        {
-            bail!("The lyric source is temporarily unavailable; retry later.");
-        }
-    }
+    let parsed = validate(&text)?;
     store.save_response(&key, &text)?;
-    Ok(text)
+    Ok(parsed)
 }
+fn qq_response(text: &str) -> Result<Value> {
+    let value: Value = serde_json::from_str(text)?;
+    if value["code"].as_i64() != Some(0)
+        || value
+            .get("req")
+            .is_some_and(|req| req["code"].as_i64() != Some(0))
+    {
+        bail!("The lyric source is temporarily unavailable; retry later.");
+    }
+    Ok(value)
+}
+
 pub fn from_response(response: &Value, candidate: &Candidate, query: &Query) -> Result<Snapshot> {
     if response["req"]["code"].as_i64() != Some(0)
         || response["req"]["data"]["qrc"].as_i64() != Some(1)
@@ -150,8 +155,8 @@ async fn furigana(
     http: &reqwest::Client,
     snapshot: &Snapshot,
     c: &Candidate,
-) -> Result<Snapshot> {
-    let search = body(
+) -> Result<(Snapshot, bool)> {
+    let links = body(
         store,
         http.get("https://utaten.com/lyric/search").query(&[
             ("sort", "popular_sort_asc"),
@@ -165,22 +170,32 @@ async fn furigana(
             ("tag", ""),
             ("show_artists", "1"),
         ]),
+        super::furigana::search_links,
     )
     .await?;
-    for path in super::furigana::links(&search) {
+    let mut complete = true;
+    for path in links {
         let url = format!("https://utaten.com{path}");
-        let Ok(html) = body(store, http.get(&url)).await else {
-            continue;
+        let page = body(store, http.get(&url), |html| {
+            Ok((super::furigana::parse_page(html)?, html.to_owned()))
+        })
+        .await;
+        let (page, html) = match page {
+            Ok(page) => page,
+            Err(_) => {
+                complete = false;
+                continue;
+            }
         };
-        let Ok(page) = super::furigana::parse(&html, &c.title, &c.artist) else {
+        if !page.matches(&c.title, &c.artist) {
             continue;
-        };
+        }
         let enriched = super::furigana::enrich(snapshot, &page, &url, &html)?;
         if enriched.id != snapshot.id {
-            return Ok(enriched);
+            return Ok((enriched, true));
         }
     }
-    Ok(snapshot.clone())
+    Ok((snapshot.clone(), complete))
 }
 fn lyric_request(mid: &str) -> Value {
     json!({"comm":{"ct":19,"cv":1859,"uin":"0"},"req":{"module":"music.musichallSong.PlayLyricInfo","method":"GetPlayLyricInfo","param":{"songMID":mid,"songID":0,"crypt":1,"qrc":1,"roma":1,"trans":1,"lrc_t":0,"qrc_t":0,"roma_t":0,"trans_t":0,"interval":0,"type":0,"format":"json","ct":19,"cv":1859}}})
@@ -189,7 +204,7 @@ async fn lookup(
     store: &Store<'_>,
     http: &reqwest::Client,
     query: &Query,
-) -> Result<Option<Lyrics>> {
+) -> Result<(Option<Lyrics>, bool)> {
     let search = body(
         store,
         http.get("https://c.y.qq.com/soso/fcgi-bin/search_for_qq_cp")
@@ -200,49 +215,59 @@ async fn lookup(
                 ("p", "1"),
                 ("n", "20"),
             ]),
+        |text| {
+            let value = qq_response(text)?;
+            if value
+                .pointer("/data/song/list")
+                .and_then(Value::as_array)
+                .is_none()
+            {
+                bail!("Unexpected lyric search response; retry later.");
+            }
+            Ok(value)
+        },
     )
     .await?;
-    let value: Value = serde_json::from_str(&search)?;
-    if value["code"].as_i64() != Some(0) {
-        bail!("QQ lyric search is unavailable");
-    }
-    if value
-        .pointer("/data/song/list")
-        .and_then(Value::as_array)
-        .is_none()
-    {
-        bail!("Unexpected lyric search response; retry later.");
-    }
-    let matches = select(&value, query);
+    let matches = select(&search, query);
     if matches.is_empty() {
-        return Ok(None);
+        return Ok((None, true));
     }
     let mut candidates = Vec::new();
+    let mut complete = true;
     for c in matches {
         let request = lyric_request(&c.mid);
-        let reply = body(
+        let snapshot = body(
             store,
             http.post("https://u.y.qq.com/cgi-bin/musicu.fcg")
                 .header("Referer", "https://y.qq.com/")
                 .json(&request),
+            |text| {
+                let value = qq_response(text)?;
+                match value["req"]["data"]["qrc"].as_i64() {
+                    Some(0) => Ok(None),
+                    Some(1) => from_response(&value, &c, query).map(Some),
+                    _ => bail!("Unexpected karaoke response; retry later."),
+                }
+            },
         )
         .await?;
-        let value: Value = serde_json::from_str(&reply)?;
-        match value["req"]["data"]["qrc"].as_i64() {
-            Some(0) => continue,
-            Some(1) => {}
-            _ => bail!("Unexpected karaoke response; retry later."),
+        let Some(snapshot) = snapshot else {
+            continue;
+        };
+        let (mut snapshot, enriched) = furigana(store, http, &snapshot, &c)
+            .await
+            .unwrap_or((snapshot, false));
+        complete &= enriched;
+        if !enriched {
+            snapshot.source.warnings.push(
+                "Furigana is temporarily unavailable. Find karaoke lyrics again to retry.".into(),
+            );
+            snapshot = Snapshot::new(snapshot.source, snapshot.occurrences)?;
         }
-        let snapshot = from_response(&value, &c, query)?;
-        // Optional enrichment never prevents using the QRC/dictionary fallback.
-        candidates.push(
-            furigana(store, http, &snapshot, &c)
-                .await
-                .unwrap_or(snapshot),
-        );
+        candidates.push(snapshot);
     }
     if candidates.is_empty() {
-        return Ok(None);
+        return Ok((None, true));
     }
     let lines = candidates[0]
         .occurrences
@@ -252,13 +277,16 @@ async fn lookup(
             at_ms: l.start_ms.and_then(|n| u32::try_from(n).ok()),
         })
         .collect();
-    Ok(Some(Lyrics {
-        lines,
-        synced: true,
-        instrumental: false,
-        source_snapshot: None,
-        candidates,
-    }))
+    Ok((
+        Some(Lyrics {
+            lines,
+            synced: true,
+            instrumental: false,
+            source_snapshot: None,
+            candidates,
+        }),
+        complete,
+    ))
 }
 pub async fn fetch(
     http: &reqwest::Client,
@@ -281,8 +309,10 @@ pub async fn fetch(
         if let Some(saved) = store.lookup(query) {
             return Ok(saved);
         }
-        let found = lookup(&store, http, query).await?;
-        store.save_lookup(query, &found)?;
+        let (found, complete) = lookup(&store, http, query).await?;
+        if complete {
+            store.save_lookup(query, &found)?;
+        }
         Ok(found)
     })
     .await
@@ -292,6 +322,137 @@ pub async fn fetch(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn stored(store: &Store<'_>, request: reqwest::RequestBuilder, text: &str) {
+        store
+            .save_response(
+                &Store::request_key(&request.build().unwrap()).unwrap(),
+                text,
+            )
+            .unwrap();
+    }
+    // Only synthetic lyrics and loopback/blocked-proxy traffic enter these tests.
+    #[tokio::test]
+    async fn optional_reading_failure_retries_without_refetching_qq() {
+        let temp = crate::study::testutil::TestDir::new();
+        let store = Store {
+            directory: temp.path(),
+            refresh: false,
+        };
+        let client = reqwest::Client::builder()
+            .proxy(reqwest::Proxy::all("http://127.0.0.1:9").unwrap())
+            .build()
+            .unwrap();
+        let query = Query {
+            title: "Fixture".into(),
+            artist: "Artist".into(),
+            album: String::new(),
+            duration_ms: 2000,
+        };
+        stored(&store, client.get("https://c.y.qq.com/soso/fcgi-bin/search_for_qq_cp").query(&[("w", "Fixture"), ("format", "json"), ("p", "1"), ("n", "20")]), &json!({"code":0,"data":{"song":{"list":[{"songmid":"fixture","songname":"Fixture","singer":[{"name":"Artist"}],"interval":2}]}}}).to_string());
+        // Modified DES encoding of <QrcInfos><Lyric_1 LyricContent="[0,1000]空(0,1000)"/></QrcInfos>.
+        stored(&store, client.post("https://u.y.qq.com/cgi-bin/musicu.fcg").json(&lyric_request("fixture")), &json!({"code":0,"req":{"code":0,"data":{"qrc":1,"lyric":"ee7befb746f93831d42dcdf2e21f0d5d924943e250c9b32f6d731ce7c8a4cd01eca6eb73c8a868b20f938d844361773f4cec1bb6d759bd0e10fc23e59d2d8dfb"}}}).to_string());
+        stored(
+            &store,
+            client.get("https://utaten.com/lyric/search").query(&[
+                ("sort", "popular_sort_asc"),
+                ("artist_name", "Artist"),
+                ("title", "Fixture"),
+                ("beginning", ""),
+                ("body", ""),
+                ("lyricist", ""),
+                ("composer", ""),
+                ("sub_title", ""),
+                ("tag", ""),
+                ("show_artists", "1"),
+            ]),
+            "<a href='/lyric/fixture/'>Result</a>",
+        );
+        let partial = fetch(&client, temp.path(), &query, false)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(!partial.candidates[0].occurrences[0].fragments.is_empty());
+        assert!(partial.candidates[0].source.readings.is_empty());
+        assert!(store.lookup(&query).is_none());
+        stored(
+            &store,
+            client.get("https://utaten.com/lyric/fixture/"),
+            "<h2 class='newLyricTitle__main'>Fixture<span>歌詞</span></h2><h3><a href='/artist/lyric/1'>Artist</a></h3><div class='lyricBody'><div class='hiragana'><span class='ruby'><span class='rb'>空</span><span class='rt'>そら</span></span></div></div>",
+        );
+        let complete = fetch(&client, temp.path(), &query, false)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(complete.candidates[0].source.readings[0].hiragana, "そら");
+        assert_eq!(
+            complete.candidates[0].occurrences[0].fragments,
+            partial.candidates[0].occurrences[0].fragments
+        );
+        assert!(store.lookup(&query).unwrap().is_some());
+    }
+    fn mock_response(text: &'static str) -> (String, std::thread::JoinHandle<()>) {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let url = format!("http://{}/fixture", listener.local_addr().unwrap());
+        let worker = std::thread::spawn(move || {
+            let deadline = std::time::Instant::now() + Duration::from_secs(5);
+            let mut stream = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(e)
+                        if e.kind() == std::io::ErrorKind::WouldBlock
+                            && std::time::Instant::now() < deadline =>
+                    {
+                        std::thread::sleep(Duration::from_millis(5))
+                    }
+                    Err(e) => panic!("mock request failed: {e}"),
+                }
+            };
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let mut request = Vec::new();
+            while !request.ends_with(b"\r\n\r\n") {
+                assert!(request.len() < 4096, "mock request headers too large");
+                let mut byte = [0];
+                stream.read_exact(&mut byte).unwrap();
+                request.push(byte[0]);
+            }
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{text}",
+                text.len()
+            )
+            .unwrap();
+        });
+        (url, worker)
+    }
+    #[tokio::test]
+    async fn malformed_success_is_not_stored_and_invalid_old_cache_can_recover() {
+        let temp = crate::study::testutil::TestDir::new();
+        let store = Store {
+            directory: temp.path(),
+            refresh: false,
+        };
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        let (url, worker) = mock_response("<html>Try later</html>");
+        let req = client.get(&url);
+        let key = Store::request_key(&req.try_clone().unwrap().build().unwrap()).unwrap();
+        assert!(body(&store, req, qq_response).await.is_err());
+        worker.join().unwrap();
+        assert!(store.response(&key).is_none());
+        let (url, worker) = mock_response(r#"{"code":0,"data":{"song":{"list":[]}}}"#);
+        let req = client.get(&url);
+        let key = Store::request_key(&req.try_clone().unwrap().build().unwrap()).unwrap();
+        store
+            .save_response(&key, "<html>Old invalid response</html>")
+            .unwrap();
+        assert_eq!(body(&store, req, qq_response).await.unwrap()["code"], 0);
+        worker.join().unwrap();
+        assert!(qq_response(&store.response(&key).unwrap()).is_ok());
+    }
+
     #[tokio::test]
     async fn confirmed_no_qrc_is_a_durable_missing_result() {
         let temp = crate::study::testutil::TestDir::new();
@@ -372,7 +533,9 @@ mod tests {
             .save_response(&key, "<html>stored fixture</html>")
             .unwrap();
         assert_eq!(
-            body(&store, request).await.unwrap(),
+            body(&store, request, |text| Ok(text.to_owned()))
+                .await
+                .unwrap(),
             "<html>stored fixture</html>"
         );
     }

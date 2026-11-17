@@ -551,6 +551,16 @@ visually checked from the actual font; Latin retains Inter. Its original SIL OFL
 license is packaged with the app. Font SHA-256:
 `b031ec426c23ca1143ef1f7d58bee7a79efe119ed654152f121c922202b303fd`.
 
+A follow-up validates responses before indexing them and retries invalid older
+cached bodies. Optional reading failures return the usable QQ timing without
+finalizing a processed result; a later normal lookup retries the missing data
+while reusing valid responses. An empty furigana search remains unconfirmed and
+retryable. Synthetic tests cover a missing reading page followed by offline
+recovery with unchanged timing, plus malformed HTTP-200 and old-cache recovery
+against a loopback mock server. No new provider requests or singing measurements
+were made for this follow-up. Candidate previews open automatically and label
+supplied timing explicitly.
+
 The candidate reader is implemented; lyric/recording identity and acoustic timing
 quality still need broader qualification before making it the default backend.
 The source API is unofficial and discovery can fail; the existing saved source

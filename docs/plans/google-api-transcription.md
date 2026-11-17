@@ -200,6 +200,18 @@ Klee One SemiBold (SIL OFL) for hiragana/katakana lyric rows, including the hira
 row above romaji. Use its separated き/ぎ and さ strokes; keep Latin text in Inter.
 Verify the actual glyph rendering and include the font license in app notices.
 
+### Follow-up reliability and source selection
+
+Continue improving this same native path on the maintainer's request. Validate
+provider bodies before indexing them in the durable store, including old cached
+bodies, so malformed data cannot permanently poison a lookup. Keep a usable QQ
+candidate when optional furigana fails, but leave that lookup incomplete so the
+next explicit Find retries only missing requests while reusing stored QQ data.
+Only confirmed absence is a complete missing result. Clarify the preview action,
+show when supplied timing is included and automatically open a new candidate's
+confirmation panel. Use cached/synthetic data and local mock HTTP tests; no new
+provider round is required. Repackage the app after the checks pass.
+
 ### App integration after evidence
 
 The latest maintainer-directed experiment is provider-first: use the already

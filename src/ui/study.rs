@@ -126,10 +126,11 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, fullscreen: bool) {
                         ui.small("Preview the lyrics and select the version that matches this recording.");
                         for source in alternatives {
                             egui::CollapsingHeader::new(&source.source.candidate).show(ui, |ui| {
-                                for line in source.occurrences.iter().take(5) {
+                                if source.occurrences.iter().any(|line|!line.fragments.is_empty()) {ui.small("Includes karaoke timing. TIFA can fill gaps.");}
+                                for line in source.occurrences.iter().take(8) {
                                     ui.label(&line.raw_line);
                                 }
-                                if ui.button("Use / preview these lyrics").clicked() {
+                                if ui.button("Preview lyrics & timing").clicked() {
                                     let result = app.study.offer(source);
                                     report(app, result);
                                 }
@@ -549,7 +550,7 @@ fn candidate(app: &mut App, ui: &mut egui::Ui) {
         .as_ref()
         .and_then(|document| document.candidate.clone());
     if let Some(candidate) = candidate {
-        egui::CollapsingHeader::new("Preview other lyrics").show(ui, |ui| {
+        egui::CollapsingHeader::new("Preview other lyrics").id_salt(("lyric-candidate", &candidate.id)).default_open(true).show(ui, |ui| {
             ui.label(format!("{} · {}", candidate.source.provider, candidate.source.candidate));
             ui.small("Switching keeps the previous saved snapshot. Changed text may require reattaching edits.");
             for line in candidate.occurrences.iter().take(6) { ui.label(&line.raw_line); }

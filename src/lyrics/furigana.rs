@@ -6,6 +6,8 @@ use scraper::{ElementRef, Html, Node, Selector};
 
 #[derive(Debug)]
 pub struct Page {
+    title: String,
+    artist: String,
     text: String,
     readings: Vec<([usize; 2], String)>,
 }
@@ -40,8 +42,8 @@ fn walk(element: ElementRef<'_>, text: &mut String, readings: &mut Vec<([usize; 
         }
     }
 }
-pub fn parse(html: &str, title: &str, artist: &str) -> Result<Page> {
-    if html.len() > 1_048_576 || title.is_empty() || artist.is_empty() {
+pub(super) fn parse_page(html: &str) -> Result<Page> {
+    if html.len() > 1_048_576 {
         bail!("invalid furigana page size or identity");
     }
     let doc = Html::parse_document(html);
@@ -65,15 +67,6 @@ pub fn parse(html: &str, title: &str, artist: &str) -> Result<Page> {
         .ok_or_else(|| anyhow!("missing furigana artist"))?
         .text()
         .collect::<String>();
-    let title = super::karaoke::normalized(&super::clean_title(title));
-    let artist = super::karaoke::normalized(artist);
-    if title.is_empty()
-        || artist.is_empty()
-        || super::karaoke::normalized(&super::clean_title(&page_title)) != title
-        || super::karaoke::normalized(&page_artist) != artist
-    {
-        bail!("furigana page is for another song");
-    }
     let bodies: Vec<_> = doc.select(&sel(".lyricBody .hiragana")).collect();
     if bodies.len() != 1 {
         bail!("expected one hiragana lyric body");
@@ -81,8 +74,40 @@ pub fn parse(html: &str, title: &str, artist: &str) -> Result<Page> {
     let mut text = String::new();
     let mut readings = Vec::new();
     walk(bodies[0], &mut text, &mut readings);
-    Ok(Page { text, readings })
+    Ok(Page {
+        title: page_title,
+        artist: page_artist,
+        text,
+        readings,
+    })
 }
+impl Page {
+    pub(super) fn matches(&self, title: &str, artist: &str) -> bool {
+        let title = super::karaoke::normalized(&super::clean_title(title));
+        let artist = super::karaoke::normalized(artist);
+        !title.is_empty()
+            && !artist.is_empty()
+            && super::karaoke::normalized(&super::clean_title(&self.title)) == title
+            && super::karaoke::normalized(&self.artist) == artist
+    }
+}
+pub fn parse(html: &str, title: &str, artist: &str) -> Result<Page> {
+    let page = parse_page(html)?;
+    if !page.matches(title, artist) {
+        bail!("furigana page is for another song");
+    }
+    Ok(page)
+}
+pub(super) fn search_links(html: &str) -> Result<Vec<String>> {
+    let found = links(html);
+    // An empty/interstitial page is not evidence that readings do not exist.
+    // Leave the optional lookup retryable rather than persisting a false miss.
+    if found.is_empty() {
+        bail!("Furigana search returned no verifiable results; retry later.");
+    }
+    Ok(found)
+}
+
 fn compact(s: &str) -> String {
     s.chars().filter(|c| !c.is_whitespace()).collect()
 }
@@ -251,6 +276,20 @@ mod tests {
                 .source
                 .readings
                 .is_empty()
+        );
+    }
+    #[test]
+    fn empty_and_interstitial_search_pages_remain_retryable() {
+        for html in [
+            "",
+            "<html>Temporarily unavailable</html>",
+            "<a href='/help/'>Help</a>",
+        ] {
+            assert!(search_links(html).is_err());
+        }
+        assert_eq!(
+            search_links("<a href='/lyric/fixture/'>Result</a>").unwrap(),
+            vec!["/lyric/fixture/"]
         );
     }
     #[test]
