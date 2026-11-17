@@ -189,6 +189,85 @@ rejection of changed original owner spans, text, readings, group counts or conve
 signatures. Recordings, proposals, source snapshots and model observations stay
 private; models never select a source spelling by retained coverage alone.
 
+## Provider-first lyrics, timing, then Gemini kana
+
+The next maintainer-directed approach preserves the fetched provider lyrics,
+computes local timing with the existing converter, and requests Gemini kana only
+afterward. It uses the original provider source from the cached captures, not the
+Google-transcribed alternative text. The already measured original-text baseline
+remains **54/66 timed groups**; it is reused rather than measured again.
+
+`scripts/gemini_source_kana.py` has prepared **ten text-only requests /66 fixed
+word owners**. Each includes the complete fetched lyric context, target line,
+stable source-owned word IDs and exact written surfaces. It excludes clock values,
+dictionary kana, artist/account metadata and audio. The
+[documented JSON response format](https://aistudio.google.com/docs/structured-output)
+requires one kana-or-null result per owner. The parser rejects stale request IDs,
+missing/duplicate/reordered owners, rewritten text, extra timing/confidence fields
+and invalid kana syntax. Matching the JSON schema is not an acoustic correctness
+test.
+
+The input manifest, local baseline timing, provider document, prompt bytes and
+transport/runner versions are fingerprinted. The provider's saved HTTP 429 receipt
+sets a hard earliest-request guard at **2026-11-17 07:59:59 UTC**. An offline test
+against the actual prepared manifest confirms that the guard stops execution
+before credential loading or network access. A separate all-null fixture retains
+all 66 owners and their earlier timing records; **that fixture is not a Gemini
+result**. No new requests or actual Gemini kana results exist for this experiment
+yet.
+
+Valid replies remain unverified reading proposals. The offline `trials` stage
+canonicalizes proposed kana using the same converter signature. It preserves raw
+source spans and group counts, removes dictionary pronunciation shadows only from
+changed targets, and creates fresh local-alignment proposals for changed cues.
+Unchanged/abstained owners retain the earlier version; missing timing stays missing.
+The original lyric text is never replaced. Independent acoustic checks and the
+normal admission policy remain necessary before applying a correction to the app.
+
+Audio-assisted readings and trimmed excerpts are optional later comparisons. This
+first pass does not require them. If used later, keep the clip's original recording
+origin; removing internal pauses requires an explicit mapping rather than reusing
+shifted clocks. Text-only context cannot determine a singer's unusual pronunciation
+with certainty.
+
+Prepare from authenticated local timing results and fetched lyric snapshots:
+
+```sh
+python3 scripts/gemini_source_kana.py prepare \
+  --hybrid /private/tmp/romaji-google-hybrid-v3 \
+  --pilot /private/tmp/romaji-google-pilot \
+  --captures /private/tmp/romaji-google-song-capture \
+  --quota-receipt /path/to/latest-provider-429-receipt.json \
+  --output /private/tmp/romaji-provider-first-kana-v4
+```
+
+Supply the most recent quota receipt whenever one exists. A project with no
+prior quota rejection can omit it; this pilot has one and its wait remains enforced.
+The prepared collection can run when the provider permits requests:
+
+```sh
+python3 scripts/gemini_source_kana.py run \
+  --output /private/tmp/romaji-provider-first-kana-v4 \
+  --env-file /path/to/ignored/.env --free-project-confirmed
+```
+
+After valid replies, prepare only the changed cues for local evaluation:
+
+```sh
+python3 scripts/gemini_source_kana.py trials \
+  --output /private/tmp/romaji-provider-first-kana-v4 \
+  --hybrid /private/tmp/romaji-google-hybrid-v3 \
+  --romanizer /path/to/RomajiRomanizer \
+  --trials-output /private/tmp/romaji-source-kana-timing
+```
+
+Run the existing hybrid `align` and `verify` stages against that trial directory.
+If there are no accepted changed readings, no local rerun is needed. Ten offline
+tests cover fixed ownership/text, changed-reading realignment, unchanged/null
+fallbacks, removal of stale dictionary pronunciation, prompt separation, malformed
+readings, manifest integrity, response-cache reuse and quota enforcement before credentials/network.
+The app workflow remains unmodified pending actual results and accuracy checks.
+
 ## Collector reuse and offline checks
 
 The collector accepts a frozen audio-only manifest:

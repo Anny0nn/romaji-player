@@ -141,6 +141,22 @@ maintainer is not asked to label or time recordings.
 
 ### App integration after evidence
 
+The latest maintainer-directed experiment is provider-first: use the already
+fetched Spotify/LRCLIB source, obtain initial local timings with existing readings,
+then ask Gemini for contextual kana tied to the exact original word IDs. Keep
+the full fetched lyric context, source text, group boundaries and earlier timing
+version fixed. Do not provide timing or dictionary kana as model hints. Null or
+unchanged suggestions preserve that version; changed acoustic targets require
+canonical conversion, independent checks and fresh alignment of the affected cue.
+Text-only suggestions cannot certify unusual sung readings. Optional audio clips
+or silence trimming may be tested later, but are not a prerequisite. Any future
+clip keeps its original recording origin and explicit time mapping.
+
+The [provider-first checkpoint](../study-google-api-evaluation.md#provider-first-lyrics-timing-then-gemini-kana)
+has ten prepared requests /66 owners and strict response/realignment tests. Fresh
+Gemini readings remain blocked by the existing quota deadline; no app promotion
+or further recording/password access is required for preparing this experiment.
+
 The maintainer subsequently prioritized the hybrid: Google proposes lyric text
 and sung readings; existing local models check and time accepted candidates.
 Start from the cached Hydrogen outputs and authenticated recordings, requiring
