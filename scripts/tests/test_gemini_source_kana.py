@@ -150,6 +150,39 @@ class SourceKanaTests(unittest.TestCase):
         self.assertNotIn("start_ms", body["input"][1]["text"])
         self.assertEqual(payload["lyrics"], ["青い地球に"])
 
+    def test_optional_hints_are_provisional_and_do_not_lock_a_reading(self):
+        case = self.case()
+        case["reading_hints"] = [
+            {
+                "id": "owner-one",
+                "kana": "ちきゅう",
+                "status": "provisional_local_acoustic_support",
+            }
+        ]
+        plain = json.loads(kana.request_bytes(case))
+        hinted = json.loads(kana.request_bytes(case, "gemini-3.5-flash-lite", True))
+        self.assertNotIn(
+            "provisional_reading_hints", json.loads(plain["input"][1]["text"])
+        )
+        self.assertEqual(
+            json.loads(hinted["input"][1]["text"])["provisional_reading_hints"],
+            case["reading_hints"],
+        )
+        self.assertIn("not ground truth", hinted["input"][0]["text"])
+        self.assertTrue(
+            kana.validate_readings(self.reply("ほし"), case)[0][
+                "requires_acoustic_check"
+            ]
+        )
+        with self.assertRaises(ValueError):
+            kana.request_bytes(case, "gemini-4-carbon", True)
+
+    def test_empty_hint_arm_has_identical_request_bytes(self):
+        self.assertEqual(
+            kana.request_bytes(self.case()),
+            kana.request_bytes(self.case(), include_hints=True),
+        )
+
     def test_quota_guard_runs_before_credentials_or_network(self):
         with tempfile.TemporaryDirectory() as scratch:
             root = Path(scratch)
@@ -242,3 +275,59 @@ class SourceKanaTests(unittest.TestCase):
                 receipt["readings"][0]["baseline_timing"],
                 case["words"][0]["baseline_timing"],
             )
+            child = root / "hint-arm"
+            child.mkdir(mode=0o700)
+            data = json.loads(manifest.read_text())
+            data["include_hints"] = True
+            (child / "requests.json").write_text(json.dumps(data))
+            (child / "requests-fingerprint.json").write_text(
+                json.dumps({"sha256": kana.sha(child / "requests.json")})
+            )
+            with (
+                patch.object(kana, "post") as send,
+                patch.object(kana, "key_from_file", return_value="synthetic-key"),
+                patch("builtins.print"),
+            ):
+                kana.run(
+                    SimpleNamespace(
+                        output=child,
+                        free_project_confirmed=True,
+                        env_file=None,
+                        reuse_output=root,
+                    )
+                )
+                send.assert_not_called()
+            reused = json.loads((child / "request-one.json").read_text())
+            self.assertEqual(
+                reused["reused_observation_sha256"], kana.sha(root / "request-one.json")
+            )
+            self.assertEqual(reused["readings"], receipt["readings"])
+            failure = {
+                **receipt,
+                "status": "http_error",
+                "http_status": 429,
+                "retry_after": "30",
+                "utc": "2000-01-01T00:00:00+00:00",
+            }
+            (root / "request-one.json").write_text(json.dumps(failure))
+            args = SimpleNamespace(
+                output=root,
+                free_project_confirmed=True,
+                env_file=None,
+                continue_service_errors=True,
+            )
+            with (
+                patch.object(kana, "post") as send,
+                patch.object(kana, "key_from_file", return_value="synthetic-key"),
+            ):
+                with self.assertRaises(ValueError):
+                    kana.run(args)
+                send.assert_not_called()
+                failure["http_status"] = 503
+                (root / "request-one.json").write_text(json.dumps(failure))
+                kana.run(args)
+                send.assert_not_called()
+                self.assertEqual(
+                    json.loads((root / "request-one.json").read_text())["status"],
+                    "http_error",
+                )

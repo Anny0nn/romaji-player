@@ -145,7 +145,10 @@ The latest maintainer-directed experiment is provider-first: use the already
 fetched Spotify/LRCLIB source, obtain initial local timings with existing readings,
 then ask Gemini for contextual kana tied to the exact original word IDs. Keep
 the full fetched lyric context, source text, group boundaries and earlier timing
-version fixed. Do not provide timing or dictionary kana as model hints. Null or
+version fixed. Never provide timing as a model hint. Compare a plain control with
+a separately marked provisional-kana arm using only locally supported hints; ask
+Gemini to check/correct them against the original lyrics. Include the simpler free
+Flash-Lite model and protect existing curated sung-reading exceptions. Null or
 unchanged suggestions preserve that version; changed acoustic targets require
 canonical conversion, independent checks and fresh alignment of the affected cue.
 Text-only suggestions cannot certify unusual sung readings. Optional audio clips
@@ -153,9 +156,13 @@ or silence trimming may be tested later, but are not a prerequisite. Any future
 clip keeps its original recording origin and explicit time mapping.
 
 The [provider-first checkpoint](../study-google-api-evaluation.md#provider-first-lyrics-timing-then-gemini-kana)
-has ten prepared requests /66 owners and strict response/realignment tests. Fresh
-Gemini readings remain blocked by the existing quota deadline; no app promotion
-or further recording/password access is required for preparing this experiment.
+has ten source cases /66 owners and strict response/realignment tests. The
+[simpler-model comparison](../study-google-api-evaluation.md#simpler-model-and-provisional-kana-hints-2026-11-17)
+now records eight usable Flash-Lite cases with no changed readings, Hydrogen
+service failures, and mixed preservation of two known poetic-reading fixtures.
+Hints have not demonstrated a general accuracy gain; app promotion remains
+unqualified. Cached recordings suffice for further acoustic checks without
+recording/password access.
 
 The maintainer subsequently prioritized the hybrid: Google proposes lyric text
 and sung readings; existing local models check and time accepted candidates.

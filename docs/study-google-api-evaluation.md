@@ -89,7 +89,7 @@ peak. Server compute and memory are unavailable.
 The final timing continuation returned **HTTP 429**, with `Retry-After: 30422`
 (about 8 hours 27 minutes). Collection stopped without retrying that quota error.
 Its receipt places the earliest indicated retry at **2026-11-17 07:59:59 UTC**;
-availability after that time is not guaranteed. No further Google calls ran.
+availability after that time is not guaranteed. No further Google calls ran during that audio pilot.
 Three song crops and the main silence control remain unattempted in the timing
 arm. A source-selected shifted-audio control has been prepared but not submitted;
 unrelated-audio source joins also remain unevaluated. These missing checks prevent
@@ -199,7 +199,7 @@ remains **54/66 timed groups**; it is reused rather than measured again.
 
 `scripts/gemini_source_kana.py` has prepared **ten text-only requests /66 fixed
 word owners**. Each includes the complete fetched lyric context, target line,
-stable source-owned word IDs and exact written surfaces. It excludes clock values,
+stable source-owned word IDs and exact written surfaces. The initial plain arm excludes clock values,
 dictionary kana, artist/account metadata and audio. The
 [documented JSON response format](https://aistudio.google.com/docs/structured-output)
 requires one kana-or-null result per owner. The parser rejects stale request IDs,
@@ -213,8 +213,7 @@ sets a hard earliest-request guard at **2026-11-17 07:59:59 UTC**. An offline te
 against the actual prepared manifest confirms that the guard stops execution
 before credential loading or network access. A separate all-null fixture retains
 all 66 owners and their earlier timing records; **that fixture is not a Gemini
-result**. No new requests or actual Gemini kana results exist for this experiment
-yet.
+result**. That preparation checkpoint preceded the live comparison below.
 
 Valid replies remain unverified reading proposals. The offline `trials` stage
 canonicalizes proposed kana using the same converter signature. It preserves raw
@@ -262,11 +261,92 @@ python3 scripts/gemini_source_kana.py trials \
 ```
 
 Run the existing hybrid `align` and `verify` stages against that trial directory.
-If there are no accepted changed readings, no local rerun is needed. Ten offline
+If there are no accepted changed readings, no local rerun is needed. Twelve offline
 tests cover fixed ownership/text, changed-reading realignment, unchanged/null
 fallbacks, removal of stale dictionary pronunciation, prompt separation, malformed
 readings, manifest integrity, response-cache reuse and quota enforcement before credentials/network.
-The app workflow remains unmodified pending actual results and accuracy checks.
+The app workflow remains unmodified pending demonstrated accuracy gains.
+
+## Simpler model and provisional kana hints (2026-11-17)
+
+The maintainer authorized a lighter model and partial reading hints. Compare
+`gemini-3.5-flash-lite` with `gemini-4-hydrogen`, each with plain and hinted
+prompts, on the same ten provider-source cases /66 fixed owners. Flash-Lite is
+listed with free standard input/output in the provider's
+[pricing documentation](https://aistudio.google.com/docs/pricing). The original
+Free-tier, billing-disabled project remains unchanged. Collection began after
+the saved quota deadline; no new quota rejection occurred in this comparison.
+
+The full original lyrics and exact owner surfaces remain authoritative for
+spelling. Hints are explicitly provisional: check and correct them against the
+original lyrics and context, or abstain. Select hints before requests using both
+existing phrase coherence and independent endpoint support, retaining only valid
+kana. This yields **four hints in two cases**, not 66 assumed-correct dictionary
+readings. Model support is not listening ground truth. Do not send local clocks.
+
+Freeze model, prompt, evidence and manifests before collection. Collect serially,
+interleaving cases/arms, with at most 24 distinct planned requests because eight
+cases per model have byte-identical plain/hinted prompts. Reuse exact observations
+with hash lineage and revalidate raw replies; reused observations are not new
+votes. Preserve failed observations too. The transport permits one bounded
+service retry; explicit continuation skips saved service failures after their
+wait deadline without resending them. Quota/auth/client failures still stop.
+Disable a model after three consecutive service failures.
+
+| Arm                           |   Valid cases | Owners in valid replies | Changed readings | Null readings |
+| ----------------------------- | ------------: | ----------------------: | ---------------: | ------------: |
+| Flash-Lite, plain             |          8/10 |                      50 |                0 |             4 |
+| Flash-Lite, provisional hints |          8/10 |                      50 |                0 |             4 |
+| Hydrogen, plain               | 0/3 attempted |                       0 |          Unknown |       Unknown |
+| Hydrogen, provisional hints   | 0/2 attempted |                       0 |          Unknown |       Unknown |
+
+Flash-Lite returned matching baseline kana for 46 owners and abstained on four
+English words. Both arms failed with HTTP 503 on the other two cases /16 owners;
+missing replies cannot count as agreement. Three of the four eligible hints were
+in one failed case, leaving only **one hint with usable paired results**.
+Hydrogen's three distinct transport/timeouts triggered its stop; its hinted
+observations reused identical failures. Unattempted Hydrogen cases remain unknown.
+This run measures service availability and dictionary agreement, not sung-reading
+accuracy. The canonical local trial stage confirmed zero changed cues in both
+Flash-Lite arms, so no fresh alignment was required. The original 54/66 baseline
+timings and saved app data remain unchanged.
+
+Early collection versions stopped on service failures while continuation/reuse
+was being implemented. One identical failed Hydrogen request was redundantly
+submitted in that debugging pass before transport-failure reuse was fixed.
+Preserve those receipts and frozen runner versions; do not count that resubmission
+as independent evidence or hide it within the final comparison. Existing exact
+observations were reused rather than rerunning the full matrix.
+
+Separately freeze **two existing known-reading development fixtures**, without
+audio or timing, and submit each to Flash-Lite with and without its known kana as
+a provisional hint. These are curated examples from the existing romanizer
+regressions, not a held-out evaluation or newly measured recordings. A third
+compound-reading fixture was omitted before collection to conserve requests.
+
+| Written target | Known sung reading | Plain reply | Hinted reply |
+| -------------- | ------------------ | ----------- | ------------ |
+| 地球           | ほし               | ちきゅう    | ほし         |
+| 故郷           | まち               | ふるさと    | ふるさと     |
+
+All four replies preserved the fixed source owner. One request completed after
+its bounded HTTP 503 retry. Hints preserved one of these two unusual readings,
+while the other was normalized incorrectly despite its hint. This is a concrete
+reason to protect curated sung readings and independently check proposed changes;
+it does not establish a general improvement rate or justify automatic overwrites.
+Full lyrics help ordinary contextual readings, but text alone cannot reliably
+recover a singer's exceptional pronunciation. No model has been promoted into
+the app. Optional audio remains the next way to test disputed readings using
+cached recordings, without Spotify/Keychain access or another capture.
+
+For reproducible controlled arms, add `--model gemini-3.5-flash-lite` and,
+for the hinted arm, `--reading-hints` to `prepare`. `run --limit 1` bounds each
+collection step; `--reuse-output /path/to/plain-arm` reuses only identical request
+bytes. `--continue-service-errors` explicitly permits advancing past saved
+service failures after their wait; it never retries those failed requests or
+skips quota/auth errors. Twelve network-free tests cover these controls, fixed
+ownership and changed-reading realignment. Private manifests, lyric-bearing raw
+responses, development labels and source snapshots are retained outside Git.
 
 ## Collector reuse and offline checks
 
