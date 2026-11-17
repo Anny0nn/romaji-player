@@ -141,6 +141,15 @@ maintainer is not asked to label or time recordings.
 
 ### App integration after evidence
 
+The maintainer subsequently prioritized the hybrid: Google proposes lyric text
+and sung readings; existing local models check and time accepted candidates.
+Start from the cached Hydrogen outputs and authenticated recordings, requiring
+no API, Spotify or Keychain access. Keep alternative text in separate candidate
+snapshots. Compare the existing and candidate text on identical float32 Rust
+crops with original-source identity checks and independent singing observations.
+The [offline follow-up](../study-google-api-evaluation.md#offline-hybrid-follow-up)
+records this completed comparison; its mixed results do not authorize app promotion.
+
 Publish an aggregate pilot report before expanding to the same frozen ten full
 recordings. Freeze any selected recipe before that expansion. Compare correct
 changes, wrong changes, preserved correct readings, omissions, hallucinations,

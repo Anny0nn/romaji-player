@@ -95,7 +95,101 @@ arm. A source-selected shifted-audio control has been prepared but not submitted
 unrelated-audio source joins also remain unevaluated. These missing checks prevent
 calling the pilot complete or promoting any backend. No full-song expansion ran.
 
-## Reuse and offline checks
+## Offline hybrid follow-up
+
+The maintainer prioritized Google lyric candidates followed by local timing and
+independent acoustic checks. This follow-up uses the cached Hydrogen replies and
+the exact original float32 Rust crops: **no API, Spotify, Keychain, password,
+recording, model download or app-state write is involved**. It tests the hybrid
+mechanism without waiting for another free API allocation.
+
+Close both text versions and their converter-owned UTF-8 spans before inference.
+Authenticate every cached Google request against the original WAV payload hash,
+and authenticate the float32 recording, native crop export and source document.
+The existing-text conversion must exactly reproduce Rust's target spans, target
+text, romaji, group count and converter signature. A Google transcript becomes a
+separate candidate snapshot; its groups never inherit the earlier source's clocks.
+Join response line breaks with spaces, preserving the original response privately.
+
+TIFA then aligns each version to the same original mixture samples. The existing
+Japanese singing recognizer independently observes the audio without lyric input;
+its source-conditioned CTC word decoder checks the two fixed target sequences.
+Count endpoint support only for positive TIFA intervals of at least 80 ms,
+independent mean probability at least 0.45 and both observed endpoints within
+150 ms. Compute the existing phrase-coherence diagnostic separately, keeping
+unsupported groups in its denominator. These are model diagnostics, not listening
+references or automatic permission to replace text.
+
+| Diagnostic                               | Existing text | Cached Google text |
+| ---------------------------------------- | ------------: | -----------------: |
+| Source-owned groups in that version      |            66 |                 73 |
+| Structurally retained TIFA intervals     |            54 |                 42 |
+| Groups with independent endpoint support |            11 |                  8 |
+| Cues passing existing phrase coherence   |             2 |                  2 |
+
+Eight candidate texts differ; the two unchanged texts, CROW and たぶん, reproduce
+identical target ownership and TIFA intervals. The denominators above are separate:
+42/73 is not a count of recovered original groups. In particular, the TEENAGE CITY
+RIOT candidate expands four existing groups to 21 candidate groups and retains no
+TIFA intervals. It cannot be accepted because it is fluent or more detailed.
+
+The Google candidate for 天天天国地獄国 has two groups with independent endpoint support
+and passes phrase coherence, versus no endpoint-supported groups for its existing
+text. Its three groups replace a four-group source, so this is a shortlisted
+alternative, **not two recovered original groups or verified lyric corrections**.
+Kyouran Hey Kids!! shows the opposite direction: its existing text passes phrase
+coherence, while the changed Google text does not. たぶん passes in both versions.
+
+The Japanese verifier cannot establish English correctness; unsupported English
+and mixed-language cues remain unknown. Google supplied orthographic text, not
+an explicit sung-kana transcript, so candidate kana here comes from the existing
+converter and does not prove an unusual sung reading. This comparison uses TIFA
+on the original mix, not the full shipped Experimental separation/MMS/repair
+recipe. It provides no new correct-boundary rate or end-to-end accuracy claim.
+
+On M2 Pro /16 GiB, the final combined TIFA alignment calls took **16.68 seconds**,
+excluding asset validation/model initialization. Alternating existing/candidate
+calls share caches, so their individual timings are not a fair speed comparison.
+Peak process RSS was approximately **706 MiB** for alignment and **563 MiB** for
+independent verification. Verification wall time was not recorded. A first verify
+attempt exposed a missing vendored phoneme import; after fixing it, the repeated
+TIFA pass reproduced all twenty earlier unit arrays exactly. The failed run and
+repeat are not additional independent evidence or additional recordings.
+
+The hybrid is technically workable, but this short-crop candidate batch does not
+justify wholesale replacement. No candidate was applied to the app. A useful next
+trial, when API quota permits, should give the recognizer more song context and
+separately request sung kana before checking any disputed readings. Preserve this
+small-crop result, finish the negative controls and require evidence before
+promoting a recipe. This next trial needs cached audio/API access, not Spotify
+credential access.
+
+The research command closes proposals before acoustic observation:
+
+```sh
+python3 scripts/hybrid_google_timing.py prepare \
+  --pilot /private/tmp/romaji-google-pilot \
+  --captures /private/tmp/romaji-google-song-capture \
+  --romanizer /path/to/RomajiRomanizer \
+  --output /private/tmp/romaji-google-hybrid
+
+.venv-experimental/bin/python scripts/hybrid_google_timing.py align \
+  --output /private/tmp/romaji-google-hybrid \
+  --tifa-model /path/to/verified-tifa-model
+
+.venv-experimental/bin/python scripts/hybrid_google_timing.py verify \
+  --output /private/tmp/romaji-google-hybrid \
+  --refinement-model /path/to/writable-private-refinement-cache
+```
+
+The final cache contains the existing `singing/model_safetensors.zip`; the helper
+verifies its extracted files against pinned hashes. Metal access is required for
+the local models. Two offline regression tests cover candidate line handling and
+rejection of changed original owner spans, text, readings, group counts or converter
+signatures. Recordings, proposals, source snapshots and model observations stay
+private; models never select a source spelling by retained coverage alone.
+
+## Collector reuse and offline checks
 
 The collector accepts a frozen audio-only manifest:
 
