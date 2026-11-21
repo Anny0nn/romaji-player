@@ -68,11 +68,28 @@ def main():
         }
         geminated = {**request, "request_id": 5, "raw_line": "桜ぱっと飛ぶ"}
         leading_empty = {**request, "request_id": 6, "raw_line": "〜〜空"}
+        source_ruby = {
+            **request,
+            "request_id": 7,
+            "raw_line": "青い地球にありがとう",
+            "supplied_readings": [
+                {"raw_span": [6, 12], "expected_text": "地球", "hiragana": "ほし"}
+            ],
+        }
         process = run(
-            [hello, request, sung_reading, departure, tabi, geminated, leading_empty]
+            [
+                hello,
+                request,
+                sung_reading,
+                departure,
+                tabi,
+                geminated,
+                leading_empty,
+                source_ruby,
+            ]
         )
         responses = [json.loads(line) for line in process.stdout.splitlines()]
-        assert not process.stderr and len(responses) == 7
+        assert not process.stderr and len(responses) == 8
         assert responses[1]["romaji"] == "ga tabeta o"
         assert responses[1]["hiragana"] == "が たべた を"
         assert responses[1]["katakana"] == "ガ タベタ ヲ"
@@ -112,6 +129,12 @@ def main():
         assert song["romaji"].encode()[start:end].decode() == "patto"
         start, end = word["hiragana_span"]
         assert song["hiragana"].encode()[start:end].decode() == "ぱっと"
+        source = responses[7]
+        assert source["supplied_readings_version"] == 1
+        word = next(w for w in source["words"] if w["raw_span"] == [6, 12])
+        assert word["reading"]["written"] == "ほし"
+        assert word["reading"]["romaji"] == "hoshi"
+        assert word["reading"]["pronunciation"] is None
         song = responses[6]
         word = song["words"][0]
         assert len(song["words"]) == 1 and word["raw_span"] == [6, 9]

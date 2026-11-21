@@ -18,12 +18,22 @@ pub struct Occurrence {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SuppliedReading {
+    pub raw_line: String,
+    pub raw_span: [usize; 2],
+    pub expected_text: String,
+    pub hiragana: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Source {
     pub imported: bool,
     pub provider: String,
     pub candidate: String,
     pub payload: String,
     pub warnings: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub readings: Vec<SuppliedReading>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub derivation: Option<Derivation>,
 }
@@ -123,6 +133,18 @@ impl Snapshot {
         Ok(snapshot)
     }
 
+    pub fn readings_for(&self, occurrence: usize) -> Vec<SuppliedReading> {
+        let Some(line) = self.occurrences.get(occurrence) else {
+            return Vec::new();
+        };
+        self.source
+            .readings
+            .iter()
+            .filter(|r| r.raw_line == line.raw_line)
+            .cloned()
+            .collect()
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.text_fingerprint != text_fingerprint(&self.occurrences)
             || self.id != digest(&serde_json::to_vec(&(&self.source, &self.occurrences))?)
@@ -130,6 +152,29 @@ impl Snapshot {
             || self.source.payload.len() > 1_048_576
         {
             bail!("invalid lyric snapshot identity or size");
+        }
+        if self.source.readings.len() > 20_000 {
+            bail!("too many supplied readings");
+        }
+        let lines: std::collections::HashSet<_> = self
+            .occurrences
+            .iter()
+            .map(|line| line.raw_line.as_str())
+            .collect();
+        let mut readings: Vec<_> = self.source.readings.iter().collect();
+        readings.sort_unstable_by_key(|r| (&r.raw_line, r.raw_span));
+        for pair in readings.windows(2) {
+            if pair[0].raw_line == pair[1].raw_line && pair[0].raw_span[1] > pair[1].raw_span[0] {
+                bail!("overlapping supplied readings");
+            }
+        }
+        for reading in readings {
+            if span(&reading.raw_line, &reading.raw_span) != Some(reading.expected_text.as_str())
+                || !super::conversion::valid_hiragana(&reading.hiragana)
+                || !lines.contains(reading.raw_line.as_str())
+            {
+                bail!("invalid supplied source reading");
+            }
         }
         for (ordinal, line) in self.occurrences.iter().enumerate() {
             if line.id != ordinal || line.raw_line.len() > 8_192 || line.raw_line.contains('\n') {
@@ -955,6 +1000,7 @@ mod tests {
                 expected_conversion_signature: helper.signature.clone(),
                 raw_line: current.snapshot.occurrences[occurrence].raw_line.clone(),
                 overrides: current.overrides(TRACK, occurrence),
+                supplied_readings: current.snapshot.readings_for(occurrence),
             })
             .unwrap()
     }

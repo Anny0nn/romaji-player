@@ -458,6 +458,7 @@ pub struct App {
     pub softened_covers: crate::images::SoftenedCovers,
     /// The track the lyrics below are for.
     pub lyrics_uri: Option<String>,
+    lyrics_generation: u64,
     /// `Loaded(None)` when no lyrics are available.
     pub lyrics: Loadable<Option<crate::lyrics::Lyrics>>,
     pub study: crate::study::controller::Study,
@@ -927,6 +928,7 @@ impl App {
             lyrics_backdrop: Default::default(),
             softened_covers: Default::default(),
             lyrics_uri: None,
+            lyrics_generation: 0,
             lyrics: Loadable::NotLoaded,
             study: Default::default(),
             lyrics_following: true,
@@ -1982,8 +1984,14 @@ impl App {
                     }
                     Err(error) => log::warn!("rootlist unavailable: {error}"),
                 },
-                Event::Lyrics { uri, result } => {
-                    if self.lyrics_uri.as_deref() == Some(uri.as_str()) {
+                Event::Lyrics {
+                    uri,
+                    generation,
+                    result,
+                } => {
+                    if self.lyrics_uri.as_deref() == Some(uri.as_str())
+                        && self.lyrics_generation == generation
+                    {
                         if let Ok(Some(lyrics)) = &result
                             && let Some(snapshot) = &lyrics.source_snapshot
                             && let Err(error) = self.study.offer(snapshot.clone())
@@ -2942,24 +2950,30 @@ impl App {
     /// Asks for the playing track's lyrics unless they are here or on the
     /// way. Podcasts have no lyrics to ask for.
     pub fn request_lyrics(&mut self) {
-        self.request_lyrics_with(false);
+        self.request_lyrics_with(false, false);
     }
 
     pub fn refresh_lyrics(&mut self) {
-        self.request_lyrics_with(true);
+        self.request_lyrics_with(true, false);
     }
 
-    fn request_lyrics_with(&mut self, refresh: bool) {
+    pub fn find_karaoke_lyrics(&mut self, refresh: bool) {
+        self.request_lyrics_with(refresh, true);
+    }
+
+    fn request_lyrics_with(&mut self, refresh: bool, karaoke: bool) {
         let Some(now) = self.now_playing() else {
             return;
         };
         self.study.activate(now.uri.strip_prefix("spotify:track:"));
         if !refresh
+            && !karaoke
             && self.lyrics_uri.as_deref() == Some(now.uri.as_str())
             && !matches!(self.lyrics, Loadable::NotLoaded | Loadable::Failed(_))
         {
             return;
         }
+        self.lyrics_generation = self.lyrics_generation.wrapping_add(1);
         self.lyrics_uri = Some(now.uri.clone());
         self.lyrics_following = true;
         self.lyrics_line_shown = None;
@@ -2970,7 +2984,9 @@ impl App {
         self.lyrics = Loadable::Loading;
         self.backend.send(Command::Lyrics(Box::new(LyricsRequest {
             uri: now.uri,
+            generation: self.lyrics_generation,
             refresh,
+            karaoke,
             query: crate::lyrics::Query {
                 artist: now
                     .artists
@@ -16968,6 +16984,158 @@ mod tests {
         app
     }
 
+    #[test]
+    fn base_lyrics_picker_browses_cancels_and_applies_in_one_place() {
+        use crate::study::{
+            snapshot::{Document, Snapshot},
+            source,
+        };
+        let mut app = test_app("base-lyrics-picker");
+        crate::demo::populate(&mut app);
+        app.show_lyrics_panel = true;
+        app.backend.set_offline(true);
+        const TRACK: &str = "0ODOmKxO0CKv4DzoP3HHIC";
+        if let Some(PlayableItem::Track(track)) = &mut app.remote.as_mut().unwrap().state.item {
+            track.id = Some(TRACK.into());
+            track.uri = format!("spotify:track:{TRACK}");
+        }
+        let make = |provider: &str, text: &str| {
+            let mut snapshot = source::import(text, "fixture").unwrap();
+            snapshot.source.provider = provider.into();
+            Snapshot::new(snapshot.source, snapshot.occurrences).unwrap()
+        };
+        let original = make("Spotify", "[00:01]空");
+        let candidate = make("QQ Music", "[00:02]<00:02>花<00:03>");
+        app.study.activate(Some(TRACK));
+        app.study.document = Some(Document::new(TRACK, original.clone()).unwrap());
+        app.study.busy = false;
+        app.lyrics = Loadable::Loaded(Some(crate::lyrics::Lyrics {
+            candidates: vec![candidate.clone()],
+            ..Default::default()
+        }));
+        let ctx = egui::Context::default();
+        app.attach(&ctx);
+        fn draw(
+            ctx: &egui::Context,
+            app: &mut App,
+            events: Vec<egui::Event>,
+        ) -> Vec<(String, egui::Rect)> {
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(1200.0, 800.0),
+                    )),
+                    events,
+                    ..Default::default()
+                },
+                |ui| app.frame_ui(ui),
+            );
+            output.textures_delta.clear();
+            output
+                .shapes
+                .iter()
+                .filter_map(|shape| match &shape.shape {
+                    egui::Shape::Text(text) => Some((
+                        text.galley.job.text.clone(),
+                        text.galley.rect.translate(text.pos.to_vec2()),
+                    )),
+                    _ => None,
+                })
+                .collect()
+        }
+        fn click(ctx: &egui::Context, app: &mut App, label: &str) {
+            for _ in 0..2 {
+                draw(ctx, app, vec![]);
+            }
+            let text = draw(ctx, app, vec![]);
+            let position = text
+                .iter()
+                .find(|(name, _)| name == label)
+                .unwrap_or_else(|| panic!("missing button {label}: {:?}", text))
+                .1
+                .center();
+            for pressed in [true, false] {
+                draw(
+                    ctx,
+                    app,
+                    vec![
+                        egui::Event::PointerMoved(position),
+                        egui::Event::PointerButton {
+                            pos: position,
+                            button: egui::PointerButton::Primary,
+                            pressed,
+                            modifiers: egui::Modifiers::default(),
+                        },
+                    ],
+                );
+            }
+        }
+        click(&ctx, &mut app, "Choose base lyrics…");
+        click(&ctx, &mut app, "QQ Music");
+        assert_eq!(
+            app.study.document.as_ref().unwrap().current().snapshot.id,
+            original.id
+        );
+        click(&ctx, &mut app, "Cancel");
+        assert!(!app.study.choosing_lyrics);
+        assert_eq!(
+            app.study.document.as_ref().unwrap().current().snapshot.id,
+            original.id
+        );
+        click(&ctx, &mut app, "Choose base lyrics…");
+        click(&ctx, &mut app, "QQ Music");
+        click(&ctx, &mut app, "Use as base lyrics");
+        assert_eq!(
+            app.study.document.as_ref().unwrap().current().snapshot.id,
+            candidate.id
+        );
+        assert!(!app.study.choosing_lyrics);
+        assert_eq!(app.study.document.as_ref().unwrap().bundles.len(), 2);
+        let labels = draw(&ctx, &mut app, vec![]);
+        assert!(labels.iter().any(|(s, _)| s == "Base lyrics:"));
+        assert!(labels.iter().any(|(s, _)| s == "QQ Music"));
+        app.backend.shutdown();
+    }
+
+    #[test]
+    fn karaoke_candidates_preserve_saved_lyrics_and_ignore_older_same_song_requests() {
+        use crate::study::{snapshot::Document, source};
+        let mut app = test_app("karaoke-candidates");
+        const TRACK: &str = "0ODOmKxO0CKv4DzoP3HHIC";
+        let uri = format!("spotify:track:{TRACK}");
+        let saved = source::import("[00:01]空", "saved").unwrap();
+        let id = saved.id.clone();
+        app.study.document = Some(Document::new(TRACK, saved).unwrap());
+        app.lyrics_uri = Some(uri.clone());
+        app.lyrics_generation = 2;
+        app.lyrics = Loadable::Loading;
+        app.handle_backend_events(vec![Event::Lyrics {
+            uri: uri.clone(),
+            generation: 1,
+            result: Err("stale failure".into()),
+        }]);
+        assert!(matches!(app.lyrics, Loadable::Loading));
+        let candidate = source::import("[00:02]花", "candidate").unwrap();
+        app.handle_backend_events(vec![Event::Lyrics {
+            uri,
+            generation: 2,
+            result: Ok(Some(crate::lyrics::Lyrics {
+                lines: vec![],
+                synced: true,
+                instrumental: false,
+                source_snapshot: None,
+                candidates: vec![candidate],
+            })),
+        }]);
+        assert_eq!(
+            app.study.document.as_ref().unwrap().current().snapshot.id,
+            id
+        );
+        assert!(app.study.document.as_ref().unwrap().candidate.is_none());
+        assert!(matches!(&app.lyrics,Loadable::Loaded(Some(l)) if l.candidates.len()==1));
+    }
+
     /// Two lookups of one adder can overlap; the one that found nothing
     /// must not turn a shown name back into the bare id.
     #[test]
@@ -17038,6 +17206,7 @@ mod tests {
                 expected_conversion_signature: helper.signature.clone(),
                 raw_line: line.raw_line.clone(),
                 overrides: Vec::new(),
+                supplied_readings: Vec::new(),
             };
             app.study
                 .converted

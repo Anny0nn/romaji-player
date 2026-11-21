@@ -66,6 +66,8 @@ pub struct Study {
     pub link: String,
     pub show_original: bool,
     pub review_open: bool,
+    pub choosing_lyrics: bool,
+    pub lyric_choice: Option<Snapshot>,
     pub alignment: Option<super::alignment::Job>,
     pub alignment_message: Option<String>,
 }
@@ -126,6 +128,7 @@ impl Study {
         self.undo = None;
         self.error = None;
         self.alignment_message = None;
+        self.close_lyrics_picker();
         if let Some(track) = self.track.clone() {
             self.queue(Work::Load {
                 track,
@@ -137,6 +140,48 @@ impl Study {
             self.busy = false;
         }
     }
+    pub fn open_lyrics_picker(&mut self) {
+        self.choosing_lyrics = true;
+        self.lyric_choice = self.document.as_ref().map(|document| {
+            document
+                .candidate
+                .as_ref()
+                .unwrap_or(&document.current().snapshot)
+                .clone()
+        });
+    }
+    pub fn close_lyrics_picker(&mut self) {
+        self.choosing_lyrics = false;
+        self.lyric_choice = None;
+    }
+    pub fn use_base_lyrics(&mut self) -> Result<()> {
+        if self.alignment.is_some() || self.busy {
+            return Err(anyhow!("Wait for the current lyric operation to finish."));
+        }
+        let snapshot = self
+            .lyric_choice
+            .clone()
+            .ok_or_else(|| anyhow!("Choose base lyrics first."))?;
+        snapshot.validate()?;
+        if let Some(document) = &mut self.document {
+            if document.current().snapshot.id != snapshot.id {
+                document.offer(snapshot)?;
+                document.use_candidate()?;
+            } else {
+                document.candidate = None;
+            }
+            self.selected = None;
+            self.selected_source = None;
+            self.preview = None;
+            self.undo = None;
+            self.alignment_message = None;
+            self.persist();
+        } else {
+            self.offer(snapshot)?;
+        }
+        self.close_lyrics_picker();
+        Ok(())
+    }
     pub fn offer(&mut self, snapshot: Snapshot) -> Result<()> {
         let track = self
             .track
@@ -146,7 +191,9 @@ impl Study {
             if document.current().snapshot.id == snapshot.id {
                 return Ok(());
             }
-            document.offer(snapshot)?;
+            document.offer(snapshot.clone())?;
+            self.choosing_lyrics = true;
+            self.lyric_choice = Some(snapshot);
             self.persist();
         } else {
             self.queue(Work::Load {
@@ -220,6 +267,16 @@ impl Study {
             }
             match message.reply {
                 Reply::Document(document) => {
+                    let previous = self
+                        .document
+                        .as_ref()
+                        .and_then(|d| d.candidate.as_ref())
+                        .map(|s| &s.id);
+                    let offered = document.as_ref().and_then(|d| d.candidate.as_ref());
+                    if offered.is_some_and(|s| Some(&s.id) != previous) {
+                        self.choosing_lyrics = true;
+                        self.lyric_choice = offered.cloned();
+                    }
                     self.document = document;
                     self.converted.clear();
                 }
@@ -254,6 +311,11 @@ impl Study {
         &mut self,
         method: super::alignment::Method,
     ) -> Result<super::alignment::Request> {
+        if self.choosing_lyrics {
+            return Err(anyhow!(
+                "Apply your base lyric selection or close the picker before timing."
+            ));
+        }
         if self.alignment.is_some() || self.busy {
             return Err(anyhow!("Wait for the current lyric operation to finish."));
         }
@@ -269,7 +331,7 @@ impl Study {
             .any(|line| line.start_ms.is_some() && !line.raw_line.trim().is_empty())
         {
             return Err(anyhow!(
-                "Automatic timing needs line-synced lyrics. Try Refresh."
+                "The base lyrics have no line timing. Choose line-timed or karaoke lyrics first."
             ));
         }
         let converted: Vec<_> = self
@@ -799,6 +861,7 @@ fn worker_with(
                         expected_conversion_signature: converter.signature.clone(),
                         raw_line: line.raw_line.clone(),
                         overrides: document.current().overrides(&document.track_id, line.id),
+                        supplied_readings: document.current().snapshot.readings_for(line.id),
                     };
                     match converter.convert(&request) {
                         Ok(output) => {
@@ -856,6 +919,7 @@ mod tests {
                 expected_conversion_signature: helper.signature.clone(),
                 raw_line: line.raw_line.clone(),
                 overrides: document.current().overrides(&document.track_id, line.id),
+                supplied_readings: document.current().snapshot.readings_for(line.id),
             };
             study
                 .converted
@@ -874,6 +938,88 @@ mod tests {
         convert(&mut study);
         study
     }
+    #[test]
+    fn base_picker_preview_cancel_and_apply_preserve_versions_and_target_both_timing_methods() {
+        use super::super::alignment::Method;
+        let mut study = fixture();
+        study.select(0, 0).unwrap();
+        study.editor.reading = "saved reading".into();
+        study.save_reading().unwrap();
+        let previous = study.document.clone().unwrap();
+        study.pending = None;
+        study.busy = false;
+        let base = import("[00:02]青い空", "new base").unwrap();
+        study.open_lyrics_picker();
+        study.lyric_choice = Some(base.clone());
+        assert!(
+            study
+                .alignment_request(Method::Tifa)
+                .err()
+                .is_some_and(|error| error.to_string().contains("base lyric selection"))
+        );
+        study.close_lyrics_picker();
+        assert_eq!(study.document.as_ref().unwrap(), &previous);
+        study.open_lyrics_picker();
+        study.lyric_choice = Some(base.clone());
+        study.use_base_lyrics().unwrap();
+        assert!(!study.choosing_lyrics);
+        assert!(study.lyric_choice.is_none());
+        assert_eq!(
+            study.document.as_ref().unwrap().current().snapshot.id,
+            base.id
+        );
+        assert!(
+            study
+                .document
+                .as_ref()
+                .unwrap()
+                .bundles
+                .contains(previous.current())
+        );
+        assert!(
+            study.output(0).is_none(),
+            "old conversion cannot label the new base"
+        );
+        study.pending = None;
+        study.busy = false;
+        convert(&mut study);
+        for method in [Method::Tifa, Method::Experimental] {
+            let request = study.alignment_request(method).unwrap();
+            assert_eq!(request.source, base);
+            assert_eq!(request.converted.len(), 1);
+            assert_eq!(request.converted[0].snapshot_id, base.id);
+            study.open_lyrics_picker();
+            study.lyric_choice = Some(previous.current().snapshot.clone());
+            assert!(
+                study.use_base_lyrics().is_err(),
+                "changing a running job's base is blocked"
+            );
+            assert_eq!(
+                study.document.as_ref().unwrap().current().snapshot.id,
+                base.id
+            );
+            study.alignment = None;
+            study.close_lyrics_picker();
+        }
+        study.open_lyrics_picker();
+        study.lyric_choice = Some(previous.current().snapshot.clone());
+        study.use_base_lyrics().unwrap();
+        assert_eq!(
+            study.document.as_ref().unwrap().current(),
+            previous.current()
+        );
+    }
+
+    #[test]
+    fn song_change_discards_an_unapplied_lyric_choice() {
+        let mut study = fixture();
+        study.open_lyrics_picker();
+        study.lyric_choice = Some(import("[00:02]空", "preview").unwrap());
+        study.activate(Some("1111111111111111111111"));
+        assert!(!study.choosing_lyrics);
+        assert!(study.lyric_choice.is_none());
+    }
+
     #[test]
     fn completed_timing_after_an_edit_or_delay_change_preserves_current_state_and_requests_retry() {
         use super::super::alignment::{Generated, Method, Status};

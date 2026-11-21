@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use super::conversion::{Response, span};
-use super::snapshot::{Snapshot, valid_track};
+use super::snapshot::{Occurrence, Snapshot, valid_track};
 use super::timing::{Fragment, Interval};
 
 pub const MODEL_SHA: &str = "6da6832cd2cb981aae1ccc2d9330f8f7c085ce7977d1eb13bff63531d038a88b";
@@ -768,19 +768,18 @@ fn infer_with_stereo(
             if !interval.valid() {
                 continue;
             }
-            occurrence
-                .fragments
-                .retain(|old| old.raw_span[0] >= range[1] || old.raw_span[1] <= range[0]);
-            occurrence.fragments.push(Fragment {
-                raw_span: range,
+            if insert_timing(
+                occurrence,
+                range,
                 interval,
-                source: format!(
+                format!(
                     "alignment:{}:{}",
                     request.job.method.engine(),
                     request.job.method.fingerprint()
                 ),
-            });
-            timed_words += 1;
+            ) {
+                timed_words += 1;
+            }
         }
     }
     if seen.len() != crop_list.len() || timed_words == 0 {
@@ -810,6 +809,91 @@ fn infer_with_stereo(
         total_words,
         snapshot,
     })
+}
+
+/// QQ words with complete supplied clocks keep those clocks. New model words
+/// cannot overlap a disjoint provider word's observed interval.
+fn insert_timing(
+    line: &mut Occurrence,
+    range: [usize; 2],
+    interval: Interval,
+    source: String,
+) -> bool {
+    let supplied: Vec<_> = line
+        .fragments
+        .iter()
+        .filter(|f| f.source == "QQ Music QRC")
+        .cloned()
+        .collect();
+    if super::timing::WordTiming::supplied(range, &supplied).is_some() {
+        return true;
+    }
+    if supplied.iter().any(|f| {
+        (f.raw_span[1] <= range[0] || range[1] <= f.raw_span[0])
+            && f.interval.start_ms < interval.end_ms.unwrap_or(i64::MAX)
+            && interval.start_ms < f.interval.end_ms.unwrap_or(i64::MAX)
+    }) {
+        return false;
+    }
+    line.fragments
+        .retain(|f| f.raw_span[0] >= range[1] || f.raw_span[1] <= range[0]);
+    line.fragments.push(Fragment {
+        raw_span: range,
+        interval,
+        source,
+    });
+    true
+}
+
+#[cfg(test)]
+mod supplied_tests {
+    use super::*;
+    #[test]
+    fn timing_fallback_preserves_qq_clocks_and_real_gaps() {
+        let original = Fragment {
+            raw_span: [0, 3],
+            interval: Interval {
+                start_ms: 100,
+                end_ms: Some(200),
+            },
+            source: "QQ Music QRC".into(),
+        };
+        let mut line = Occurrence {
+            id: 0,
+            raw_line: "空花月".into(),
+            start_ms: Some(100),
+            fragments: vec![original.clone()],
+        };
+        assert!(insert_timing(
+            &mut line,
+            [0, 3],
+            Interval {
+                start_ms: 900,
+                end_ms: Some(1000)
+            },
+            "alignment:tifa".into()
+        ));
+        assert_eq!(line.fragments, vec![original]);
+        assert!(insert_timing(
+            &mut line,
+            [3, 6],
+            Interval {
+                start_ms: 250,
+                end_ms: Some(350)
+            },
+            "alignment:tifa".into()
+        ));
+        assert!(!insert_timing(
+            &mut line,
+            [6, 9],
+            Interval {
+                start_ms: 150,
+                end_ms: Some(250)
+            },
+            "alignment:tifa".into()
+        ));
+        assert_eq!(line.fragments.len(), 2);
+    }
 }
 
 pub async fn run(
@@ -912,6 +996,7 @@ mod tests {
                         expected_conversion_signature: helper.signature.clone(),
                         raw_line: line.raw_line.clone(),
                         overrides: document.current().overrides(&document.track_id, line.id),
+                        supplied_readings: document.current().snapshot.readings_for(line.id),
                     })
                     .unwrap()
             })
@@ -1184,6 +1269,7 @@ mod tests {
                     expected_conversion_signature: helper.signature.clone(),
                     raw_line: line.raw_line.clone(),
                     overrides: document.current().overrides(track, line.id),
+                    supplied_readings: document.current().snapshot.readings_for(line.id),
                 })
                 .unwrap();
             assert!(output.pending_overrides.is_empty());
@@ -1294,6 +1380,7 @@ mod tests {
                         expected_conversion_signature: helper.signature.clone(),
                         raw_line: line.raw_line.clone(),
                         overrides: document.current().overrides(&document.track_id, line.id),
+                        supplied_readings: document.current().snapshot.readings_for(line.id),
                     })
                     .unwrap()
             })
@@ -1464,6 +1551,7 @@ mod tests {
                 expected_conversion_signature: helper.signature.clone(),
                 raw_line: source.occurrences[0].raw_line.clone(),
                 overrides: vec![],
+                supplied_readings: Vec::new(),
             })
             .unwrap();
         let request = Request {
@@ -1679,6 +1767,7 @@ mod tests {
                 expected_conversion_signature: helper.signature.clone(),
                 raw_line: source.occurrences[0].raw_line.clone(),
                 overrides: vec![],
+                supplied_readings: Vec::new(),
             })
             .unwrap();
         let targets = word_targets(&source.occurrences[0].raw_line, &converted);

@@ -6,6 +6,7 @@ import json
 import re
 import sys
 import unicodedata
+from itertools import pairwise
 from pathlib import Path
 
 import cutlet
@@ -299,6 +300,49 @@ class Converter:
                         word["pronunciation"] = None
                         word["reading_origin"] = "song"
 
+        source_readings = request.get("supplied_readings", [])
+        if not isinstance(source_readings, list) or len(source_readings) > 2000:
+            raise ValueError("invalid_supplied_readings")
+        for reading in source_readings:
+            if (
+                not isinstance(reading, dict)
+                or reading.get("raw_line", raw) != raw
+                or slice_bytes(raw, reading["raw_span"]) != reading["expected_text"]
+                or not isinstance(reading.get("hiragana"), str)
+                or len(reading["hiragana"]) > 512
+                or not re.fullmatch(r"[ぁ-ゖー]+(?: [ぁ-ゖー]+)*", reading["hiragana"])
+            ):
+                raise ValueError("invalid_supplied_reading")
+        ordered = sorted(source_readings, key=lambda r: r["raw_span"])
+        if any(a["raw_span"][1] > b["raw_span"][0] for a, b in pairwise(ordered)):
+            raise ValueError("overlapping_supplied_readings")
+        for word in words:
+            span = word["raw_span"]
+            if (
+                span is None
+                or word["override_id"] is not None
+                or word.get("reading_origin") == "song"
+            ):
+                continue
+            matches = [
+                r for r in ordered if r["raw_span"][0] < span[1] and span[0] < r["raw_span"][1]
+            ]
+            if not matches or any(
+                not span[0] <= r["raw_span"][0] < r["raw_span"][1] <= span[1] for r in matches
+            ):
+                continue
+            kana, at = "", span[0]
+            for reading in matches:
+                kana += raw.encode()[at : reading["raw_span"][0]].decode() + reading["hiragana"]
+                at = reading["raw_span"][1]
+            kana += raw.encode()[at : span[1]].decode()
+            kana = jaconv.kata2hira(kana)
+            if re.fullmatch(r"[ぁ-ゖー]+(?: [ぁ-ゖー]+)*", kana):
+                word["hiragana"] = kana
+                word["replacement"] = self.kana_romaji(kana)
+                word["pronunciation"] = None
+                word["reading_origin"] = "source"
+
         output, cursor = "", 0
         data = romaji.encode("utf-8")
         for word in words:
@@ -350,6 +394,7 @@ class Converter:
             "hiragana": hiragana,
             "katakana": kata,
             "representation": REPRESENTATION,
+            "supplied_readings_version": 1,
             "words": words,
             "boundary_associations": boundaries,
             "applied_override_ids": applied,

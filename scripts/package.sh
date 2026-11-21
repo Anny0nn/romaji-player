@@ -17,6 +17,7 @@ cp -R dist/RomajiTIFA dist/RomajiPlayer.app/Contents/Resources/
 cp -R dist/RomajiExperimental dist/RomajiPlayer.app/Contents/Resources/
 mkdir -p dist/RomajiPlayer.app/Contents/Resources/Notices
 cp LICENSE dist/RomajiPlayer.app/Contents/Resources/Notices/Spotifast-MIT.txt
+cp assets/licenses/QQDecoder-MIT.txt dist/RomajiPlayer.app/Contents/Resources/Notices/QQDecoder-MIT.txt
 cp .cache/aligner-source/qwen3-asr.cpp/LICENSE dist/RomajiPlayer.app/Contents/Resources/Notices/QwenCPP-MIT.txt
 cp .cache/aligner-source/qwen3-asr.cpp/ggml/LICENSE dist/RomajiPlayer.app/Contents/Resources/Notices/GGML-MIT.txt
 cp aligner/MODEL-LICENSE.txt dist/RomajiPlayer.app/Contents/Resources/Notices/QwenModel-Apache-2.0.txt

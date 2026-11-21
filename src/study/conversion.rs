@@ -66,7 +66,16 @@ pub struct Request {
     pub expected_conversion_signature: String,
     pub raw_line: String,
     pub overrides: Vec<Override>,
+    #[serde(serialize_with = "serialize_supplied_readings")]
+    pub supplied_readings: Vec<super::snapshot::SuppliedReading>,
 }
+fn serialize_supplied_readings<S: serde::Serializer>(
+    readings: &[super::snapshot::SuppliedReading],
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    readings.iter().map(|r|json!({"raw_span":r.raw_span,"expected_text":r.expected_text,"hiragana":r.hiragana})).collect::<Vec<_>>().serialize(serializer)
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct Word {
     pub raw_span: Option<[usize; 2]>,
@@ -108,6 +117,8 @@ pub struct Response {
     pub pending_overrides: Vec<Pending>,
     #[serde(default)]
     pub reading_candidates: Vec<CandidateGroup>,
+    #[serde(default)]
+    pub supplied_readings_version: Option<u32>,
 }
 pub fn span<'a>(text: &'a str, range: &[usize; 2]) -> Option<&'a str> {
     (range[0] < range[1])
@@ -157,6 +168,9 @@ impl Response {
             .collect()
     }
     pub fn validate(&self, request: &Request) -> Result<()> {
+        if !request.supplied_readings.is_empty() && self.supplied_readings_version != Some(1) {
+            bail!("Update the romanizer helper to use supplied source readings.");
+        }
         if self.protocol_version != PROTOCOL
             || request.protocol_version != PROTOCOL
             || self.representation != REPRESENTATION
@@ -480,8 +494,30 @@ mod tests {
             expected_conversion_signature: helper.signature.clone(),
             raw_line: "ｶﾞ 食べた を".into(),
             overrides: Vec::new(),
+            supplied_readings: Vec::new(),
         }
     }
+    #[test]
+    fn supplied_readings_require_the_helpers_explicit_contract() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut helper = Romanizer::start(
+            Command::new(root.join(".venv/bin/python")).arg(root.join("romanizer/romanizer.py")),
+        )
+        .unwrap();
+        let mut request = fixture(&helper);
+        request
+            .supplied_readings
+            .push(super::super::snapshot::SuppliedReading {
+                raw_line: request.raw_line.clone(),
+                raw_span: [7, 16],
+                expected_text: "食べた".into(),
+                hiragana: "たべた".into(),
+            });
+        let mut reply = helper.convert(&request).unwrap();
+        reply.supplied_readings_version = None;
+        assert!(reply.validate(&request).is_err());
+    }
+
     #[test]
     fn real_helper_preserves_raw_offsets_and_joined_words() {
         let mut helper = helper();

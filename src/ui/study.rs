@@ -86,67 +86,14 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, fullscreen: bool) {
                     }
                 }
             });
-            ui.horizontal_wrapped(|ui| {
-                if ui
-                    .add_enabled(now.is_some(), egui::Button::new("Import lyrics…"))
-                    .clicked()
-                    && let Some(path) = rfd::FileDialog::new()
-                        .set_title("Import UTF-8 lyrics")
-                        .add_filter("Lyrics", &["lrc", "txt"])
-                        .pick_file()
-                {
-                    app.study.import(path);
-                }
-                ui.checkbox(&mut app.study.show_original, "Original Japanese");
-                if ui
-                    .add_enabled(now.is_some(), egui::Button::new("Refresh"))
-                    .clicked()
-                {
-                    app.refresh_lyrics();
-                }
-                if app.study.busy {
-                    ui.spinner();
-                }
-            });
-            let alternatives = match &app.lyrics {
-                Loadable::Loaded(Some(lyrics)) => lyrics.candidates.clone(),
-                _ => Vec::new(),
-            };
-            if !alternatives.is_empty() {
-                egui::CollapsingHeader::new("Choose the matching recording’s lyrics")
-                    .default_open(app.study.document.is_none())
-                    .show(ui, |ui| {
-                        ui.small("Several recordings match. Preview and select the one you hear.");
-                        for source in alternatives {
-                            egui::CollapsingHeader::new(&source.source.candidate).show(ui, |ui| {
-                                for line in source.occurrences.iter().take(5) {
-                                    ui.label(&line.raw_line);
-                                }
-                                if ui.button("Use / preview these lyrics").clicked() {
-                                    let result = app.study.offer(source);
-                                    report(app, result);
-                                }
-                            });
-                        }
-                    });
-            }
+            ui.checkbox(&mut app.study.show_original, "Original Japanese");
             if app.study.document.is_some() {
                 delay_controls(app, ui);
-                candidate(app, ui);
                 let document = app.study.document.as_ref().unwrap().clone();
                 let snapshot = &document.current().snapshot;
                 let converted: Vec<_> = app.study.converted.values().cloned().collect();
                 let review = document.needs_review(&converted);
                 ui.horizontal(|ui| {
-                    ui.label(format!(
-                        "{} · {}",
-                        snapshot.source.provider,
-                        if document.current().pinned {
-                            "saved locally"
-                        } else {
-                            "downloaded"
-                        }
-                    ));
                     if !review.is_empty()
                         && ui
                             .button(format!("Needs review ({})", review.len()))
@@ -196,6 +143,8 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, fullscreen: bool) {
                 }
             }
         });
+    base_lyrics_controls(app, ui, now.is_some());
+    lyrics_picker(app, ui);
     if app.study.document.is_none() {
         if app.study.alignment.is_some() {
             automatic_controls(app, ui);
@@ -264,7 +213,12 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, fullscreen: bool) {
                 let scripts = app.settings.lyric_mode.scripts();
                 let mut line_rect = None;
                 for &script in scripts {
-                    let font = theme::regular(size);
+                    let font = match script {
+                        crate::study::LyricMode::Hiragana | crate::study::LyricMode::Katakana => {
+                            theme::kana(size)
+                        }
+                        _ => theme::regular(size),
+                    };
                     let mut job = LayoutJob::default();
                     job.wrap.max_width = ui.available_width();
 
@@ -478,13 +432,20 @@ fn automatic_controls(app: &mut App, ui: &mut egui::Ui) {
             });
         }
     } else {
+        let line_timed = app.study.document.as_ref().is_some_and(|d| {
+            d.current()
+                .snapshot
+                .occurrences
+                .iter()
+                .any(|line| line.start_ms.is_some() && !line.raw_line.trim().is_empty())
+        });
         ui.horizontal_wrapped(|ui| {
             use crate::study::alignment::Method;
             for (method, label, help) in [
-                (Method::Tifa, "Time words · TIFA", "Original TIFA pipeline. About 151 MB on first use; results saved per song."),
+                (Method::Tifa, "Time words · TIFA", "Times the selected base lyrics, fills gaps in supplied timing, and saves the result."),
                 (Method::Experimental, "Time words · Experimental", "Checks sung readings, corrects supported alternatives, then times them. About 5.5 GB on first use; several minutes per song. Previous versions and your edits are kept. Listen to check accuracy."),
             ] {
-                if ui.add_enabled(!app.study.busy, egui::Button::new(label)).on_hover_text(help).clicked() {
+                if ui.add_enabled(!app.study.busy && line_timed && !app.study.choosing_lyrics, egui::Button::new(label)).on_hover_text(help).on_disabled_hover_text(if app.study.choosing_lyrics { "Apply your base lyric selection or close the picker before timing." } else if line_timed { "Wait for the current lyric operation to finish." } else { "Choose base lyrics with line timing before running automatic word timing." }).clicked() {
                     match app.study.alignment_request(method) {
                         Ok(request) => app.backend.send(crate::backend::Command::AlignLyrics(Box::new(request))),
                         Err(error) => app.study.alignment_message = Some(error.to_string()),
@@ -530,61 +491,151 @@ fn delay_controls(app: &mut App, ui: &mut egui::Ui) {
     }
 }
 
-fn candidate(app: &mut App, ui: &mut egui::Ui) {
-    let candidate = app
-        .study
-        .document
-        .as_ref()
-        .and_then(|document| document.candidate.clone());
-    if let Some(candidate) = candidate {
-        egui::CollapsingHeader::new("Preview other lyrics").show(ui, |ui| {
-            ui.label(format!("{} · {}", candidate.source.provider, candidate.source.candidate));
-            ui.small("Switching keeps the previous saved snapshot. Changed text may require reattaching edits.");
-            for line in candidate.occurrences.iter().take(6) { ui.label(&line.raw_line); }
-            for warning in &candidate.source.warnings { ui.small(warning); }
-            if candidate.source.imported { ui.small("LRC header offset is already applied: positive offset moves cues later."); }
-            ui.horizontal(|ui| {
-                if ui.button("Use these lyrics").clicked() {
-                    let result = app.study.document.as_mut().unwrap().use_candidate();
-                    if result.is_ok() { app.study.selected = None; app.study.persist(); app.lyrics_line_shown = None; }
-                    report(app, result);
-                }
-                if ui.button("Keep current lyrics").clicked() { app.study.document.as_mut().unwrap().candidate = None; app.study.persist(); }
-            });
+fn source_timing(snapshot: &crate::study::snapshot::Snapshot) -> &str {
+    if let Some(warning) = snapshot
+        .source
+        .warnings
+        .iter()
+        .find_map(|s| s.strip_prefix("Automatic word timing: "))
+    {
+        return warning;
+    }
+    if snapshot
+        .occurrences
+        .iter()
+        .any(|line| !line.fragments.is_empty())
+    {
+        "Word timing included"
+    } else if snapshot
+        .occurrences
+        .iter()
+        .any(|line| line.start_ms.is_some())
+    {
+        "Line timed · ready for TIFA"
+    } else {
+        "Text only · line timing needed for TIFA"
+    }
+}
+
+fn base_lyrics_controls(app: &mut App, ui: &mut egui::Ui, has_song: bool) {
+    ui.horizontal_wrapped(|ui| {
+        ui.strong("Base lyrics:");
+        ui.label(app.study.document.as_ref().map_or("None selected", |d| {
+            d.current().snapshot.source.provider.as_str()
+        }));
+        if ui
+            .add_enabled(has_song, egui::Button::new("Choose base lyrics…"))
+            .clicked()
+        {
+            app.study.open_lyrics_picker();
+        }
+    });
+    if let Some(document) = &app.study.document {
+        let bundle = document.current();
+        ui.small(if bundle.edits.iter().any(|edit| !edit.is_reading()) {
+            "Saved word timing"
+        } else {
+            source_timing(&bundle.snapshot)
         });
     }
-    let previous: Vec<_> = app
+}
+
+fn lyrics_picker(app: &mut App, ui: &mut egui::Ui) {
+    if !app.study.choosing_lyrics {
+        return;
+    }
+    let mut sources = Vec::new();
+    let current = app
         .study
         .document
         .as_ref()
-        .unwrap()
-        .bundles
-        .iter()
-        .enumerate()
-        .filter(|(index, _)| *index != app.study.document.as_ref().unwrap().active)
-        .map(|(_, bundle)| bundle.snapshot.clone())
-        .collect();
-    if !previous.is_empty() {
-        egui::CollapsingHeader::new("Saved lyric versions").show(ui, |ui| {
-            for snapshot in previous {
-                if ui
-                    .button(format!(
-                        "Preview {} · {}",
-                        snapshot.source.provider,
-                        snapshot
-                            .source
-                            .warnings
-                            .iter()
-                            .find(|w| w.starts_with("Automatic word timing:"))
-                            .unwrap_or(&snapshot.source.candidate)
-                    ))
-                    .clicked()
-                {
-                    let result = app.study.document.as_mut().unwrap().offer(snapshot);
-                    report(app, result);
+        .map(|d| d.current().snapshot.id.clone());
+    if let Some(document) = &app.study.document {
+        sources.push(document.current().snapshot.clone());
+        if let Some(candidate) = &document.candidate {
+            sources.push(candidate.clone());
+        }
+    }
+    if let Loadable::Loaded(Some(lyrics)) = &app.lyrics {
+        sources.extend(lyrics.candidates.clone());
+    }
+    if let Some(document) = &app.study.document {
+        sources.extend(document.bundles.iter().rev().map(|b| b.snapshot.clone()));
+    }
+    if let Some(choice) = &app.study.lyric_choice {
+        sources.push(choice.clone());
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    sources.retain(|s| seen.insert(s.id.clone()));
+    if app.study.lyric_choice.is_none() {
+        app.study.lyric_choice = sources.first().cloned();
+    }
+    let mut open = true;
+    let mut close = false;
+    egui::Window::new("Choose base lyrics")
+        .id(egui::Id::new("base-lyrics-picker"))
+        .open(&mut open)
+        .default_width(620.0)
+        .default_height(540.0)
+        .default_pos(egui::pos2((ui.ctx().content_rect().center().x - 310.0).max(12.0), 24.0))
+        .resizable(true)
+        .max_height((ui.ctx().content_rect().height() - 60.0).max(260.0))
+        .show(ui.ctx(), |ui| {
+            ui.label("These are the lyrics TIFA and Experimental will use. Select a source, check its text, then apply it.");
+            ui.horizontal_wrapped(|ui| {
+                let find = ui.add_enabled(!app.offline && !matches!(app.lyrics, Loadable::Loading), egui::Button::new("Find karaoke lyrics"));
+                if find.clicked() { app.find_karaoke_lyrics(false); }
+                find.context_menu(|ui| {
+                    if ui.button("Refresh stored karaoke lyrics").clicked() { app.find_karaoke_lyrics(true); ui.close(); }
+                });
+                if ui.add_enabled(!app.offline && !matches!(app.lyrics, Loadable::Loading), egui::Button::new("Refresh downloads")).clicked() { app.refresh_lyrics(); }
+                if ui.button("Import lyrics…").clicked()
+                    && let Some(path) = rfd::FileDialog::new().set_title("Import UTF-8 lyrics").add_filter("Lyrics", &["lrc", "txt"]).pick_file()
+                { app.study.import(path); }
+                if app.study.busy || matches!(app.lyrics, Loadable::Loading) { ui.spinner(); }
+            });
+            if let Loadable::Failed(error) = &app.lyrics { ui.small(error); }
+            ui.separator();
+            egui::ScrollArea::vertical().id_salt("lyric-source-choices").max_height((ui.ctx().content_rect().height() * 0.20).min(140.0)).show(ui, |ui| {
+                for source in &sources {
+                    let selected = app.study.lyric_choice.as_ref().is_some_and(|s| s.id == source.id);
+                    let label = format!("{}{}", source.source.provider, if current.as_ref() == Some(&source.id) { " · current base" } else { "" });
+                    if ui.radio(selected, label).clicked() { app.study.lyric_choice = Some(source.clone()); }
+                    ui.small(&source.source.candidate);
+                    let saved_timing = app.study.document.as_ref().is_some_and(|d| d.bundles.iter().any(|b| b.snapshot.id == source.id && b.edits.iter().any(|edit| !edit.is_reading())));
+                    ui.small(if saved_timing { "Saved word timing" } else { source_timing(source) });
+                    ui.add_space(6.0);
                 }
+            });
+            if let Some(choice) = app.study.lyric_choice.clone() {
+                ui.separator();
+                ui.strong("Lyrics preview");
+                egui::ScrollArea::vertical().id_salt(("base-lyrics-preview", &choice.id)).max_height((ui.ctx().content_rect().height() * 0.25).min(180.0)).show(ui, |ui| {
+                    for line in &choice.occurrences { ui.label(&line.raw_line); }
+                    if !choice.source.warnings.is_empty() {
+                        egui::CollapsingHeader::new("Source notes").id_salt(&choice.id).show(ui, |ui| {
+                            for warning in &choice.source.warnings { ui.small(warning); }
+                        });
+                    }
+                });
+                ui.separator();
+                ui.small("Previous lyric versions and edits stay saved.");
+                ui.horizontal(|ui| {
+                    if ui.add_enabled(!app.study.busy && app.study.alignment.is_none(), egui::Button::new("Use as base lyrics")).clicked() {
+                        let result = app.study.use_base_lyrics();
+                        if result.is_ok() { app.lyrics_line_shown = None; close = true; }
+                        report(app, result);
+                    }
+                    if ui.button("Cancel").clicked() { close = true; }
+                });
+                if app.study.alignment.is_some() { ui.small("Cancel the running timing job before changing the base lyrics."); }
+            } else {
+                ui.label("Find or import lyrics to choose a base.");
+                if ui.button("Close").clicked() { close = true; }
             }
         });
+    if !open || close {
+        app.study.close_lyrics_picker();
     }
 }
 

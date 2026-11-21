@@ -134,8 +134,28 @@ fn check_romaji_with(command: &mut Command) -> Result<serde_json::Value> {
         expected_conversion_signature: helper.signature.clone(),
         raw_line: "ｶﾞ 食べた を".into(),
         overrides: Vec::new(),
+        supplied_readings: Vec::new(),
     };
     let response = helper.convert(&request)?;
+    let source = Request {
+        request_id: 2,
+        raw_line: "青い地球にありがとう".into(),
+        supplied_readings: vec![crate::study::snapshot::SuppliedReading {
+            raw_line: "青い地球にありがとう".into(),
+            raw_span: [6, 12],
+            expected_text: "地球".into(),
+            hiragana: "ほし".into(),
+        }],
+        ..request
+    };
+    let checked = helper.convert(&source)?;
+    if !checked.words.iter().any(|word| {
+        word.raw_span == Some([6, 12])
+            && word.reading.written.as_deref() == Some("ほし")
+            && word.reading.pronunciation.is_none()
+    }) {
+        bail!("Bundled romanizer did not preserve the supplied source reading.");
+    }
     Ok(
         serde_json::json!({"romaji":response.romaji,"hiragana":response.hiragana,"katakana":response.katakana,"raw_spans":response.words.iter().map(|word|word.raw_span).collect::<Vec<_>>() }),
     )

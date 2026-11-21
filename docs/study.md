@@ -7,6 +7,68 @@ does not change a lyric version or saved timings.
 Line timing remains available when individual word timing is missing. Timed words use
 a distinct marker without changing font metrics or wrapping.
 
+Hiragana and katakana lyric rows use bundled **Klee One SemiBold**, including the
+hiragana row above romaji. Its き/ぎ and さ/ざ have separated lower strokes; Latin
+text retains Inter. The [upstream font](https://github.com/google/fonts/tree/main/ofl/kleeone)
+is distributed under SIL OFL 1.1; its license is included in app notices. Both Macs
+use the same font bytes rather than depending on installed Japanese faces.
+
+## Supplied karaoke lyrics
+
+The **Base lyrics** row above the timing buttons always shows the active source.
+**Choose base lyrics…** opens one picker containing downloaded candidates,
+pending imports and saved versions. Select a source to inspect its text, then
+click **Use as base lyrics** once. Browsing and Cancel leave the active base
+unchanged. Earlier versions and edits stay saved. The picker contains **Find
+karaoke lyrics**, **Refresh downloads**, and **Import lyrics…**; its search uses
+the local store first. **Find karaoke lyrics** looks for QQ candidates by title,
+artist and duration. It never silently replaces the active base.
+
+Each source reports text only, line timing, or included/saved word timing.
+Automatic timing uses the applied base and its word groups; display mode and
+preview selection never change the input. TIFA and Experimental are unavailable
+until the active base has line timing and conversion is ready. Changing the base
+is blocked while timing is running. Song changes clear the temporary selection.
+
+QQ supplies character/token timing and sometimes
+counted kana. Artist identity checks share an audited alias registry, initially
+Masayuki Suzuki / 鈴木雅之, verified by the artist's
+[management profile](https://www.japanmusic.jp/talent/masayuki-suzuki/).
+This works across that artist's songs; unknown aliases remain unmatched and
+covers, live/version title differences and duration drift remain rejected. QQ
+timing selection retains version qualifiers that ordinary lyric lookup strips.
+Matched alias evidence is retained in the source payload.
+UtaTen ruby supplements readings when automatic page discovery,
+page title/artist checks and exact written-text ownership succeed. Matching may
+ignore whitespace, but never substitutes spelling, chooses conflicting repeats
+or interpolates word clocks. Unsupported kana maps retain dictionary readings.
+
+Successful responses, search results, furigana pages and processed candidates are
+stored durably under the app's state directory in `supplied-lyrics/`. There is no
+automatic expiry. Normal lookups read this store first, including confirmed
+missing-song results. A matching-rule version change rechecks older candidates
+and misses using stored response bodies, retaining saved song versions and edits. In the picker, right-click **Find karaoke lyrics** → **Refresh stored
+karaoke lyrics** explicitly contacts the sources again; earlier response bodies
+remain stored. Responses are validated before storage; invalid older responses
+are retried. Network/service failures do not become permanent missing results.
+When optional furigana fails, usable QQ timing remains available; another normal
+lookup reuses stored QQ data and retries the missing readings. Empty furigana
+search pages remain retryable because they do not confirm that readings are absent.
+Ordinary cache cleanup leaves this store and saved song versions intact.
+Spotify/LRCLIB answers also no longer expire automatically; their existing
+**Refresh** action explicitly bypasses saved answers.
+
+Only supplied fragments that exactly tile a complete source word provide word
+timing; real gaps remain gaps. TIFA fills missing QQ words while preserving
+complete QQ word clocks and withholding new intervals that overlap a disjoint
+supplied word. The existing TIFA behavior for other sources is unchanged.
+Supplied readings are persisted with written UTF-8 anchors and applied to complete
+existing converter groups without regrouping. Saved, curated and acoustically
+checked readings take precedence; source readings clear stale dictionary
+pronunciation shadows. A helper version acknowledgement prevents an old bundled
+romanizer from silently ignoring this input. These are optional candidate sources,
+not an automatically selected or acoustically qualified replacement backend.
+
 ## Source identity and readings
 
 Rust retains immutable provider/import snapshots. Occurrences have recording-specific

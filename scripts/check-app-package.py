@@ -155,6 +155,8 @@ def main():
         }
         notices = contents / "Resources/Notices"
         assert (notices / "Spotifast-MIT.txt").is_file()
+        assert "Mihaly Ma" in (notices / "QQDecoder-MIT.txt").read_text()
+        assert (notices / "KleeOne-LICENSE.txt").is_file()
         assert (notices / "Python-LICENSE.txt").is_file()
         assert (notices / "QwenCPP-MIT.txt").is_file()
         assert (notices / "GGML-MIT.txt").is_file()
