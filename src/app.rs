@@ -16985,6 +16985,120 @@ mod tests {
     }
 
     #[test]
+    fn base_lyrics_picker_browses_cancels_and_applies_in_one_place() {
+        use crate::study::{
+            snapshot::{Document, Snapshot},
+            source,
+        };
+        let mut app = test_app("base-lyrics-picker");
+        crate::demo::populate(&mut app);
+        app.show_lyrics_panel = true;
+        app.backend.set_offline(true);
+        const TRACK: &str = "0ODOmKxO0CKv4DzoP3HHIC";
+        if let Some(PlayableItem::Track(track)) = &mut app.remote.as_mut().unwrap().state.item {
+            track.id = Some(TRACK.into());
+            track.uri = format!("spotify:track:{TRACK}");
+        }
+        let make = |provider: &str, text: &str| {
+            let mut snapshot = source::import(text, "fixture").unwrap();
+            snapshot.source.provider = provider.into();
+            Snapshot::new(snapshot.source, snapshot.occurrences).unwrap()
+        };
+        let original = make("Spotify", "[00:01]空");
+        let candidate = make("QQ Music", "[00:02]<00:02>花<00:03>");
+        app.study.activate(Some(TRACK));
+        app.study.document = Some(Document::new(TRACK, original.clone()).unwrap());
+        app.study.busy = false;
+        app.lyrics = Loadable::Loaded(Some(crate::lyrics::Lyrics {
+            candidates: vec![candidate.clone()],
+            ..Default::default()
+        }));
+        let ctx = egui::Context::default();
+        app.attach(&ctx);
+        fn draw(
+            ctx: &egui::Context,
+            app: &mut App,
+            events: Vec<egui::Event>,
+        ) -> Vec<(String, egui::Rect)> {
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(1200.0, 800.0),
+                    )),
+                    events,
+                    ..Default::default()
+                },
+                |ui| app.frame_ui(ui),
+            );
+            output.textures_delta.clear();
+            output
+                .shapes
+                .iter()
+                .filter_map(|shape| match &shape.shape {
+                    egui::Shape::Text(text) => Some((
+                        text.galley.job.text.clone(),
+                        text.galley.rect.translate(text.pos.to_vec2()),
+                    )),
+                    _ => None,
+                })
+                .collect()
+        }
+        fn click(ctx: &egui::Context, app: &mut App, label: &str) {
+            for _ in 0..2 {
+                draw(ctx, app, vec![]);
+            }
+            let text = draw(ctx, app, vec![]);
+            let position = text
+                .iter()
+                .find(|(name, _)| name == label)
+                .unwrap_or_else(|| panic!("missing button {label}: {:?}", text))
+                .1
+                .center();
+            for pressed in [true, false] {
+                draw(
+                    ctx,
+                    app,
+                    vec![
+                        egui::Event::PointerMoved(position),
+                        egui::Event::PointerButton {
+                            pos: position,
+                            button: egui::PointerButton::Primary,
+                            pressed,
+                            modifiers: egui::Modifiers::default(),
+                        },
+                    ],
+                );
+            }
+        }
+        click(&ctx, &mut app, "Choose base lyrics…");
+        click(&ctx, &mut app, "QQ Music");
+        assert_eq!(
+            app.study.document.as_ref().unwrap().current().snapshot.id,
+            original.id
+        );
+        click(&ctx, &mut app, "Cancel");
+        assert!(!app.study.choosing_lyrics);
+        assert_eq!(
+            app.study.document.as_ref().unwrap().current().snapshot.id,
+            original.id
+        );
+        click(&ctx, &mut app, "Choose base lyrics…");
+        click(&ctx, &mut app, "QQ Music");
+        click(&ctx, &mut app, "Use as base lyrics");
+        assert_eq!(
+            app.study.document.as_ref().unwrap().current().snapshot.id,
+            candidate.id
+        );
+        assert!(!app.study.choosing_lyrics);
+        assert_eq!(app.study.document.as_ref().unwrap().bundles.len(), 2);
+        let labels = draw(&ctx, &mut app, vec![]);
+        assert!(labels.iter().any(|(s, _)| s == "Base lyrics:"));
+        assert!(labels.iter().any(|(s, _)| s == "QQ Music"));
+        app.backend.shutdown();
+    }
+
+    #[test]
     fn karaoke_candidates_preserve_saved_lyrics_and_ignore_older_same_song_requests() {
         use crate::study::{snapshot::Document, source};
         let mut app = test_app("karaoke-candidates");

@@ -598,6 +598,22 @@ unknown performers, same-title covers, live versions, duration drift, UtaTen pag
 identity, and revalidation of old candidates/misses while retaining raw bodies. New candidate lists and single results open automatically, while
 **Use these lyrics** remains an explicit confirmation.
 
+## Base-lyrics picker interaction checks (2026-11-21)
+
+The nested source/result/confirmation panels are replaced by one picker. The
+active base stays visible above the timing controls; downloaded candidates,
+imports and saved versions share the same list and preview. One **Use as base
+lyrics** action applies the chosen version. Source readiness explains the
+line-timing prerequisite before TIFA or Experimental can run.
+
+Native egui interaction coverage clicks through preview/cancel/apply and checks
+the visible current-base label. Controller regressions verify that browsing and
+Cancel preserve the document, applying preserves earlier saved edits/versions,
+both timing methods receive the applied snapshot with matching conversion,
+switching a running job's base is blocked, and song changes clear temporary
+selection. These checks use synthetic local text; no provider requests or song
+recordings are involved. The underlying timing algorithms are unchanged.
+
 ## Collector reuse and offline checks
 
 The collector accepts a frozen audio-only manifest:

@@ -15,11 +15,22 @@ use the same font bytes rather than depending on installed Japanese faces.
 
 ## Supplied karaoke lyrics
 
-Options → **Find karaoke lyrics** looks for QQ candidates by title, artist and
-duration. Results open automatically (including the entry when only one matches).
-Click **Preview lyrics & timing**, then confirm
-**Use these lyrics** in the automatically opened preview. Results with timing
-show **Includes karaoke timing**. This never silently replaces saved lyrics. QQ supplies character/token timing and sometimes
+The **Base lyrics** row above the timing buttons always shows the active source.
+**Choose base lyrics…** opens one picker containing downloaded candidates,
+pending imports and saved versions. Select a source to inspect its text, then
+click **Use as base lyrics** once. Browsing and Cancel leave the active base
+unchanged. Earlier versions and edits stay saved. The picker contains **Find
+karaoke lyrics**, **Refresh downloads**, and **Import lyrics…**; its search uses
+the local store first. **Find karaoke lyrics** looks for QQ candidates by title,
+artist and duration. It never silently replaces the active base.
+
+Each source reports text only, line timing, or included/saved word timing.
+Automatic timing uses the applied base and its word groups; display mode and
+preview selection never change the input. TIFA and Experimental are unavailable
+until the active base has line timing and conversion is ready. Changing the base
+is blocked while timing is running. Song changes clear the temporary selection.
+
+QQ supplies character/token timing and sometimes
 counted kana. Artist identity checks share an audited alias registry, initially
 Masayuki Suzuki / 鈴木雅之, verified by the artist's
 [management profile](https://www.japanmusic.jp/talent/masayuki-suzuki/).
@@ -36,7 +47,7 @@ Successful responses, search results, furigana pages and processed candidates ar
 stored durably under the app's state directory in `supplied-lyrics/`. There is no
 automatic expiry. Normal lookups read this store first, including confirmed
 missing-song results. A matching-rule version change rechecks older candidates
-and misses using stored response bodies, retaining saved song versions and edits. Right-click **Find karaoke lyrics** → **Refresh stored
+and misses using stored response bodies, retaining saved song versions and edits. In the picker, right-click **Find karaoke lyrics** → **Refresh stored
 karaoke lyrics** explicitly contacts the sources again; earlier response bodies
 remain stored. Responses are validated before storage; invalid older responses
 are retried. Network/service failures do not become permanent missing results.
