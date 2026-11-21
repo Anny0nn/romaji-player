@@ -229,6 +229,22 @@ line-synced Spotify lyrics. Do not fabricate line/word clocks or promise that
 unrelated unsynced lyrics can run TIFA. Ship a new signed app after regression,
 full repository and relocated-package checks pass.
 
+### Unified base-lyrics picker (approved 2026-11-21)
+
+The maintainer rejected the nested result/preview/version flow and approved a
+single picker whose chosen base supplies both TIFA and Experimental timing.
+Show the active base directly above the timing controls, with **Choose base
+lyrics…** opening one dialog containing downloaded candidates, pending imports
+and saved versions. Choose a row, inspect its text, then apply once with **Use
+as base lyrics**. Browsing does not change the active document; earlier versions
+and edits remain saved. Keep search/import/refresh actions in the picker and
+infrequent study controls under Options. Label timing readiness (text only,
+line timed, supplied/saved word timing) and explain the line-timing prerequisite
+before starting TIFA. Block source switching while timing is running. On song
+changes, discard the previous song's temporary picker selection. Verify that
+TIFA requests use the applied base and that cancelling/browsing preserves the
+previous base and saved versions. Repackage the native app after checks pass.
+
 ### App integration after evidence
 
 The latest maintainer-directed experiment is provider-first: use the already
