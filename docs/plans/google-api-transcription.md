@@ -212,6 +212,23 @@ show when supplied timing is included and automatically open a new candidate's
 confirmation panel. Use cached/synthetic data and local mock HTTP tests; no new
 provider round is required. Repackage the app after the checks pass.
 
+### Cross-script artist identity repair (2026-11-21)
+
+The maintainer reported Spotify track `4WKg39z6VAExyZ42zbiStx` and directly
+requested a general fix. Its saved QQ search contains matching title/duration,
+but Spotify's Masayuki Suzuki differs from QQ's 鈴木雅之. Introduce a shared,
+audited artist-alias registry with primary-source citations, initially this
+verified identity, rather than a song-specific exception. Use it in QQ selection
+and UtaTen identity checks; title, duration, cover/version rejection and explicit
+source confirmation remain. QQ timing identity keeps version qualifiers instead
+of using the ordinary lyric cleaner that strips Live/Remix/Version. Treat older processed lookups as stale when matching
+rules change, reusing raw stored responses; retain saved song versions and edits.
+Record and replay the supplied song's native lookup privately. If QQ supplies
+word clocks, test that selecting the candidate exposes them without requiring
+line-synced Spotify lyrics. Do not fabricate line/word clocks or promise that
+unrelated unsynced lyrics can run TIFA. Ship a new signed app after regression,
+full repository and relocated-package checks pass.
+
 ### App integration after evidence
 
 The latest maintainer-directed experiment is provider-first: use the already

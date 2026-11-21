@@ -16,10 +16,18 @@ use the same font bytes rather than depending on installed Japanese faces.
 ## Supplied karaoke lyrics
 
 Options → **Find karaoke lyrics** looks for QQ candidates by title, artist and
-duration. Expand a result and click **Preview lyrics & timing**, then confirm
+duration. Results open automatically (including the entry when only one matches).
+Click **Preview lyrics & timing**, then confirm
 **Use these lyrics** in the automatically opened preview. Results with timing
 show **Includes karaoke timing**. This never silently replaces saved lyrics. QQ supplies character/token timing and sometimes
-counted kana. UtaTen ruby supplements readings when automatic page discovery,
+counted kana. Artist identity checks share an audited alias registry, initially
+Masayuki Suzuki / 鈴木雅之, verified by the artist's
+[management profile](https://www.japanmusic.jp/talent/masayuki-suzuki/).
+This works across that artist's songs; unknown aliases remain unmatched and
+covers, live/version title differences and duration drift remain rejected. QQ
+timing selection retains version qualifiers that ordinary lyric lookup strips.
+Matched alias evidence is retained in the source payload.
+UtaTen ruby supplements readings when automatic page discovery,
 page title/artist checks and exact written-text ownership succeed. Matching may
 ignore whitespace, but never substitutes spelling, chooses conflicting repeats
 or interpolates word clocks. Unsupported kana maps retain dictionary readings.
@@ -27,7 +35,8 @@ or interpolates word clocks. Unsupported kana maps retain dictionary readings.
 Successful responses, search results, furigana pages and processed candidates are
 stored durably under the app's state directory in `supplied-lyrics/`. There is no
 automatic expiry. Normal lookups read this store first, including confirmed
-missing-song results. Right-click **Find karaoke lyrics** → **Refresh stored
+missing-song results. A matching-rule version change rechecks older candidates
+and misses using stored response bodies, retaining saved song versions and edits. Right-click **Find karaoke lyrics** → **Refresh stored
 karaoke lyrics** explicitly contacts the sources again; earlier response bodies
 remain stored. Responses are validated before storage; invalid older responses
 are retried. Network/service failures do not become permanent missing results.

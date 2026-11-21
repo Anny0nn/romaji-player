@@ -108,7 +108,7 @@ fn main() -> Result<()> {
             let qq_readings = snapshot.source.readings.len();
             let html = std::fs::read_to_string(input.join(format!("{id}-utaten.html")))?;
             // The cached page is supplied by the prior audit. Identity checks still
-            // apply; title/artist aliases are never silently accepted here.
+            // apply; only audited artist aliases are accepted here.
             if let Ok(page) = lyrics::furigana::parse(&html, &c.title, &c.artist) {
                 snapshot = lyrics::furigana::enrich(&snapshot, &page, "cached-audit-page", &html)?;
             }

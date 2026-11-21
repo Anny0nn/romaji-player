@@ -121,11 +121,13 @@ pub fn show(app: &mut App, ui: &mut egui::Ui, fullscreen: bool) {
             };
             if !alternatives.is_empty() {
                 egui::CollapsingHeader::new("Choose the matching recording’s lyrics")
-                    .default_open(app.study.document.is_none())
+                    .id_salt(("supplied-candidates", &alternatives[0].id))
+                    .default_open(true)
                     .show(ui, |ui| {
                         ui.small("Preview the lyrics and select the version that matches this recording.");
+                        let single = alternatives.len() == 1;
                         for source in alternatives {
-                            egui::CollapsingHeader::new(&source.source.candidate).show(ui, |ui| {
+                            egui::CollapsingHeader::new(&source.source.candidate).default_open(single).show(ui, |ui| {
                                 if source.occurrences.iter().any(|line|!line.fragments.is_empty()) {ui.small("Includes karaoke timing. TIFA can fill gaps.");}
                                 for line in source.occurrences.iter().take(8) {
                                     ui.label(&line.raw_line);

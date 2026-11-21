@@ -35,6 +35,8 @@ struct ResponseIndex {
 struct Lookup {
     version: u32,
     query: Query,
+    #[serde(default)]
+    matching_version: u32,
     found: Option<Lyrics>,
 }
 pub(super) struct Store<'a> {
@@ -53,7 +55,10 @@ impl Store<'_> {
             return None;
         }
         let saved: Lookup = read_json(&self.lookup_path(query), 32 * 1024 * 1024)?;
-        if saved.version != 1 || &saved.query != query {
+        if saved.version != 1
+            || &saved.query != query
+            || saved.matching_version != super::artists::MATCHING_VERSION
+        {
             return None;
         }
         if let Some(lyrics) = &saved.found
@@ -72,6 +77,7 @@ impl Store<'_> {
             serde_json::to_vec(&Lookup {
                 version: 1,
                 query: query.clone(),
+                matching_version: super::artists::MATCHING_VERSION,
                 found: found.clone(),
             })?,
         )
@@ -143,6 +149,52 @@ impl Store<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn changed_matching_revalidates_old_candidates_and_misses_without_removing_bodies() {
+        let temp = crate::study::testutil::TestDir::new();
+        let store = Store {
+            directory: temp.path(),
+            refresh: false,
+        };
+        let query = Query {
+            title: "Fixture".into(),
+            artist: "Artist".into(),
+            album: String::new(),
+            duration_ms: 2000,
+        };
+        let path = store.lookup_path(&query);
+        let old = serde_json::json!({"version":1,"query":query,"found":null});
+        write(&path, serde_json::to_vec(&old).unwrap()).unwrap();
+        store.save_response("fixture", "retained response").unwrap();
+        assert!(store.lookup(&query).is_none());
+        assert_eq!(
+            store.response("fixture").as_deref(),
+            Some("retained response")
+        );
+        store.save_lookup(&query, &None).unwrap();
+        assert_eq!(store.lookup(&query), Some(None));
+        let source = crate::study::source::import("[00:01]空", "fixture").unwrap();
+        let found = Some(Lyrics {
+            candidates: vec![source],
+            ..Default::default()
+        });
+        store.save_lookup(&query, &found).unwrap();
+        let mut old_positive: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        old_positive
+            .as_object_mut()
+            .unwrap()
+            .remove("matching_version");
+        write(&path, serde_json::to_vec(&old_positive).unwrap()).unwrap();
+        assert!(store.lookup(&query).is_none());
+        store.save_lookup(&query, &found).unwrap();
+        assert_eq!(store.lookup(&query), Some(found));
+        assert_eq!(
+            store.response("fixture").as_deref(),
+            Some("retained response")
+        );
+    }
+
     #[test]
     fn raw_responses_are_reused_and_refresh_retains_prior_versions() {
         let temp = crate::study::testutil::TestDir::new();

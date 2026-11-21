@@ -88,7 +88,7 @@ impl Page {
         !title.is_empty()
             && !artist.is_empty()
             && super::karaoke::normalized(&super::clean_title(&self.title)) == title
-            && super::karaoke::normalized(&self.artist) == artist
+            && super::artists::matches(&self.artist, &artist)
     }
 }
 pub fn parse(html: &str, title: &str, artist: &str) -> Result<Page> {
@@ -246,6 +246,13 @@ mod tests {
         let saved: crate::study::snapshot::Document = serde_json::from_slice(&json).unwrap();
         saved.validate().unwrap();
         assert_eq!(saved.current().snapshot.source.readings.len(), 1);
+    }
+    #[test]
+    fn page_identity_accepts_a_verified_artist_alias_but_not_other_performers() {
+        let html = page("空").replace("Artist</a>", "鈴木雅之</a>");
+        assert!(parse(&html, "Fixture", "Masayuki Suzuki").is_ok());
+        assert!(parse(&html, "Fixture", "CHEMISTRY").is_err());
+        assert!(parse(&html, "Other", "Masayuki Suzuki").is_err());
     }
     #[test]
     fn rejects_other_songs_and_abstains_on_conflicting_repeats() {

@@ -8,6 +8,7 @@
 //! length is the strongest signal for distinguishing versions with the same
 //! title.
 
+mod artists;
 pub mod furigana;
 pub mod karaoke;
 mod qq_des;

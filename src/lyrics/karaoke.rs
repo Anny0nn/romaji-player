@@ -55,11 +55,12 @@ pub fn select(payload: &Value, query: &Query) -> Vec<Candidate> {
         let matched = singers
             .iter()
             .filter_map(|a| a["name"].as_str())
-            .find(|s| normalized(s) == normalized(&query.artist));
+            .find(|s| super::artists::matches(s, &query.artist));
         if seconds.abs_diff(query.duration_ms) > 3_000
             || matched.is_none()
-            || normalized(&super::clean_title(title))
-                != normalized(&super::clean_title(&query.title))
+            // Supplied clocks are recording-specific. The ordinary lyric
+            // cleaner strips Live/Remix/Version and is too permissive here.
+            || normalized(title) != normalized(&query.title)
         {
             continue;
         }
@@ -132,9 +133,11 @@ pub fn from_response(response: &Value, candidate: &Candidate, query: &Query) -> 
         .as_str()
         .ok_or_else(|| anyhow!("missing QRC lyrics"))?;
     let xml = super::qq_des::decode(cipher)?;
-    let payload = serde_json::to_string(
-        &json!({"candidate":{"mid":candidate.mid,"title":candidate.title,"artist":candidate.artist,"album":candidate.album,"duration_ms":candidate.duration_ms},"query":{"title":query.title,"artist":query.artist,"duration_ms":query.duration_ms},"response":response}),
-    )?;
+    let mut payload = json!({"candidate":{"mid":candidate.mid,"title":candidate.title,"artist":candidate.artist,"album":candidate.album,"duration_ms":candidate.duration_ms},"query":{"title":query.title,"artist":query.artist,"duration_ms":query.duration_ms},"response":response});
+    if let Some(evidence) = super::artists::evidence(&candidate.artist, &query.artist) {
+        payload["artist_identity"] = json!({"queried_name":query.artist,"provider_name":candidate.artist,"evidence_url":evidence});
+    }
+    let payload = serde_json::to_string(&payload)?;
     let mut snapshot = super::qrc::parse(
         &xml,
         &payload,
@@ -537,6 +540,41 @@ mod tests {
                 .await
                 .unwrap(),
             "<html>stored fixture</html>"
+        );
+    }
+
+    #[test]
+    fn cross_script_artist_keeps_recording_checks_for_baby_blues_and_other_songs() {
+        let song = |mid: &str, title: &str, artist: &str, seconds: u32| json!({"songmid":mid,"songname":title,"singer":[{"name":artist}],"interval":seconds});
+        let query = Query {
+            title: "さよならいとしのBaby Blues".into(),
+            artist: "Masayuki Suzuki".into(),
+            album: "MASTERPIECES".into(),
+            duration_ms: 331_979,
+        };
+        let value = json!({"data":{"song":{"list":[
+            song("good",&query.title,"鈴木雅之",332),
+            song("alternate","さよならいとしの Baby Blues (1991年収録未発表別テイク)","鈴木雅之",340),
+            song("cover",&query.title,"CHEMISTRY",332),
+            song("live",&format!("{} (Live)",query.title),"鈴木雅之",332),
+            song("wrongduration",&query.title,"鈴木雅之",340)
+        ]}}});
+        let selected = select(&value, &query);
+        assert_eq!(selected.len(), 1);
+        assert_eq!(selected[0].mid, "good");
+        assert_eq!(selected[0].artist, "鈴木雅之");
+        let other = Query {
+            title: "もう涙はいらない".into(),
+            duration_ms: 295_041,
+            ..query
+        };
+        assert_eq!(
+            select(
+                &json!({"data":{"song":{"list":[song("other",&other.title,"鈴木雅之",295)]}}}),
+                &other
+            )[0]
+            .mid,
+            "other"
         );
     }
 

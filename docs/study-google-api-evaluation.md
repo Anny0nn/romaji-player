@@ -566,6 +566,38 @@ quality still need broader qualification before making it the default backend.
 The source API is unofficial and discovery can fail; the existing saved source
 and TIFA remain available. Optional Gemini reading work remains deferred.
 
+## Cross-script artist regression: Baby Blues (2026-11-21)
+
+The maintainer's track `4WKg39z6VAExyZ42zbiStx` used Spotify artist
+**Masayuki Suzuki**, while the already stored QQ response used **鈴木雅之**.
+Exact name comparison rejected the matching 332-second candidate for the
+331,979 ms Spotify recording. The same mismatch affected other songs by this
+artist. The [artist's management profile](https://www.japanmusic.jp/talent/masayuki-suzuki/)
+explicitly supplies both names. A shared audited alias registry now applies to
+QQ and UtaTen identity checks, with evidence retained in the source payload.
+This is artist-wide, not a song exception; unknown aliases remain unsupported.
+Title, cover and duration checks remain in place. The new same-duration live
+fixture also exposed ordinary lyric title cleaning stripping version qualifiers;
+QQ timing selection now retains those qualifiers.
+
+Older processed results lack the new matching-rule version and are reconsidered
+using stored responses, including positive candidates accepted with looser title
+cleaning. Saved song versions and edits are unaffected.
+The native trial reused the song's existing QQ search; only missing source data
+was fetched. It found one QQ + UtaTen candidate in **7.342 s**: **36 lines**,
+**521 source timing fragments**, and **53 explicit readings**. A later lookup
+with all provider traffic blocked returned the same candidate in **0.108 s**.
+The cached full-song converter/save/reopen replay found **284 word groups**,
+**263 structurally timed groups**, and **92 groups using source readings**.
+These are structural results, not listening-checked acoustic accuracy; no new
+recording capture or Google request was made. Prior Spotify lyrics were unsynced,
+which correctly prevented TIFA; selecting the supplied source uses its own clocks.
+
+Regressions cover the reported metadata, a second song by the same artist,
+unknown performers, same-title covers, live versions, duration drift, UtaTen page
+identity, and revalidation of old candidates/misses while retaining raw bodies. New candidate lists and single results open automatically, while
+**Use these lyrics** remains an explicit confirmation.
+
 ## Collector reuse and offline checks
 
 The collector accepts a frozen audio-only manifest:
